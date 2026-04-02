@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HidalgoDash CAPYM</title>
     
+    <!-- Radar de Errores -->
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            var loader = document.getElementById('emergency-loader');
+            if (loader) {
+                loader.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #E63780; font-family: sans-serif;">
+                        <h2 style="font-size: 24px; font-weight: 900; margin-bottom: 10px;">⚠️ ERROR DETECTADO</h2>
+                        <div style="background: #fce4ec; padding: 15px; border-radius: 10px; font-family: monospace; font-size: 12px; word-break: break-all; text-align: left;">
+                            ${msg}<br>Línea: ${lineNo}
+                        </div>
+                        <button onclick="localStorage.clear(); location.reload();" style="margin-top: 20px; background: #019DF4; color: white; padding: 10px 20px; border-radius: 10px; font-weight: bold; border: none;">REINICIAR</button>
+                    </div>
+                `;
+            }
+            return false;
+        };
+    </script>
+
     <!-- Diseño -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
@@ -13,7 +32,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <!-- React y Babel (Versiones ultra estables) -->
+    <!-- React y Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -47,15 +66,17 @@
 </head>
 <body>
     <div id="root">
-        <!-- Si ves este mensaje V13, Vercel ya se actualizó -->
+        <!-- Loader inicial V15 -->
         <div id="emergency-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f3f4f6;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px; letter-spacing: 1px;">ACTUALIZANDO SISTEMA V13...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px; letter-spacing: 1px;">INICIANDO V15...</p>
         </div>
     </div>
 
-    <!-- Separamos datos pesados del compilador de React para que no se trabe el celular -->
-    <script>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- BANCOS DE PREGUNTAS COMPLETOS ---
         const EXAMS_DATA = {
             BASICO: [
                 { q: "¿Cuál es el objetivo primordial de la Portabilidad Numérica en México?", options: ["Conservar el número telefónico al cambiar de compañía de forma gratuita.", "Obtener un número nuevo sin costo.", "Dar de baja una línea definitivamente.", "Fusionar saldos de diferentes compañías."], ans: 0 },
@@ -123,10 +144,6 @@
         } catch (e) {
             console.error("Fallo init firebase", e);
         }
-    </script>
-
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
 
         const App = () => {
             const [view, setView] = useState("LOGIN");
@@ -140,15 +157,11 @@
             const [ranking, setRanking] = useState([]);
             const [history, setHistory] = useState([]);
             const [resources, setResources] = useState([]);
-            const [candidates, setCandidates] = useState([]);
-            const [quejas, setQuejas] = useState([]);
-            const [vacaciones, setVacaciones] = useState([]);
-
+            
             const [supFilter, setSupFilter] = useState("TODOS");
             const [cadFilter, setCadFilter] = useState("TODAS");
 
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
-            const [subTabPortal, setSubTabPortal] = useState("VACACIONES");
             
             const [quizState, setQuizState] = useState('MENU');
             const [colaboradorName, setColaboradorName] = useState("");
@@ -158,40 +171,32 @@
             const [timer, setTimer] = useState(180);
             const [curType, setCurType] = useState('');
 
-            const [vacName, setVacName] = useState("");
-            const [vacUser, setVacUser] = useState("");
-            const [vacDate, setVacDate] = useState("");
-            const [vacDays, setVacDays] = useState(1);
-            const [sugText, setSugText] = useState("");
-
             useEffect(() => {
-                // Borramos el loader apenas React arranca
                 const loader = document.getElementById('emergency-loader');
                 if (loader) loader.style.display = 'none';
                 
                 if (!db || !auth) return;
 
-                // Autenticación anónima silenciosa
-                auth.signInAnonymously().catch(e => console.warn("Auth warning", e));
+                auth.signInAnonymously().catch(e => console.warn(e));
 
-                // Escudos anti-crash: si la colección no existe o está bloqueada, ignora el error
+                // LECTURA SEGURA: Usamos la nueva colección "operacion_v2" para ignorar la basura vieja
                 const unsubs = [];
-                
                 try {
-                    unsubs.push(db.collection("operacion").onSnapshot(snap => {
+                    unsubs.push(db.collection("operacion_v2").onSnapshot(snap => {
+                        let temmList = [];
+                        let invList = [];
                         snap.forEach(doc => {
                             const d = doc.data();
-                            if (doc.id === "temm") setDataTEMM(d?.list || []);
-                            if (doc.id === "inv") setDataINV(d?.list || []);
+                            if (doc.id === "temm" && Array.isArray(d.list)) temmList = d.list;
+                            if (doc.id === "inv" && Array.isArray(d.list)) invList = d.list;
                         });
-                    }, e => console.warn("Ops bloqueado", e)));
+                        setDataTEMM(temmList);
+                        setDataINV(invList);
+                    }, e => console.warn("Error leyendo Firestore", e)));
 
                     unsubs.push(db.collection("ranking").orderBy("score", "desc").onSnapshot(s => setRanking(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
                     unsubs.push(db.collection("historicos").orderBy("fecha", "desc").onSnapshot(s => setHistory(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
                     unsubs.push(db.collection("recurso").onSnapshot(s => setResources(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
-                    unsubs.push(db.collection("promotor_mes").onSnapshot(s => setCandidates(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
-                    unsubs.push(db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => setQuejas(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
-                    unsubs.push(db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => setVacaciones(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
                 } catch(error) {
                     console.error("Error al montar listeners", error);
                 }
@@ -205,11 +210,6 @@
                 else if (quizState === 'PLAY' && timer === 0) setQuizState('RESULT');
                 return () => clearInterval(t);
             }, [quizState, timer]);
-
-            const minVacationDate = useMemo(() => {
-                const d = new Date(); d.setDate(d.getDate() + 15);
-                return d.toISOString().split('T')[0];
-            }, []);
 
             const handleLogin = (e) => {
                 e.preventDefault();
@@ -228,7 +228,7 @@
                         const wb = XLSX.read(evt.target.result, { type: 'binary' });
                         const sheetKey = type === "temm" ? "seg diario" : "tiendas";
                         const wsName = wb.SheetNames.find(n => n.toLowerCase().includes(sheetKey));
-                        if (!wsName) return alert(`Pestaña '${sheetKey}' no encontrada.`);
+                        if (!wsName) return alert(`Pestaña '${sheetKey}' no encontrada en el Excel.`);
                         
                         const json = XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header: "A", defval: "" });
                         let list = [];
@@ -237,15 +237,17 @@
                                 id: String(r["I"] || "").trim().replace(/^0+/, ''),
                                 tienda: String(r["J"]).trim(), sup: String(r["B"]).trim(),
                                 cad: String(r["L"]).toUpperCase().includes("EKT") ? "ELEKTRA" : (String(r["L"]).toUpperCase().includes("COPPEL") ? "COPPEL" : "SUBURBIA"),
-                                altas: Math.round(r["Q"] || 0), cuota: Math.round(r["R"] || 0), gap: Math.round(r["S"] || 0)
+                                altas: Math.round(Number(r["Q"]) || 0), cuota: Math.round(Number(r["R"]) || 0), gap: Math.round(Number(r["S"]) || 0)
                             }));
                         } else {
                             list = json.filter(r => r["I"] && String(r["I"]).length > 3).map(r => ({
                                 id: String(r["I"] || "").trim().replace(/^0+/, ''),
-                                mod: String(r["T"] || "").trim(), mar: String(r["U"] || "").trim(), q: parseInt(r["AG"] || 0)
+                                mod: String(r["T"] || "").trim(), mar: String(r["U"] || "").trim(), q: parseInt(Number(r["AG"]) || 0)
                             }));
                         }
-                        await db.collection("operacion").doc(type).set({ list });
-                        alert("¡Sincronizado a Nivel Nacional!");
+                        
+                        // Guardar en la NUEVA colección operacion_v2
+                        await db.collection("operacion_v2").doc(type).set({ list });
+                        alert("¡Excel Sincronizado a Nivel Nacional con Éxito!");
                     } catch (error) { 
-       
+                        alert("Error subiendo 
