@@ -3,21 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" 
-          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          content="width=device-width, initial-scale=1.0, 
+                   maximum-scale=1.0, user-scalable=no">
     <title>HidalgoDash CAPYM</title>
     
+    <!-- Radar de Errores -->
     <script>
         window.onerror = function(msg, url, lineNo) {
             var loader = document.getElementById('emergency-loader');
             if (loader) {
                 loader.innerHTML = `
-                    <div style="padding:20px;text-align:center;color:#E63780;">
-                        <h2 style="font-size:20px;font-weight:900;">⚠️ ERROR</h2>
-                        <div style="background:#fce4ec;padding:10px;font-size:10px;text-align:left;">
+                    <div style="padding:20px;text-align:center;
+                                color:#E63780;">
+                        <h2 style="font-size:20px;font-weight:900;">
+                            ⚠️ ERROR
+                        </h2>
+                        <div style="background:#fce4ec;padding:10px;
+                                    font-family:monospace;
+                                    font-size:10px;text-align:left;">
                             ${msg}<br>Linea: ${lineNo}
                         </div>
                         <button onclick="location.reload();" 
-                                style="margin-top:20px;background:#019DF4;color:white;padding:10px;">
+                                style="margin-top:20px;
+                                       background:#019DF4;color:white;
+                                       padding:10px;border-radius:10px;
+                                       border:none;">
                             REINICIAR
                         </button>
                     </div>`;
@@ -27,14 +37,18 @@
     </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" 
+          rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" 
+            crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" 
+            crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" 
+            crossorigin></script>
 
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -45,36 +59,80 @@
             theme: {
                 extend: {
                     colors: { 
-                        movistar: { blue: '#019DF4', dark: '#0B2739', green: '#5CB615', red: '#E63780' } 
+                        movistar: { 
+                            blue: '#019DF4', dark: '#0B2739', 
+                            green: '#5CB615', red: '#E63780' 
+                        } 
                     },
-                    fontFamily: { sans: ['Montserrat', 'sans-serif'] }
+                    fontFamily: { 
+                        sans: ['Montserrat', 'sans-serif'] 
+                    }
                 }
             }
         }
     </script>
 
     <style>
-        body { background-color: #f3f4f6; margin: 0; font-family: 'Montserrat', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .tab-btn { flex: 1; padding: 12px 2px; font-size: 8.5px; font-weight: 900; text-align: center; border-bottom: 4px solid transparent; transition: 0.3s; text-transform: uppercase; color: #86888C; }
-        .tab-active { border-bottom-color: #5CB615; color: #5CB615; background: white; }
-        .subtab-btn { flex: 1; padding: 10px; border-radius: 12px; font-size: 8px; font-weight: 900; text-align: center; transition: 0.3s; }
-        .subtab-active { background-color: white; color: #019DF4; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        body { 
+            background-color: #f3f4f6; 
+            margin: 0; 
+            font-family: 'Montserrat', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .tab-btn { 
+            flex: 1; padding: 12px 2px; font-size: 8px; 
+            font-weight: 900; text-align: center; 
+            border-bottom: 4px solid transparent; 
+            transition: 0.3s; text-transform: uppercase; 
+            color: #86888C; 
+        }
+        .tab-active { 
+            border-bottom-color: #5CB615; color: #5CB615; 
+            background: white; 
+        }
+        .subtab-btn { 
+            flex: 1; padding: 10px; border-radius: 12px; 
+            font-size: 8px; font-weight: 900; 
+            text-align: center; transition: 0.3s; 
+        }
+        .subtab-active { 
+            background-color: white; color: #019DF4; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+        }
         .subtab-inactive { color: #6b7280; }
-        .login-gradient { background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); }
-        .spinner { width: 45px; height: 45px; border: 5px solid #e5e7eb; border-top: 5px solid #019DF4; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .login-gradient { 
+            background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); 
+        }
+        .spinner { 
+            width: 45px; height: 45px; border: 5px solid #e5e7eb; 
+            border-top: 5px solid #019DF4; border-radius: 50%; 
+            animation: spin 1s linear infinite; margin: 0 auto; 
+        }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
         .animate-pop { animation: pop 0.3s ease-out; }
-        @keyframes pop { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        @keyframes pop { 
+            0% { transform: scale(0.95); opacity: 0; } 
+            100% { transform: scale(1); opacity: 1; } 
+        }
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; margin: 0; 
+        }
     </style>
 </head>
 <body>
     <div id="root">
         <div id="emergency-loader" 
-             style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
+             style="display:flex;flex-direction:column;
+                    align-items:center;justify-content:center;
+                    height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">
-                INICIANDO V19...
+            <p style="margin-top: 20px; font-weight: 900; 
+                      color: #0B2739; font-size: 14px;">
+                INICIANDO V20...
             </p>
         </div>
     </div>
@@ -82,81 +140,153 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- TABLAS DE COMISIONES (Para la Calculadora) ---
         const COMISIONES = {
             ELEKTRA: {
-                t1: { np: { r100: 9, r150: 15, r200: 29.5 }, p: { r100: 17, r150: 22, r200: 30 }, temm: { r100: 32, r150: 32, r200: 32 } },
-                t2: { np: { r100: 15, r150: 27, r200: 52 }, p: { r100: 35, r150: 48, r200: 60 }, temm: { r100: 42, r150: 58, r200: 58 } },
-                t3: { np: { r100: 18, r150: 33, r200: 60 }, p: { r100: 48, r150: 70, r200: 93 }, temm: { r100: 60, r150: 81, r200: 81 } }
+                t1: { 
+                    np: { r100: 9, r150: 15, r200: 29.5 }, 
+                    p: { r100: 17, r150: 22, r200: 30 }, 
+                    temm: { r100: 32, r150: 32, r200: 32 } 
+                },
+                t2: { 
+                    np: { r100: 15, r150: 27, r200: 52 }, 
+                    p: { r100: 35, r150: 48, r200: 60 }, 
+                    temm: { r100: 42, r150: 58, r200: 58 } 
+                },
+                t3: { 
+                    np: { r100: 18, r150: 33, r200: 60 }, 
+                    p: { r100: 48, r150: 70, r200: 93 }, 
+                    temm: { r100: 60, r150: 81, r200: 81 } 
+                }
             },
             COPPEL_SUBURBIA: {
-                t1: { np: { r100: 7, r150: 12, r200: 23.5 }, p: { r100: 14.5, r150: 19, r200: 26 }, temm: { r100: 32, r150: 32, r200: 32 } },
-                t2: { np: { r100: 13, r150: 23, r200: 46 }, p: { r100: 30, r150: 39, r200: 50 }, temm: { r100: 42, r150: 58, r200: 58 } },
-                t3: { np: { r100: 16, r150: 31, r200: 60 }, p: { r100: 42.5, r150: 59, r200: 80 }, temm: { r100: 60, r150: 81, r200: 81 } }
+                t1: { 
+                    np: { r100: 7, r150: 12, r200: 23.5 }, 
+                    p: { r100: 14.5, r150: 19, r200: 26 }, 
+                    temm: { r100: 32, r150: 32, r200: 32 } 
+                },
+                t2: { 
+                    np: { r100: 13, r150: 23, r200: 46 }, 
+                    p: { r100: 30, r150: 39, r200: 50 }, 
+                    temm: { r100: 42, r150: 58, r200: 58 } 
+                },
+                t3: { 
+                    np: { r100: 16, r150: 31, r200: 60 }, 
+                    p: { r100: 42.5, r150: 59, r200: 80 }, 
+                    temm: { r100: 60, r150: 81, r200: 81 } 
+                }
             }
         };
 
-        // --- BANCOS DE PREGUNTAS ---
         const EXAMS_DATA = {
             BASICO: [
-                { q: "¿Cual es el objetivo primordial de la Portabilidad Numerica?", options: ["Conservar el numero telefonico al cambiar de compania.", "Obtener un numero nuevo sin costo extra.", "Dar de baja una linea definitivamente.", "Fusionar saldos de diferentes companias."], ans: 0 },
-                { q: "¿Cual es el periodo de vigencia oficial del NIP?", options: ["5 dias naturales a partir de su generacion.", "24 horas habiles en dias de semana.", "15 dias segun normativas del IFT.", "Vigencia ilimitada hasta usarse."], ans: 0 },
-                { q: "¿Cuantos digitos componen el ICC (serie) de la SIM?", options: ["19 digitos numericos.", "15 digitos alfanumericos.", "10 digitos fijos.", "13 digitos seriales."], ans: 0 },
-                { q: "En portabilidad, ¿que significan las siglas FVC?", options: ["Fecha de Ventana de Cambio.", "Folio de Venta Confirmada.", "Firma de Validacion.", "Fin de Venta."], ans: 0 },
-                { q: "¿Quien regula y autoriza los cambios de compania?", options: ["El ABD (Administrador de Base de Datos).", "Movistar en sistema.", "El promotor de venta.", "El operador donador."], ans: 0 },
-                { q: "Si ingresas la CURP en Onix, ¿que logras omitir?", options: ["Las fotos de la identificacion oficial.", "El ingreso del NIP del cliente.", "La firma digital del contrato.", "El escaneo del codigo ICC."], ans: 0 },
-                { q: "¿A que numero oficial se marca para pedir el NIP?", options: ["051", "*611", "050", "*123"], ans: 0 },
-                { q: "¿Que sucede si la linea es de Persona Moral?", options: ["El ABD rechazara el tramite sin acta corporativa.", "Pasa normal como prepago.", "Tarda 48 horas mas.", "No requiere NIP."], ans: 0 },
-                { q: "¿En que horario se ejecutan las portabilidades?", options: ["De 2:00 AM a 6:00 AM.", "Mediodia exactamente.", "Al capturar en Onix.", "A las 10:00 PM."], ans: 0 },
-                { q: "Motivo principal de rechazo por Back Office:", options: ["Fotos borrosas o identificacion cortada.", "Falta de senal en tienda.", "NIP expirado.", "Equipo bloqueado."], ans: 0 }
+                { q: "¿Cual es el objetivo de Portabilidad?", 
+                  options: ["Conservar el numero.", "Obtener numero nuevo.", "Baja de linea.", "Transferir saldo."], ans: 0 },
+                { q: "¿Vigencia del NIP?", 
+                  options: ["5 dias naturales.", "24 horas.", "15 dias.", "Ilimitada."], ans: 0 },
+                { q: "¿Digitos del ICC?", 
+                  options: ["19 digitos.", "15 digitos.", "10 digitos.", "13 digitos."], ans: 0 },
+                { q: "¿Que es FVC?", 
+                  options: ["Fecha Ventana Cambio.", "Folio de Venta.", "Firma Validacion.", "Fin de Venta."], ans: 0 },
+                { q: "¿Quien regula la portabilidad?", 
+                  options: ["ABD.", "Movistar.", "El promotor.", "El cliente."], ans: 0 },
+                { q: "Si ingresas CURP, ¿que paso evitas?", 
+                  options: ["Fotos identificacion.", "Pedir NIP.", "Firmar.", "Escanear SIM."], ans: 0 },
+                { q: "¿Numero para pedir NIP?", 
+                  options: ["051", "*611", "050", "*123"], ans: 0 },
+                { q: "¿Linea Persona Moral?", 
+                  options: ["Rechazo ABD.", "Pasa normal.", "Tarda mas.", "No requiere NIP."], ans: 0 },
+                { q: "¿Horario portabilidades?", 
+                  options: ["2:00 AM a 6:00 AM.", "Mediodia.", "Captura.", "10:00 PM."], ans: 0 },
+                { q: "Motivo rechazo Back Office:", 
+                  options: ["Fotos borrosas.", "Falta senal.", "NIP expirado.", "Equipo bloqueado."], ans: 0 }
             ],
             EXPERTO: [
-                { q: "¿Que significa el Error Code: 3059?", options: ["Linea con proceso de portabilidad activo.", "NIP incorrecto.", "SIM ya utilizada.", "Falla de conexion."], ans: 0 },
-                { q: "¿Cual es el horario de Back Office para cancelaciones?", options: ["Lunes a Sabado 9:00 a 17:00h.", "24 horas 365 dias.", "Lunes a Viernes 8 a 20h.", "Solo Domingos."], ans: 0 },
-                { q: "Si en reinyeccion sale 'Order number does not exist':", options: ["Crear tramite nuevo desde cero.", "Reiniciar Onix.", "Pedir NIP de nuevo.", "Llamar Nivel 2."], ans: 0 },
-                { q: "¿Que valida legalmente a un Suscriptor Prepago?", options: ["Posesion fisica de SIM y recibir SMS.", "Factura original.", "Identificacion oficial.", "Conocer IDPV."], ans: 0 },
-                { q: "Estatus 'En espera de envio' en Onix significa:", options: ["En revision visual por BO Prepago.", "NIP validado por ABD.", "Portabilidad terminada.", "Falta recarga."], ans: 0 },
-                { q: "Si el cliente no recibe llamadas post-FVC:", options: ["Escalar a 2L para revisar enrutamiento.", "Esperar 48 horas.", "Reinyectar tramite.", "Cargar $50."], ans: 0 },
-                { q: "Llamadas al 051 permitidas por NIP:", options: ["Maximo 2 llamadas en 5 dias.", "Ilimitadas.", "Solo una.", "Ninguna."], ans: 0 },
-                { q: "Datos minimos para escalar a Nivel 2:", options: ["ID Prov, IDPV, DN, ICC.", "Nombre y CURP.", "Folio y Marca.", "Correo y Pass."], ans: 0 },
-                { q: "Estatus 'En espera de validacion ABD':", options: ["Sistema nacional verifica NIP.", "BO revisa fotos.", "Linea activa.", "Rechazo deuda."], ans: 0 },
-                { q: "¿Que documento NO es valido para identificar?", options: ["Credencial escolar o privada.", "INE vigente.", "Pasaporte.", "Cedula Profesional."], ans: 0 }
+                { q: "Error Code 3059:", 
+                  options: ["Proceso previo activo.", "NIP incorrecto.", "SIM usada.", "Sin conexion."], ans: 0 },
+                { q: "Horario Back Office:", 
+                  options: ["Lunes a Sabado 9 a 17h.", "24/7.", "Lunes a Viernes 8 a 20h.", "Solo Domingos."], ans: 0 },
+                { q: "En reinyeccion 'Order does not exist':", 
+                  options: ["Tramite nuevo.", "Reiniciar App.", "Pedir NIP de nuevo.", "Llamar Nivel 2."], ans: 0 },
+                { q: "¿Que valida a un Prepago?", 
+                  options: ["SIM fisica y SMS.", "Factura.", "Identificacion.", "Conocer IDPV."], ans: 0 },
+                { q: "¿Equipo liberado de origen?", 
+                  options: ["BYOD.", "Equipo Externo.", "Generico.", "Cualquier marca."], ans: 0 },
+                { q: "Estatus 'En espera de envio':", 
+                  options: ["Revision BO Prepago.", "NIP validado ABD.", "Portabilidad ok.", "Falta recarga."], ans: 0 },
+                { q: "Sin llamadas post-FVC:", 
+                  options: ["Escalar a 2L.", "Esperar 48 horas.", "Reinyectar.", "Cargar $50."], ans: 0 },
+                { q: "Llamadas al 051 permitidas:", 
+                  options: ["Maximo 2 llamadas.", "Ilimitadas.", "Solo una.", "Ninguna."], ans: 0 },
+                { q: "Datos para Nivel 2:", 
+                  options: ["ID Prov, IDPV, DN, ICC.", "Nombre y CURP.", "Folio y Marca.", "Correo."], ans: 0 },
+                { q: "Estatus 'Validacion ABD':", 
+                  options: ["ABD verifica NIP.", "BO revisa fotos.", "Linea activa.", "Rechazo deuda."], ans: 0 }
             ],
             VENTAS: [
-                { q: "¿Cual es el objetivo de la Venta Consultiva?", options: ["Indagar necesidades reales para dar solucion.", "Vender el mas caro.", "Hablar mucho.", "Despachar rapido."], ans: 0 },
-                { q: "¿Diferencia Caracteristica y Beneficio?", options: ["Caracteristica tecnica, Beneficio utilidad.", "Son lo mismo.", "Caracteristica es precio.", "Beneficio es regalo."], ans: 0 },
-                { q: "¿Preguntas Abiertas para que sirven?", options: ["Obtener informacion detallada.", "Responder Si/No.", "Confundir cliente.", "Saber si trae dinero."], ans: 0 },
-                { q: "Ante objecion 'Esta muy caro':", options: ["Empatizar y resaltar ahorro futuro.", "Ignorar.", "Enojarse.", "Bajar precio."], ans: 0 },
-                { q: "Cierre de Ventas tecnicamente es:", options: ["Accion directa que concreta el trato.", "Entregar bolsa.", "Llenar Onix.", "Saludar cliente."], ans: 0 },
-                { q: "Si lleva un plan superior, hicimos:", options: ["Up-Selling.", "Cross-Selling.", "Venta Perdida.", "Servicio Cliente."], ans: 0 },
-                { q: "Si ofrecemos protector y audifonos, hicimos:", options: ["Cross-Selling.", "Up-Selling.", "Portabilidad.", "Sondeo."], ans: 0 },
-                { q: "Escucha Activa requiere:", options: ["Contacto visual y parafrasear.", "Revisar celular.", "Interrumpir.", "Mirar puerta."], ans: 0 },
-                { q: "Vender Valor en lugar de Precio:", options: ["Como el producto resuelve problemas.", "Dar precio bajo.", "Regalar accesorios.", "Historia Movistar."], ans: 0 },
-                { q: "Lenguaje corporal cerrado transmite:", options: ["Falta de interes y barrera.", "Profesionalismo.", "Concentracion.", "Liderazgo."], ans: 0 }
+                { q: "¿Objetivo Venta Consultiva?", 
+                  options: ["Indagar necesidad.", "Vender lo mas caro.", "Hablar mucho.", "Despachar rapido."], ans: 0 },
+                { q: "¿Caracteristica y Beneficio?", 
+                  options: ["Tecnica y Utilidad.", "Son lo mismo.", "Es el precio.", "Es el regalo."], ans: 0 },
+                { q: "¿Preguntas Abiertas?", 
+                  options: ["Obtener informacion.", "Responder Si o No.", "Confundir.", "Saber dinero."], ans: 0 },
+                { q: "Ante 'Esta muy caro':", 
+                  options: ["Resaltar ahorro.", "Ignorar.", "Enojarse.", "Bajar precio."], ans: 0 },
+                { q: "Pregunta '¿Que necesito traer?':", 
+                  options: ["Senal de Compra.", "Objecion oculta.", "Duda marca.", "Distraccion."], ans: 0 },
+                { q: "¿Cierre de Ventas?", 
+                  options: ["Accion que concreta.", "Entregar bolsa.", "Llenar Onix.", "Saludar."], ans: 0 },
+                { q: "Plan superior al buscado:", 
+                  options: ["Up-Selling.", "Cross-Selling.", "Venta Perdida.", "Servicio."], ans: 0 },
+                { q: "Ofrecer protector y audifonos:", 
+                  options: ["Cross-Selling.", "Up-Selling.", "Porta Express.", "Sondeo."], ans: 0 },
+                { q: "Escucha Activa requiere:", 
+                  options: ["Contacto visual.", "Revisar celular.", "Interrumpir.", "Mirar puerta."], ans: 0 },
+                { q: "¿Objetivo de Romper el Hielo?", 
+                  options: ["Generar empatia.", "Saber dinero.", "Presumir.", "Hacer bromas."], ans: 0 }
             ],
             COMISIONES_EKT: [
-                { q: "¿Cual es el % minimo de logro total PDV para el 1er candado?", options: ["80% de alcance total.", "100% de alcance.", "50% de alcance.", "95% de alcance."], ans: 0 },
-                { q: "¿Cual es el % minimo de logro TEMM para el 2do candado?", options: ["80% de la cuota TEMM.", "90% de cuota.", "100% de cuota.", "50% de cuota."], ans: 0 },
-                { q: "¿Cuanto paga un alta Portabilidad de $100 si el PDV llega al 100%?", options: ["$48.00 pesos.", "$35.00 pesos.", "$17.00 pesos.", "$60.00 pesos."], ans: 0 },
-                { q: "¿Cuanto paga un alta No Porta de $200 si el PDV llega al 90%?", options: ["$29.50 pesos.", "$52.00 pesos.", "$60.00 pesos.", "$15.00 pesos."], ans: 0 },
-                { q: "¿Las lineas de apoyo o regalo suman para pago de comision?", options: ["No pagan comision, pero suman para alcance.", "Si pagan comision doble.", "No cuentan para nada.", "Restan alcance."], ans: 0 },
-                { q: "¿Cuanto paga un equipo TEMM de $150 al llegar al 100% de TEMM?", options: ["$81.00 pesos.", "$58.00 pesos.", "$32.00 pesos.", "$60.00 pesos."], ans: 0 },
-                { q: "Si una venta no se registra en sistema el mismo dia que se activo:", options: ["No contabilizara para comision.", "Se paga el doble.", "Pasa al mes siguiente.", "No pasa nada."], ans: 0 },
-                { q: "¿Cual es la recarga minima comisionable?", options: ["$100.00 pesos.", "$50.00 pesos.", "$10.00 pesos.", "$150.00 pesos."], ans: 0 },
-                { q: "¿Cuanto paga una Porta de $200 al llegar al 95% de logro total?", options: ["$60.00 pesos.", "$93.00 pesos.", "$30.00 pesos.", "$48.00 pesos."], ans: 0 },
-                { q: "¿Cuando se aplica el pago de cada periodo de comisiones?", options: ["A mes vencido.", "Cada semana.", "El mismo dia.", "A fin de ano."], ans: 0 }
+                { q: "¿% minimo PDV para 1er candado?", 
+                  options: ["80% total.", "100%", "50%", "95%"], ans: 0 },
+                { q: "¿% minimo TEMM para 2do candado?", 
+                  options: ["80% TEMM.", "90%", "100%", "50%"], ans: 0 },
+                { q: "¿Portabilidad $100 si PDV llega 100%?", 
+                  options: ["$48.00 pesos.", "$35.00 pesos.", "$17.00 pesos.", "$60.00 pesos."], ans: 0 },
+                { q: "¿No Porta $200 si PDV llega 90%?", 
+                  options: ["$29.50 pesos.", "$52.00 pesos.", "$60.00 pesos.", "$15.00 pesos."], ans: 0 },
+                { q: "¿Lineas de regalo suman comision?", 
+                  options: ["No pagan, solo alcance.", "Si pagan.", "No cuentan.", "Restan."], ans: 0 },
+                { q: "¿Equipo TEMM $150 al 100% TEMM?", 
+                  options: ["$81.00 pesos.", "$58.00 pesos.", "$32.00 pesos.", "$60.00 pesos."], ans: 0 },
+                { q: "Si venta no se registra el mismo dia:", 
+                  options: ["No paga comision.", "Paga doble.", "Pasa al mes.", "No pasa nada."], ans: 0 },
+                { q: "¿Recarga minima comisionable?", 
+                  options: ["$100.00 pesos.", "$50.00 pesos.", "$10.00 pesos.", "$150.00 pesos."], ans: 0 },
+                { q: "¿Porta $200 al 95% total?", 
+                  options: ["$60.00 pesos.", "$93.00 pesos.", "$30.00 pesos.", "$48.00 pesos."], ans: 0 },
+                { q: "¿Cuando se paga comision?", 
+                  options: ["A mes vencido.", "Cada semana.", "Mismo dia.", "Fin de ano."], ans: 0 }
             ],
             COMISIONES_COP: [
-                { q: "¿Cual es el % minimo de logro total PDV para el 1er candado?", options: ["80% de alcance total.", "100% de alcance.", "50% de alcance.", "95% de alcance."], ans: 0 },
-                { q: "¿Cual es el % minimo de logro TEMM para el 2do candado?", options: ["80% de la cuota TEMM.", "90% de cuota.", "100% de cuota.", "50% de cuota."], ans: 0 },
-                { q: "¿Cuanto paga un alta Portabilidad de $100 si el PDV llega al 100%?", options: ["$42.50 pesos.", "$30.00 pesos.", "$14.50 pesos.", "$59.00 pesos."], ans: 0 },
-                { q: "¿Cuanto paga un alta No Porta de $200 si el PDV llega al 90%?", options: ["$23.50 pesos.", "$46.00 pesos.", "$60.00 pesos.", "$12.00 pesos."], ans: 0 },
-                { q: "¿Las lineas de apoyo o regalo suman para pago de comision?", options: ["No pagan comision, pero suman para alcance.", "Si pagan comision doble.", "No cuentan para nada.", "Restan alcance."], ans: 0 },
-                { q: "¿Cuanto paga un equipo TEMM de $150 al llegar al 100% de TEMM?", options: ["$81.00 pesos.", "$58.00 pesos.", "$32.00 pesos.", "$60.00 pesos."], ans: 0 },
-                { q: "Si una venta no se registra en sistema el mismo dia que se activo:", options: ["No contabilizara para comision.", "Se paga el doble.", "Pasa al mes siguiente.", "No pasa nada."], ans: 0 },
-                { q: "¿Cual es la recarga minima comisionable?", options: ["$100.00 pesos.", "$50.00 pesos.", "$10.00 pesos.", "$150.00 pesos."], ans: 0 },
-                { q: "¿Cuanto paga una Porta de $200 al llegar al 95% de logro total?", options: ["$50.00 pesos.", "$80.00 pesos.", "$26.00 pesos.", "$39.00 pesos."], ans: 0 },
-                { q: "¿Cuando se aplica el pago de cada periodo de comisiones?", options: ["A mes vencido.", "Cada semana.", "El mismo dia.", "A fin de ano."], ans: 0 }
+                { q: "¿% minimo PDV para 1er candado?", 
+                  options: ["80% total.", "100%", "50%", "95%"], ans: 0 },
+                { q: "¿% minimo TEMM para 2do candado?", 
+                  options: ["80% TEMM.", "90%", "100%", "50%"], ans: 0 },
+                { q: "¿Portabilidad $100 si PDV llega 100%?", 
+                  options: ["$42.50 pesos.", "$30.00 pesos.", "$14.50 pesos.", "$59.00 pesos."], ans: 0 },
+                { q: "¿No Porta $200 si PDV llega 90%?", 
+                  options: ["$23.50 pesos.", "$46.00 pesos.", "$60.00 pesos.", "$12.00 pesos."], ans: 0 },
+                { q: "¿Lineas de regalo suman comision?", 
+                  options: ["No pagan, solo alcance.", "Si pagan.", "No cuentan.", "Restan."], ans: 0 },
+                { q: "¿Equipo TEMM $150 al 100% TEMM?", 
+                  options: ["$81.00 pesos.", "$58.00 pesos.", "$32.00 pesos.", "$60.00 pesos."], ans: 0 },
+                { q: "Si venta no se registra el mismo dia:", 
+                  options: ["No paga comision.", "Paga doble.", "Pasa al mes.", "No pasa nada."], ans: 0 },
+                { q: "¿Recarga minima comisionable?", 
+                  options: ["$100.00 pesos.", "$50.00 pesos.", "$10.00 pesos.", "$150.00 pesos."], ans: 0 },
+                { q: "¿Porta $200 al 95% total?", 
+                  options: ["$50.00 pesos.", "$80.00 pesos.", "$26.00 pesos.", "$39.00 pesos."], ans: 0 },
+                { q: "¿Cuando se paga comision?", 
+                  options: ["A mes vencido.", "Cada semana.", "Mismo dia.", "Fin de ano."], ans: 0 }
             ]
         };
 
@@ -169,11 +299,17 @@
             appId: "1:261815103883:web:aa66d0b8d1b733195bff8e"
         };
         
-        let db = null; let auth = null;
+        let db = null;
+        let auth = null;
         try {
-            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore(); auth = firebase.auth();
-        } catch (e) { console.error("Firebase config", e); }
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) {
+            console.error("Init Error", e);
+        }
 
         const App = () => {
             const [view, setView] = useState("LOGIN");
@@ -200,7 +336,6 @@
             const [subTabPortal, setSubTabPortal] = useState("CALCULADORA");
             const [subTabEquipo, setSubTabEquipo] = useState("PERFIL");
             
-            // Quiz States
             const [quizState, setQuizState] = useState('MENU');
             const [colaboradorName, setColaboradorName] = useState("");
             const [questions, setQuestions] = useState([]);
@@ -209,47 +344,1267 @@
             const [timer, setTimer] = useState(180);
             const [curType, setCurType] = useState('');
 
-            // Vacaciones & Quejas
             const [vacName, setVacName] = useState("");
             const [vacUser, setVacUser] = useState("");
             const [vacDate, setVacDate] = useState("");
             const [vacDays, setVacDays] = useState(1);
             const [sugText, setSugText] = useState("");
 
-            // Roster/Perfil
             const [rostName, setRostName] = useState("");
             const [rostFw, setRostFw] = useState("");
             const [rostDate, setRostDate] = useState("");
 
-            // Calculadora States
             const [calcCadena, setCalcCadena] = useState("ELEKTRA");
             const [calcLTotal, setCalcLTotal] = useState("");
             const [calcLTemm, setCalcLTemm] = useState("");
-            const [cNP1, setCNP1] = useState(""); const [cNP2, setCNP2] = useState(""); const [cNP3, setCNP3] = useState("");
-            const [cP1, setCP1] = useState(""); const [cP2, setCP2] = useState(""); const [cP3, setCP3] = useState("");
-            const [cT1, setCT1] = useState(""); const [cT2, setCT2] = useState(""); const [cT3, setCT3] = useState("");
+            const [cNP1, setCNP1] = useState(""); 
+            const [cNP2, setCNP2] = useState(""); 
+            const [cNP3, setCNP3] = useState("");
+            const [cP1, setCP1] = useState(""); 
+            const [cP2, setCP2] = useState(""); 
+            const [cP3, setCP3] = useState("");
+            const [cT1, setCT1] = useState(""); 
+            const [cT2, setCT2] = useState(""); 
+            const [cT3, setCT3] = useState("");
 
             useEffect(() => {
                 const loader = document.getElementById('emergency-loader');
                 if (loader) loader.style.display = 'none';
+                
                 if (!db || !auth) return;
-
                 auth.signInAnonymously().catch(e => console.warn(e));
 
                 const unsubs = [];
                 try {
-                    unsubs.push(db.collection("operacion_v2").onSnapshot(snap => {
-                        let temmList = []; let invList = [];
-                        snap.forEach(doc => {
-                            const d = doc.data();
-                            if (doc.id === "temm" && Array.isArray(d.list)) temmList = d.list;
-                            if (doc.id === "inv" && Array.isArray(d.list)) invList = d.list;
-                        });
-                        setDataTEMM(temmList); setDataINV(invList);
-                    }));
+                    // Operacion
+                    const subOp = db.collection("operacion_v2").onSnapshot(
+                        s => {
+                            let tm = []; let iv = [];
+                            s.forEach(d => {
+                                const obj = d.data();
+                                if (d.id === "temm" && Array.isArray(obj.list)) {
+                                    tm = obj.list;
+                                }
+                                if (d.id === "inv" && Array.isArray(obj.list)) {
+                                    iv = obj.list;
+                                }
+                            });
+                            setDataTEMM(tm); setDataINV(iv);
+                        }, 
+                        e => console.warn(e)
+                    );
+                    unsubs.push(subOp);
 
-                    unsubs.push(db.collection("ranking").orderBy("score", "desc").onSnapshot(s => setRanking(s.docs.map(d=>({id:d.id, ...d.data()})))));
-                    unsubs.push(db.collection("historicos").orderBy("fecha", "desc").onSnapshot(s => setHistory(s.docs.map(d=>({id:d.id, ...d.data()})))));
-                    unsubs.push(db.collection("recurso").onSnapshot(s => setResources(s.docs.map(d=>({id:d.id, ...d.data()})))));
-                    unsubs.push(db.collection("promotor_mes").onSnapshot(s => setCandidates(s.docs.map(d=>({id:d.id, ...d.data()})))));
-                    unsubs.push(db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => setQuejas(s.docs
+                    // Ranking
+                    const subRank = db.collection("ranking")
+                        .orderBy("score", "desc")
+                        .onSnapshot(
+                            s => {
+                                const arr = s.docs.map(d => {
+                                    const obj = d.data();
+                                    obj.id = d.id;
+                                    return obj;
+                                });
+                                setRanking(arr);
+                            }, 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(subRank);
+
+                    // Historicos
+                    const subHist = db.collection("historicos")
+                        .orderBy("fecha", "desc")
+                        .onSnapshot(
+                            s => {
+                                const arr = s.docs.map(d => {
+                                    const obj = d.data();
+                                    obj.id = d.id;
+                                    return obj;
+                                });
+                                setHistory(arr);
+                            }, 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(subHist);
+
+                    // Recursos
+                    const subRec = db.collection("recurso").onSnapshot(
+                        s => {
+                            const arr = s.docs.map(d => {
+                                const obj = d.data();
+                                obj.id = d.id;
+                                return obj;
+                            });
+                            setResources(arr);
+                        }, 
+                        e => console.warn(e)
+                    );
+                    unsubs.push(subRec);
+
+                    // Promotor Mes
+                    const subCand = db.collection("promotor_mes").onSnapshot(
+                        s => {
+                            const arr = s.docs.map(d => {
+                                const obj = d.data();
+                                obj.id = d.id;
+                                return obj;
+                            });
+                            setCandidates(arr);
+                        }, 
+                        e => console.warn(e)
+                    );
+                    unsubs.push(subCand);
+
+                    // Quejas
+                    const subQuej = db.collection("quejas")
+                        .orderBy("fecha", "desc")
+                        .onSnapshot(
+                            s => {
+                                const arr = s.docs.map(d => {
+                                    const obj = d.data();
+                                    obj.id = d.id;
+                                    return obj;
+                                });
+                                setQuejas(arr);
+                            }, 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(subQuej);
+
+                    // Vacaciones
+                    const subVac = db.collection("vacaciones")
+                        .orderBy("fecha", "desc")
+                        .onSnapshot(
+                            s => {
+                                const arr = s.docs.map(d => {
+                                    const obj = d.data();
+                                    obj.id = d.id;
+                                    return obj;
+                                });
+                                setVacaciones(arr);
+                            }, 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(subVac);
+
+                    // Roster
+                    const subRost = db.collection("roster")
+                        .orderBy("fecha", "desc")
+                        .onSnapshot(
+                            s => {
+                                const arr = s.docs.map(d => {
+                                    const obj = d.data();
+                                    obj.id = d.id;
+                                    return obj;
+                                });
+                                setRosters(arr);
+                            }, 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(subRost);
+
+                } catch(error) {
+                    console.error("Listeners", error);
+                }
+
+                return () => unsubs.forEach(u => { if(u) u(); });
+            }, []);
+
+            useEffect(() => {
+                let t = null;
+                if (quizState === 'PLAY' && timer > 0) {
+                    t = setInterval(() => setTimer(v => v - 1), 1000);
+                } else if (quizState === 'PLAY' && timer === 0) {
+                    setQuizState('RESULT');
+                }
+                return () => clearInterval(t);
+            }, [quizState, timer]);
+
+            const myCadena = useMemo(() => {
+                if(userRole === "ADMIN") return "ADMIN";
+                const cl = userId.trim().replace(/^0+/, '');
+                const store = dataTEMM.find(d => d.id === cl);
+                return store ? store.cad : "COPPEL"; 
+            }, [dataTEMM, userId, userRole]);
+
+            useEffect(() => {
+                if(userRole === "PROMOTOR" && myCadena !== "ADMIN") {
+                    if (myCadena === "ELEKTRA") setCalcCadena("ELEKTRA");
+                    else setCalcCadena("COPPEL_SUBURBIA");
+                }
+            }, [myCadena, userRole]);
+
+            const minVacDate = useMemo(() => {
+                const d = new Date(); d.setDate(d.getDate() + 15);
+                return d.toISOString().split('T')[0];
+            }, []);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const u = userId.trim().toUpperCase();
+                if (u === "ADMIN" && pass === "2024") { 
+                    setUserRole("ADMIN"); setView("APP"); 
+                } else if (pass === "Movistar1" && u.length >= 4) { 
+                    setUserRole("PROMOTOR"); setView("APP"); 
+                } else { 
+                    alert("ID o Contrasena incorrectos."); 
+                }
+            };
+
+            const uploadFile = async (type, e) => {
+                if (!db) return alert("Sin red");
+                const file = e.target.files[0]; if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (evt) => {
+                    try {
+                        const r = evt.target.result;
+                        const wb = XLSX.read(r, { type: 'binary' });
+                        const sK = type === "temm" ? "seg diario" : "tiendas";
+                        
+                        const wsName = wb.SheetNames.find(n => 
+                            n.toLowerCase().includes(sK)
+                        );
+                        if (!wsName) return alert("Pestana no hallada.");
+                        
+                        const jData = XLSX.utils.sheet_to_json(
+                            wb.Sheets[wsName], { header: "A", defval: "" }
+                        );
+                        let list = [];
+
+                        if (type === "temm") {
+                            list = jData.filter(row => {
+                                const j = String(row["J"] || "");
+                                return j.length > 3 && !j.includes("PDV");
+                            }).map(row => {
+                                let cadena = "SUBURBIA";
+                                let l = String(row["L"]).toUpperCase();
+                                if (l.includes("EKT")) cadena = "ELEKTRA";
+                                if (l.includes("COPPEL")) cadena = "COPPEL";
+
+                                return {
+                                    id: String(row["I"] || "")
+                                        .trim().replace(/^0+/, ''),
+                                    tienda: String(row["J"]).trim(),
+                                    sup: String(row["B"]).trim(),
+                                    cad: cadena,
+                                    altas: Math.round(Number(row["Q"]) || 0),
+                                    cuota: Math.round(Number(row["R"]) || 0),
+                                    gap: Math.round(Number(row["S"]) || 0)
+                                };
+                            });
+                        } else {
+                            list = jData.filter(row => {
+                                const i = String(row["I"] || "");
+                                return i.length > 3;
+                            }).map(row => ({
+                                id: String(row["I"] || "")
+                                    .trim().replace(/^0+/, ''),
+                                mod: String(row["T"] || "").trim(),
+                                mar: String(row["U"] || "").trim(),
+                                q: parseInt(Number(row["AG"]) || 0)
+                            }));
+                        }
+                        
+                        const c = db.collection("operacion_v2").doc(type);
+                        await c.set({ list: list });
+                        alert("Sincronizado a Nivel Nacional!");
+
+                    } catch (error) { 
+                        alert("Error procesando excel."); 
+                    }
+                };
+                reader.readAsBinaryString(file);
+            };
+
+            const addCandidate = async (e) => {
+                if(!db) return;
+                const file = e.target.files[0]; if (!file) return;
+                const name = prompt("Nombre Nominado:"); if(!name) return;
+                if(candidates.length >= 4) return alert("Solo 4 maximo.");
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const img = new Image();
+                    img.onload = async () => {
+                        const can = document.createElement('canvas');
+                        const w = 200; const h = img.height * (200/img.width);
+                        can.width = w; can.height = h;
+                        can.getContext('2d').drawImage(img, 0, 0, w, h);
+                        const b64 = can.toDataURL('image/jpeg', 0.5);
+                        try {
+                            await db.collection("promotor_mes").add({ 
+                                nombre: name.toUpperCase(), foto: b64, 
+                                votos: [] 
+                            });
+                            alert("Candidato agregado.");
+                        } catch(err) { alert("Error."); }
+                    };
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const createProfile = async (e) => {
+                if(!db) return;
+                const file = e.target.files[0]; if (!file) return;
+                if(!rostName || !rostFw || !rostDate) {
+                    alert("Llena los campos de texto primero."); return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const img = new Image();
+                    img.onload = async () => {
+                        const can = document.createElement('canvas');
+                        const w = 200; const h = img.height * (200/img.width);
+                        can.width = w; can.height = h;
+                        can.getContext('2d').drawImage(img, 0, 0, w, h);
+                        const b64 = can.toDataURL('image/jpeg', 0.5);
+                        try {
+                            await db.collection("roster").add({ 
+                                idpdv: userId.toUpperCase(),
+                                nombre: rostName.toUpperCase(), 
+                                fw: rostFw.toUpperCase(),
+                                ingreso: rostDate, foto: b64,
+                                fecha: firebase.firestore.FieldValue
+                                       .serverTimestamp()
+                            });
+                            alert("Perfil guardado.");
+                            setRostName(""); setRostFw(""); setRostDate("");
+                        } catch(err) { alert("Error."); }
+                    };
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const voteCandidate = async (cId) => {
+                if(userRole === "ADMIN") return alert("Admin no vota.");
+                if(!db) return;
+                const logId = userId.trim().toUpperCase();
+                let ya = false;
+                candidates.forEach(c => { 
+                    if(c.votos && c.votos.includes(logId)) ya = true; 
+                });
+                if(ya) return alert("Solo 1 voto.");
+
+                try {
+                    const cRef = db.collection("promotor_mes").doc(cId);
+                    const cDoc = await cRef.get();
+                    if(cDoc.exists) {
+                        const v = cDoc.data().votos || [];
+                        await cRef.update({ votos: [...v, logId] });
+                        alert("Voto listo.");
+                    }
+                } catch (e) { alert("Error."); }
+            };
+
+            const submitSug = async (e) => {
+                e.preventDefault();
+                if(!sugText.trim() || !db) return;
+                try {
+                    await db.collection("quejas").add({ 
+                        idpdv: userId.toUpperCase(), 
+                        texto: sugText, 
+                        fecha: firebase.firestore.FieldValue.serverTimestamp() 
+                    });
+                    setSugText(""); alert("Enviado.");
+                } catch(e) { alert("Error."); }
+            };
+
+            const submitVac = async (e) => {
+                e.preventDefault();
+                if(!db) return;
+                try {
+                    await db.collection("vacaciones").add({ 
+                        idpdv: userId.toUpperCase(), 
+                        nombre: vacName.toUpperCase(), 
+                        usuarioFw: vacUser.toUpperCase(), 
+                        fechaDeseada: vacDate, diasSolicitados: vacDays, 
+                        estatus: 'Pendiente',
+                        fecha: firebase.firestore.FieldValue.serverTimestamp() 
+                    });
+                    setVacName(""); setVacUser(""); 
+                    setVacDate(""); setVacDays(1);
+                    alert("Solicitud enviada.");
+                } catch(e) { alert("Error."); }
+            };
+
+            const startQuiz = (type) => {
+                if (!colaboradorName.trim()) {
+                    alert("Nombre obligatorio."); return;
+                }
+                let qType = type;
+                if (type === 'COMISIONES') {
+                    if (myCadena === "ELEKTRA") qType = 'COMISIONES_EKT';
+                    else if (myCadena === "COPPEL" || myCadena === "SUBURBIA") {
+                        qType = 'COMISIONES_COP';
+                    } else {
+                        const s = prompt("Digita 1 para ELEKTRA, 2 para COPPEL");
+                        if (s === "1") qType = 'COMISIONES_EKT';
+                        else if (s === "2") qType = 'COMISIONES_COP';
+                        else return;
+                    }
+                }
+
+                setCurType(qType);
+                const bank = EXAMS_DATA[qType];
+                const shuf = [...bank].sort(() => 0.5 - Math.random()).map(q => {
+                    const ops = [...q.options];
+                    const shOps = ops.map((o, i) => {
+                        return { t: o, isC: i === q.ans };
+                    });
+                    shOps.sort(() => 0.5 - Math.random());
+                    return { ...q, options: shOps };
+                });
+                
+                setQuestions(shuf); setCurQ(0); 
+                setAnswers([]); setTimer(180); setQuizState('PLAY');
+            };
+
+            const handleAns = (isC) => {
+                const nA = [...answers, isC]; setAnswers(nA);
+                if (curQ + 1 < questions.length) setCurQ(v => v + 1);
+                else setQuizState('RESULT');
+            };
+
+            const score = answers.filter(Boolean).length;
+            const passed = score >= Math.ceil(questions.length * 0.8);
+            const pts = (score * 5) + (passed ? timer : 0);
+
+            const getCertName = (code) => {
+                if(code === 'BASICO') return 'PORTABILIDAD BASICO';
+                if(code === 'EXPERTO') return 'PORTABILIDAD AVANZADO';
+                if(code === 'VENTAS') return 'VENTA CONSULTIVA';
+                if(code.includes('COMISIONES')) return 'ESQUEMA COMISIONES';
+                return code;
+            };
+
+            const downloadCert = (name, modCode, date, sup) => {
+                try {
+                    const mod = getCertName(modCode);
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ 
+                        orientation: 'landscape', unit: 'mm', format: 'a4' 
+                    });
+                    
+                    doc.setDrawColor(1, 157, 244); doc.setLineWidth(2); 
+                    doc.rect(10, 10, 277, 190);
+                    
+                    doc.setFont("helvetica", "bold"); doc.setFontSize(38); 
+                    doc.setTextColor(11, 39, 57);
+                    doc.text("CERTIFICACION NACIONAL", 148, 50, { align: 'center' });
+                    
+                    doc.setFontSize(16); doc.setFont("helvetica", "normal");
+                    doc.text("HidalgoDash otorga diploma a:", 148, 70, { align: 'center' });
+                    
+                    doc.setFontSize(32); doc.setFont("helvetica", "bold"); 
+                    doc.setTextColor(92, 182, 21);
+                    doc.text(name.toUpperCase(), 148, 95, { align: 'center' });
+                    
+                    doc.setFontSize(14); doc.setTextColor(11, 39, 57);
+                    doc.text(`Por acreditar modulo: ${mod}`, 148, 120, { align: 'center' });
+                    
+                    doc.setFontSize(12); 
+                    doc.text(`Fecha: ${date}`, 148, 140, { align: 'center' });
+                    
+                    doc.setDrawColor(0,0,0); doc.line(50, 175, 120, 175); 
+                    doc.text(sup || "SUPERVISOR", 85, 182, { align: 'center' });
+                    
+                    doc.line(177, 175, 247, 175); 
+                    doc.text("C.P. ANGEL ROIZ", 212, 182, { align: 'center' });
+                    
+                    doc.save(`Certificado_${name.replace(/\s/g, '_')}.pdf`);
+                } catch(e) { alert("Tu celular bloqueo la descarga."); }
+            };
+
+            useEffect(() => {
+                if(quizState === 'RESULT' && passed && db) {
+                    const name = colaboradorName.trim().toUpperCase();
+                    const logId = userId.trim().toUpperCase();
+                    let sName = "SUPERVISOR";
+                    
+                    if (userRole === "ADMIN") sName = "ADMIN";
+                    else if (dataTEMM) {
+                        const cl = userId.trim().replace(/^0+/, '');
+                        const found = dataTEMM.find(d => d.id === cl);
+                        if (found && found.sup) sName = found.sup;
+                    }
+                    
+                    try {
+                        db.collection("historicos").add({ 
+                            idpdv: logId, nombre: name, examen: curType, 
+                            puntos: pts, sup: sName, 
+                            fecha: firebase.firestore.FieldValue.serverTimestamp() 
+                        });
+                        
+                        db.collection("ranking").where("name", "==", name)
+                        .get().then(s => {
+                            if (!s.empty) {
+                                const oS = s.docs[0].data().score || 0;
+                                const oB = s.docs[0].data().badges || [];
+                                const nB = Array.from(new Set([...oB, curType]));
+                                s.docs[0].ref.update({ score: oS + pts, badges: nB });
+                            } else {
+                                db.collection("ranking").add({ 
+                                    name: name, score: pts, badges: [curType] 
+                                });
+                            }
+                        });
+                    } catch(e) { console.warn("Err"); }
+                }
+            }, [quizState]);
+
+            const filteredData = useMemo(() => {
+                if (!Array.isArray(dataTEMM)) return [];
+                let f = dataTEMM;
+                if (userRole === "PROMOTOR") {
+                    const cl = userId.trim().replace(/^0+/, '');
+                    f = dataTEMM.filter(d => d.id === cl);
+                } else {
+                    if (supFilter !== "TODOS") {
+                        f = f.filter(d => d?.sup === supFilter);
+                    }
+                    if (cadFilter !== "TODAS") {
+                        f = f.filter(d => d?.cad === cadFilter);
+                    }
+                }
+                return f;
+            }, [dataTEMM, userRole, userId, supFilter, cadFilter]);
+
+            const summary = useMemo(() => {
+                let a=0, c=0, g=0, s=0;
+                if (Array.isArray(filteredData)) {
+                    filteredData.forEach(d => { 
+                        a += Number(d?.altas) || 0; 
+                        c += Number(d?.cuota) || 0; 
+                        g += Number(d?.gap) || 0; 
+                        if (Array.isArray(dataINV)) { 
+                            const invT = dataINV.filter(i => i?.id === d?.id);
+                            s += invT.reduce((acc, cur) => {
+                                return acc + (Number(cur?.q) || 0);
+                            }, 0); 
+                        }
+                    });
+                }
+                return { a, c, g, s };
+            }, [filteredData, dataINV]);
+
+            const myRosters = useMemo(() => {
+                if(userRole === "ADMIN") return rosters;
+                return rosters.filter(r => r.idpdv === userId.toUpperCase());
+            }, [rosters, userId, userRole]);
+
+            const calculatePayout = () => {
+                const lt = Number(calcLTotal) || 0;
+                const ltem = Number(calcLTemm) || 0;
+                
+                let tt = 't1';
+                if(lt < 80) tt = 'none';
+                else if (lt <= 94) tt = 't1';
+                else if (lt <= 99) tt = 't2';
+                else if (lt >= 100) tt = 't3';
+
+                let ttem = 't1';
+                if(ltem < 80) ttem = 'none';
+                else if (ltem <= 94) ttem = 't1';
+                else if (ltem <= 99) ttem = 't2';
+                else if (ltem >= 100) ttem = 't3';
+
+                let total = 0;
+                const tbl = COMISIONES[calcCadena];
+
+                if(tt !== 'none') {
+                    const t = tbl[tt];
+                    total += (Number(cNP1)||0)*t.np.r100; 
+                    total += (Number(cNP2)||0)*t.np.r150; 
+                    total += (Number(cNP3)||0)*t.np.r200;
+                    total += (Number(cP1)||0)*t.p.r100; 
+                    total += (Number(cP2)||0)*t.p.r150; 
+                    total += (Number(cP3)||0)*t.p.r200;
+                }
+                
+                if(ttem !== 'none') {
+                    const t = tbl[ttem];
+                    total += (Number(cT1)||0)*t.temm.r100; 
+                    total += (Number(cT2)||0)*t.temm.r150; 
+                    total += (Number(cT3)||0)*t.temm.r200;
+                }
+
+                return total.toFixed(2);
+            };
+
+            if (view === "LOGIN") return (
+                <div className="min-h-screen login-gradient flex items-center 
+                                justify-center p-6 animate-pop">
+                    <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
+                        <div className="text-center mb-10">
+                            <h1 className="text-movistar-blue text-4xl font-black 
+                                           italic tracking-tighter uppercase 
+                                           leading-none">
+                                HIDALGODASH
+                            </h1>
+                            <p className="text-[10px] font-bold text-gray-400 
+                                          mt-2 uppercase tracking-widest">
+                                Capym V20
+                            </p>
+                        </div>
+                        <form onSubmit={handleLogin} className="space-y-5">
+                            <input type="text" placeholder="IDPDV / USUARIO" 
+                                   className="w-full bg-gray-50 border-none rounded-2xl 
+                                              p-5 font-bold outline-none focus:ring-2 
+                                              focus:ring-movistar-blue" 
+                                   value={userId} onChange={e => setUserId(e.target.value)} required />
+                            <input type="password" placeholder="CONTRASENA" 
+                                   className="w-full bg-gray-50 border-none rounded-2xl 
+                                              p-5 font-bold outline-none focus:ring-2 
+                                              focus:ring-movistar-blue" 
+                                   value={pass} onChange={e => setPass(e.target.value)} required />
+                            <button className="w-full bg-movistar-blue text-white 
+                                               p-5 rounded-2xl font-black shadow-lg 
+                                               uppercase active:scale-95 transition-all">
+                                Ingresar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen flex flex-col bg-gray-100 max-w-md 
+                                mx-auto shadow-2xl relative animate-pop">
+                    
+                    <div className="bg-movistar-dark text-white p-5 flex 
+                                    justify-between items-center sticky top-0 z-50">
+                        <div className="flex flex-col">
+                            <h2 className="font-black italic text-lg leading-none 
+                                           uppercase tracking-tighter">
+                                HIDALGODASH
+                            </h2>
+                            <span className="text-[8px] font-bold text-movistar-blue 
+                                             mt-1 uppercase tracking-widest">
+                                CAPYM NACIONAL
+                            </span>
+                        </div>
+                        <div className="text-right text-[9px] font-black">
+                            {userRole === "ADMIN" ? "LIDER" : `ID: ${userId}`}<br/>
+                            <button onClick={() => location.reload()} 
+                                    className="text-movistar-red font-bold 
+                                               uppercase mt-1">Salir</button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white flex sticky top-[68px] z-40 border-b 
+                                    shadow-sm overflow-x-auto hide-scrollbar">
+                        <button className={`tab-btn ${activeTab==='OPERACION'?'tab-active':''}`} 
+                                onClick={()=>setActiveTab('OPERACION')}>Operacion</button>
+                        <button className={`tab-btn ${activeTab==='ACADEMIA'?'tab-active':''}`} 
+                                onClick={()=>setActiveTab('ACADEMIA')}>Academia</button>
+                        <button className={`tab-btn ${activeTab==='EQUIPO'?'tab-active':''}`} 
+                                onClick={()=>setActiveTab('EQUIPO')}>Equipo</button>
+                        <button className={`tab-btn ${activeTab==='PORTAL'?'tab-active':''}`} 
+                                onClick={()=>setActiveTab('PORTAL')}>Portal</button>
+                    </div>
+
+                    <div className="p-4 flex-grow overflow-y-auto pb-10">
+                        
+                        {activeTab === 'OPERACION' && (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-white p-4 rounded-3xl border shadow-sm">
+                                        <p className="text-[8px] font-black text-movistar-green 
+                                                      uppercase mb-1">Altas</p>
+                                        <p className="text-3xl font-black text-movistar-green 
+                                                      tabular-nums">{summary.a}</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-3xl border shadow-sm">
+                                        <p className="text-[8px] font-black text-gray-400 
+                                                      uppercase mb-1">Meta</p>
+                                        <p className="text-3xl font-black opacity-10 
+                                                      tabular-nums">{summary.c}</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-3xl border shadow-sm">
+                                        <p className="text-[8px] font-black text-gray-400 
+                                                      uppercase mb-1">Gap</p>
+                                        <p className={`text-3xl font-black tabular-nums 
+                                                      ${summary.g>=0?'text-movistar-green':'text-movistar-red'}`}>
+                                            {summary.g>=0?'+':''}{summary.g}
+                                        </p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-3xl border shadow-sm">
+                                        <p className="text-[8px] font-black text-movistar-blue 
+                                                      uppercase mb-1">Stock</p>
+                                        <p className="text-3xl font-black text-movistar-blue 
+                                                      tabular-nums">{summary.s}</p>
+                                    </div>
+                                </div>
+
+                                {userRole === "ADMIN" && (
+                                    <div className="bg-white p-5 rounded-[2rem] border 
+                                                    shadow-sm space-y-4">
+                                        <div className="flex gap-2">
+                                            <select className="flex-1 text-[9px] font-black 
+                                                               bg-gray-50 p-3 rounded-xl" 
+                                                    value={supFilter} 
+                                                    onChange={e => setSupFilter(e.target.value)}>
+                                                <option value="TODOS">SUPERVISORES</option>
+                                                {[...new Set((Array.isArray(dataTEMM)?dataTEMM:[]).map(d => d?.sup))].filter(Boolean).sort().map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                            <select className="flex-1 text-[9px] font-black 
+                                                               bg-gray-50 p-3 rounded-xl" 
+                                                    value={cadFilter} 
+                                                    onChange={e => setCadFilter(e.target.value)}>
+                                                <option value="TODAS">CADENAS</option>
+                                                <option value="COPPEL">COPPEL</option>
+                                                <option value="ELEKTRA">ELEKTRA</option>
+                                                <option value="SUBURBIA">SUBURBIA</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <label className="flex-1 bg-movistar-blue text-white 
+                                                              text-[8px] font-black p-4 rounded-2xl 
+                                                              text-center cursor-pointer">
+                                                DIARIO EXCEL
+                                                <input type="file" className="hidden" accept=".xlsx" 
+                                                       onChange={e => uploadFile("temm", e)}/>
+                                            </label>
+                                            <label className="flex-1 bg-movistar-dark text-white 
+                                                              text-[8px] font-black p-4 rounded-2xl 
+                                                              text-center cursor-pointer">
+                                                INV EXCEL
+                                                <input type="file" className="hidden" accept=".xlsx" 
+                                                       onChange={e => uploadFile("inv", e)}/>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {filteredData?.map(d => (
+                                    <div key={d.id} 
+                                         className="bg-white p-6 rounded-[2.5rem] shadow-xl 
+                                                    border-l-[10px] border-movistar-blue relative">
+                                        <div className="flex justify-between mb-3 text-[10px] 
+                                                        font-black text-movistar-blue uppercase">
+                                            <span>{d.cad}</span>
+                                            <span className="text-gray-300">ID: {d.id}</span>
+                                        </div>
+                                        <h3 className="font-black text-sm mb-4 uppercase 
+                                                       leading-tight text-movistar-dark">
+                                            {d.tienda}
+                                        </h3>
+                                        
+                                        <div className="flex justify-between items-end mb-2">
+                                            <div>
+                                                <p className="text-[8px] font-bold text-movistar-green 
+                                                              mb-0.5 uppercase tracking-tighter">
+                                                    Logro
+                                                </p>
+                                                <p className="text-4xl font-black text-movistar-green">
+                                                    {d.altas}
+                                                </p>
+                                            </div>
+                                            <div className="text-right font-black opacity-10 text-xl">
+                                                <p className="text-[8px] uppercase">Meta</p>
+                                                <p>{d.cuota}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="w-full bg-gray-100 h-3 rounded-full 
+                                                        overflow-hidden mb-4 shadow-inner">
+                                            <div className="h-full bg-movistar-green" 
+                                                 style={{ width: `${Math.min((Number(d.altas)/Number(d.cuota))*100, 100)}%` }}>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="border-t pt-3 flex flex-wrap gap-2">
+                                            {Array.isArray(dataINV) && dataINV.filter(i => i?.id === d?.id).length > 0 ? 
+                                                dataINV.filter(i => i?.id === d?.id).map((i,idx) => (
+                                                    <div key={idx} 
+                                                         className="bg-gray-50 border rounded px-1.5 
+                                                                    py-1 min-w-[60px] shadow-sm">
+                                                        <p className="text-[6px] font-bold opacity-50 
+                                                                      uppercase leading-none">
+                                                            {i.mar} {i.mod}
+                                                        </p>
+                                                        <p className="text-[9px] font-black 
+                                                                      text-movistar-blue uppercase">
+                                                            {i.q} PZS
+                                                        </p>
+                                                    </div>
+                                                )) 
+                                                : <span className="text-[8px] font-bold text-gray-300">
+                                                    SIN INVENTARIO
+                                                  </span>
+                                            }
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {activeTab === 'ACADEMIA' && (
+                            <div className="space-y-6 animate-pop">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                    <button onClick={()=>setSubTabAcademia("EXAMENES")} 
+                                            className={`subtab-btn ${subTabAcademia==="EXAMENES"?'subtab-active':'subtab-inactive'}`}>
+                                        EXAMENES
+                                    </button>
+                                    <button onClick={()=>setSubTabAcademia("REPOSITORIO")} 
+                                            className={`subtab-btn ${subTabAcademia==="REPOSITORIO"?'subtab-active':'subtab-inactive'}`}>
+                                        DOCUMENTOS
+                                    </button>
+                                </div>
+
+                                {subTabAcademia === "EXAMENES" ? (
+                                    quizState === 'MENU' ? (
+                                        <div className="bg-white p-8 rounded-[2rem] shadow-xl text-center border">
+                                            <div className="w-16 h-16 bg-blue-50 rounded-full flex 
+                                                            items-center justify-center mx-auto mb-6 text-2xl">
+                                                🎓
+                                            </div>
+                                            <h2 className="text-xl font-black mb-1 italic uppercase">
+                                                Certificacion
+                                            </h2>
+                                            <p className="text-[10px] text-gray-400 mb-8 font-black uppercase">
+                                                Ingresa tu nombre
+                                            </p>
+                                            <input type="text" placeholder="NOMBRE COMPLETO" 
+                                                   className="w-full bg-gray-50 border-2 rounded-2xl 
+                                                              p-5 mb-8 text-center font-black 
+                                                              outline-none focus:border-movistar-blue" 
+                                                   value={colaboradorName} 
+                                                   onChange={e => setColaboradorName(e.target.value)}/>
+                                            <div className="grid gap-3">
+                                                <button onClick={() => startQuiz('BASICO')} 
+                                                        className="bg-movistar-blue text-white p-5 
+                                                                   rounded-2xl font-black text-[10px]">
+                                                    PORTABILIDAD BASICA (10 Q)
+                                                </button>
+                                                <button onClick={() => startQuiz('EXPERTO')} 
+                                                        className="bg-movistar-dark text-white p-5 
+                                                                   rounded-2xl font-black text-[10px]">
+                                                    PORTABILIDAD EXPERTA (15 Q)
+                                                </button>
+                                                <button onClick={() => startQuiz('VENTAS')} 
+                                                        className="bg-movistar-green text-white p-5 
+                                                                   rounded-2xl font-black text-[10px]">
+                                                    VENTA CONSULTIVA (15 Q)
+                                                </button>
+                                                <button onClick={() => startQuiz('COMISIONES')} 
+                                                        className="bg-gradient-to-r from-orange-400 
+                                                                   to-red-500 text-white p-5 
+                                                                   rounded-2xl font-black text-[10px]">
+                                                    ESQUEMA COMISIONES (10 Q)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : quizState === 'PLAY' ? (
+                                        <div className="bg-white p-8 rounded-[2rem] shadow-xl">
+                                            <div className="flex justify-between mb-8 border-b pb-4">
+                                                <span className="text-[10px] font-black text-gray-300">
+                                                    P. {curQ+1}/{questions.length}
+                                                </span>
+                                                <div className={`font-black text-2xl 
+                                                                ${timer<30?'text-red-500':''}`}>
+                                                    {Math.floor(timer/60)}:{(timer%60).toString().padStart(2,'0')}
+                                                </div>
+                                            </div>
+                                            <h3 className="text-base font-bold mb-10 leading-tight">
+                                                {questions[curQ]?.q}
+                                            </h3>
+                                            <div className="grid gap-4">
+                                                {questions[curQ]?.options.map((o,i) => (
+                                                    <button key={i} onClick={()=>handleAns(o.isC)} 
+                                                            className="text-left p-4 rounded-2xl border-2 
+                                                                       border-gray-100 font-bold text-xs 
+                                                                       active:bg-blue-50">
+                                                        {o.t}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-white p-10 rounded-[2rem] shadow-2xl text-center">
+                                            <div className={`w-24 h-24 rounded-full border-[10px] 
+                                                            mx-auto flex items-center justify-center 
+                                                            mb-6 font-black text-4xl 
+                                                            ${passed?'border-green-500 text-green-500':'border-red-500 text-red-500'}`}>
+                                                {score}
+                                            </div>
+                                            <h2 className="text-2xl font-black mb-6 italic uppercase">
+                                                {passed ? "Certificado" : "Reprobado"}
+                                            </h2>
+                                            {passed && 
+                                                <button onClick={() => downloadCert(colaboradorName, curType, new Date().toLocaleDateString(), (dataTEMM?.find(d => d.id === userId.toUpperCase())?.sup || "Nacional"))} 
+                                                        className="mb-6 w-full bg-movistar-green text-white 
+                                                                   p-5 rounded-2xl font-black uppercase 
+                                                                   text-[10px] shadow-lg">
+                                                    Descargar PDF 📄
+                                                </button>
+                                            }
+                                            <button onClick={() => setQuizState('MENU')} 
+                                                    className="bg-movistar-dark text-white w-full py-5 
+                                                               rounded-2xl font-black text-xs">
+                                                Terminar
+                                            </button>
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white 
+                                                        flex justify-between items-center shadow-xl">
+                                            <div>
+                                                <h2 className="font-black text-lg italic uppercase">
+                                                    REPOSITORIO
+                                                </h2>
+                                            </div>
+                                            {userRole === "ADMIN" && 
+                                                <button onClick={async ()=>{
+                                                    const cat = prompt("Categoria:"); 
+                                                    const tit = prompt("Nombre:"); 
+                                                    const lnk = prompt("Link:");
+                                                    if(cat && tit && lnk && db) {
+                                                        await db.collection("recurso")
+                                                            .add({ cat: cat.toUpperCase(), tit, lnk });
+                                                    }
+                                                }} 
+                                                className="bg-movistar-blue p-3 rounded-xl 
+                                                           font-black text-[9px] shadow-md">+ ADD</button>
+                                            }
+                                        </div>
+                                        {["PORTABILIDAD", "FIELDWY", "SUELDO BASE", "COMISIONES", "VENTA CONSULTIVA", "VARIOS"].map(cat => (
+                                            <div key={cat} className="space-y-2">
+                                                <p className="text-[10px] font-black text-movistar-blue 
+                                                              ml-4 uppercase tracking-widest">
+                                                    {cat}
+                                                </p>
+                                                {Array.isArray(resources) && resources.filter(r=>r?.cat===cat).map((r,i) => (
+                                                    <a href={r.lnk} target="_blank" key={i} 
+                                                       className="block bg-white p-5 rounded-[1.5rem] 
+                                                                  shadow-sm border flex justify-between 
+                                                                  items-center">
+                                                        <span className="font-bold text-[10px] 
+                                                                         uppercase text-movistar-dark">
+                                                            {r.tit}
+                                                        </span>
+                                                        <span className="bg-blue-50 p-2 rounded-lg 
+                                                                         text-movistar-blue">⬇️</span>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'EQUIPO' && (
+                            <div className="space-y-6 animate-pop">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                    <button onClick={()=>setSubTabEquipo("PERFIL")} 
+                                            className={`subtab-btn ${subTabEquipo==="PERFIL"?'subtab-active':'subtab-inactive'}`}>MI PERFIL</button>
+                                    <button onClick={()=>setSubTabEquipo("EL_MES")} 
+                                            className={`subtab-btn ${subTabEquipo==="EL_MES"?'subtab-active':'subtab-inactive'}`}>EL MEJOR</button>
+                                    <button onClick={()=>setSubTabEquipo("RANKING")} 
+                                            className={`subtab-btn ${subTabEquipo==="RANKING"?'subtab-active':'subtab-inactive'}`}>TOP RANK</button>
+                                    <button onClick={()=>setSubTabEquipo("HISTORICO")} 
+                                            className={`subtab-btn ${subTabEquipo==="HISTORICO"?'subtab-active':'subtab-inactive'}`}>LOGS</button>
+                                </div>
+
+                                {subTabEquipo === "PERFIL" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white">
+                                            <h2 className="font-black text-base italic uppercase">
+                                                Mi Roster
+                                            </h2>
+                                            <p className="text-[9px] font-bold text-gray-400">
+                                                Registrate si compartes PDV.
+                                            </p>
+                                        </div>
+                                        
+                                        {userRole === "PROMOTOR" && (
+                                            <div className="bg-white p-6 rounded-[2rem] shadow-lg border">
+                                                <h3 className="font-black text-xs text-movistar-dark uppercase mb-4">
+                                                    Alta de Usuario
+                                                </h3>
+                                                <input type="text" placeholder="Nombre Completo" 
+                                                       value={rostName} onChange={e=>setRostName(e.target.value)} 
+                                                       className="w-full bg-gray-50 p-4 rounded-xl 
+                                                                  font-bold text-xs mb-2 outline-none"/>
+                                                <input type="text" placeholder="Usuario FW" 
+                                                       value={rostFw} onChange={e=>setRostFw(e.target.value)} 
+                                                       className="w-full bg-gray-50 p-4 rounded-xl 
+                                                                  font-bold text-xs mb-2 outline-none"/>
+                                                <label className="text-[9px] font-black text-gray-400 ml-2">
+                                                    Fecha Ingreso
+                                                </label>
+                                                <input type="date" value={rostDate} 
+                                                       onChange={e=>setRostDate(e.target.value)} 
+                                                       className="w-full bg-gray-50 p-4 rounded-xl 
+                                                                  font-bold text-xs mb-4 outline-none"/>
+                                                <label className="w-full block bg-movistar-blue text-white 
+                                                                  py-4 rounded-xl font-black text-[10px] 
+                                                                  text-center cursor-pointer mb-2">
+                                                    SUBIR FOTO Y GUARDAR
+                                                    <input type="file" accept="image/*" 
+                                                           className="hidden" onChange={createProfile}/>
+                                                </label>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-4 mt-6">
+                                            {myRosters.map(r => (
+                                                <div key={r.id} 
+                                                     className="bg-white p-6 rounded-[2rem] shadow-md 
+                                                                border-t-4 border-movistar-green flex gap-4">
+                                                    <div className="w-16 h-16 rounded-full overflow-hidden 
+                                                                    border-2 border-gray-100 flex-shrink-0">
+                                                        <img src={r.foto} className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-black text-xs uppercase">
+                                                            {r.nombre}
+                                                        </h4>
+                                                        <p className="text-[9px] font-bold text-movistar-blue">
+                                                            FW: {r.fw}
+                                                        </p>
+                                                        <p className="text-[8px] font-bold text-gray-400 mt-1">
+                                                            Antiguedad: {Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000)} dias
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {subTabEquipo === "EL_MES" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2.5rem] 
+                                                        text-white shadow-xl flex justify-between">
+                                            <div>
+                                                <h2 className="font-black text-lg italic uppercase">
+                                                    EL MEJOR
+                                                </h2>
+                                            </div>
+                                            {userRole === "ADMIN" && candidates.length < 4 && 
+                                                <label className="bg-movistar-blue p-3 rounded-xl 
+                                                                  font-black text-[9px] cursor-pointer">
+                                                    + FOTO
+                                                    <input type="file" accept="image/*" 
+                                                           className="hidden" onChange={addCandidate}/>
+                                                </label>
+                                            }
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {candidates.map(c => (
+                                                <div key={c.id} className="bg-white p-4 rounded-[2rem] 
+                                                                           shadow-lg border flex flex-col 
+                                                                           items-center">
+                                                    <div className="w-24 h-24 rounded-full overflow-hidden 
+                                                                    mb-4 border-4 border-movistar-blue">
+                                                        <img src={c.foto} className="w-full h-full object-cover"/>
+                                                    </div>
+                                                    <h4 className="font-black text-[11px] text-center uppercase 
+                                                                   mb-2 h-8">{c.nombre}</h4>
+                                                    <div className="bg-blue-50 w-full text-center py-2 
+                                                                    rounded-xl mb-3">
+                                                        <span className="font-black text-movistar-blue text-xl">
+                                                            {c.votos ? c.votos.length : 0}
+                                                        </span>
+                                                    </div>
+                                                    {userRole === "PROMOTOR" && 
+                                                        <button onClick={()=>voteCandidate(c.id)} 
+                                                                className="w-full bg-movistar-blue text-white 
+                                                                           py-3 rounded-xl font-black text-[10px]">
+                                                            VOTAR ⭐
+                                                        </button>
+                                                    }
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {subTabEquipo === "RANKING" && (
+                                    <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
+                                        <div className="bg-movistar-dark p-6 text-white">
+                                            <h2 className="font-black text-base italic uppercase">Lideres</h2>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left">
+                                                <thead className="bg-gray-50 border-b">
+                                                    <tr className="text-[9px] font-black text-gray-400">
+                                                        <th className="p-5 text-center">#</th>
+                                                        <th className="p-5">NOMBRE</th>
+                                                        <th className="p-5 text-right">SCORE</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {Array.isArray(ranking) && ranking.map((u, i) => (
+                                                        <tr key={u.id} className="border-b">
+                                                            <td className="p-5 text-center font-black">#{i+1}</td>
+                                                            <td className="p-5 font-black text-[10px] uppercase">
+                                                                {u.name}
+                                                            </td>
+                                                            <td className="p-5 text-right font-black text-movistar-blue">
+                                                                {u.score}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {subTabEquipo === "HISTORICO" && (
+                                    <div className="space-y-4">
+                                        {Array.isArray(history) && history.filter(h => userRole==="ADMIN" || h?.idpdv===userId.toUpperCase()).map(h => (
+                                            <div key={h.id} className="bg-white p-5 rounded-[2rem] shadow-md border-l-8 border-movistar-green flex">
+                                                <div className="flex-1 mr-2">
+                                                    <p className="text-[7px] font-black text-movistar-blue uppercase mb-1 bg-blue-50 inline-block px-2 rounded">{h.examen}</p>
+                                                    <h4 className="font-black text-[11px] uppercase mb-1">{h.nombre}</h4>
+                                                    <p className="text-[8px] font-bold text-gray-400">{h.fecha?.toDate().toLocaleDateString('es-MX')}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-2xl font-black text-movistar-dark">{h.puntos}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'PORTAL' && (
+                            <div className="space-y-6 animate-pop">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                    <button onClick={()=>setSubTabPortal("CALCULADORA")} className={`subtab-btn ${subTabPortal==="CALCULADORA"?'subtab-active':'subtab-inactive'}`}>SIMULADOR</button>
+                                    <button onClick={()=>setSubTabPortal("VACACIONES")} className={`subtab-btn ${subTabPortal==="VACACIONES"?'subtab-active':'subtab-inactive'}`}>VACACIONES</button>
+                                    <button onClick={()=>setSubTabPortal("QUEJAS")} className={`subtab-btn ${subTabPortal==="QUEJAS"?'subtab-active':'subtab-inactive'}`}>SUGERENCIAS</button>
+                                </div>
+
+                                {subTabPortal === "CALCULADORA" && (
+                                    <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                        <h2 className="text-lg font-black mb-2 uppercase text-movistar-dark">Simulador</h2>
+                                        
+                                        {userRole === "ADMIN" && (
+                                            <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} 
+                                                    className="w-full bg-blue-50 p-3 rounded-xl font-black text-[10px] text-movistar-blue mb-4 outline-none">
+                                                <option value="ELEKTRA">ELEKTRA</option>
+                                                <option value="COPPEL_SUBURBIA">COPPEL / SUBURBIA</option>
+                                            </select>
+                                        )}
+
+                                        <div className="grid grid-cols-2 gap-4 mb-6">
+                                            <div>
+                                                <label className="text-[8px] font-black text-movistar-dark">LOGRO PDV %</label>
+                                                <input type="number" placeholder="Ej. 100" value={calcLTotal} onChange={e=>setCalcLTotal(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-xs mt-1 outline-none text-center"/>
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-black text-movistar-dark">LOGRO TEMM %</label>
+                                                <input type="number" placeholder="Ej. 95" value={calcLTemm} onChange={e=>setCalcLTemm(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-xs mt-1 outline-none text-center"/>
+                                            </div>
+                                        </div>
+
+                                        <h3 className="font-black text-[10px] text-movistar-blue mb-3 border-b pb-1">ALTAS PORTABILIDAD</h3>
+                                        <div className="grid grid-cols-3 gap-2 mb-4">
+                                            <input type="number" placeholder="$100" value={cP1} onChange={e=>setCP1(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                            <input type="number" placeholder="$150" value={cP2} onChange={e=>setCP2(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                            <input type="number" placeholder="$200" value={cP3} onChange={e=>setCP3(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                        </div>
+
+                                        <h3 className="font-black text-[10px] text-movistar-blue mb-3 border-b pb-1">ALTAS NO PORTA</h3>
+                                        <div className="grid grid-cols-3 gap-2 mb-4">
+                                            <input type="number" placeholder="$100" value={cNP1} onChange={e=>setCNP1(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                            <input type="number" placeholder="$150" value={cNP2} onChange={e=>setCNP2(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                            <input type="number" placeholder="$200" value={cNP3} onChange={e=>setCNP3(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                        </div>
+
+                                        <h3 className="font-black text-[10px] text-movistar-blue mb-3 border-b pb-1">EQUIPOS TEMM</h3>
+                                        <div className="grid grid-cols-3 gap-2 mb-6">
+                                            <input type="number" placeholder="$100" value={cT1} onChange={e=>setCT1(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                            <input type="number" placeholder="$150" value={cT2} onChange={e=>setCT2(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                            <input type="number" placeholder="$200" value={cT3} onChange={e=>setCT3(e.target.value)} className="bg-gray-50 p-2 rounded-lg text-center text-xs font-bold outline-none"/>
+                                        </div>
+
+                                        <div className="bg-movistar-green text-white p-5 rounded-2xl text-center shadow-lg">
+                                            <p className="text-[10px] font-bold uppercase mb-1">Pago Estimado</p>
+                                            <p className="text-4xl font-black">${calculatePayout()}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {subTabPortal === "VACACIONES" && (
+                                    userRole === "PROMOTOR" ? (
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                            <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Dias Libres</h2>
+                                            <form onSubmit={submitVac} className="space-y-4">
+                                                <input type="text" placeholder="Nombre" required value={vacName} onChange={e=>setVacName(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                <input type="text" placeholder="Usuario FW" required value={vacUser} onChange={e=>setVacUser(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                <div>
+                                                    <label className="text-[9px] font-black text-gray-400 ml-2">Inicio (Min 15 dias)</label>
+                                                    <input type="date" required min={minVacDate} value={vacDate} onChange={e=>setVacDate(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] font-black text-gray-400 ml-2">Dias a pedir</label>
+                                                    <input type="number" min="1" max="14" required value={vacDays} onChange={e=>setVacDays(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/>
+                                                </div>
+                                                <button type="submit" className="w-full bg-movistar-blue text-white p-4 rounded-xl font-black text-[10px]">ENVIAR</button>
+                                            </form>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {vacaciones.map(v => (
+                                                <div key={v.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-blue">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-[9px] font-black text-movistar-blue">{v.idpdv}</span>
+                                                        <span className="text-[8px] font-bold text-gray-400">{v.fecha?.toDate().toLocaleDateString()}</span>
+                                                    </div>
+                                                    <h4 className="font-black text-xs uppercase my-1">{v.nombre}</h4>
+                                                    <p className="text-[10px] font-bold text-gray-500">
+                                                        Pide <span className="text-movistar-dark font-black">{v.diasSolicitados} dias</span> desde <span className="text-movistar-dark font-black">{v.fechaDeseada}</span>
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                )}
+
+                                {subTabPortal === "QUEJAS" && (
+                                    userRole === "PROMOTOR" ? (
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                            <h2 className="text-lg font-black mb-2 uppercase text-movistar-dark">Buzon Operativo</h2>
+                                            <form onSubmit={submitSug} className="space-y-4 mt-4">
+                                                <textarea required placeholder="Escribe aqui..." rows="5" value={sugText} onChange={e=>setSugText(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
+                                                <button type="submit" className="w-full bg-movistar-dark text-white p-4 rounded-xl font-black text-[10px]">ENVIAR</button>
+                                            </form>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {quejas.map(q => (
+                                                <div key={q.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-red">
+                                                    <div className="flex justify-between mb-2">
+                                                        <span className="text-[9px] font-black text-movistar-red">ID: {q.idpdv}</span>
+                                                        <span className="text-[8px] font-bold text-gray-400">{q.fecha?.toDate().toLocaleDateString()}</span>
+                                                    </div>
+                                                    <p className="text-xs font-bold text-gray-600 italic">"{q.texto}"</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
+
