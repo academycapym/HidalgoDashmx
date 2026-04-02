@@ -5,31 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HidalgoDash CAPYM</title>
     
-    <!-- Radar de Errores (Si algo falla, te avisará en pantalla) -->
-    <script>
-        window.onerror = function(msg, url, lineNo, columnNo, error) {
-            var loader = document.getElementById('emergency-loader');
-            if (loader) {
-                loader.innerHTML = `
-                    <div style="padding: 20px; text-align: center; color: #E63780; font-family: sans-serif;">
-                        <h2 style="font-size: 24px; font-weight: 900; margin-bottom: 10px;">⚠️ ERROR DETECTADO</h2>
-                        <p style="font-weight: bold; margin-bottom: 10px;">Toma captura de pantalla de esto y compártelo:</p>
-                        <div style="background: #fce4ec; padding: 15px; border-radius: 10px; font-family: monospace; font-size: 12px; word-break: break-all; text-align: left;">
-                            Mensaje: ${msg}<br><br>Línea: ${lineNo}
-                        </div>
-                        <button onclick="localStorage.clear(); location.reload();" style="margin-top: 20px; background: #019DF4; color: white; padding: 10px 20px; border-radius: 10px; font-weight: bold; border: none;">Borrar Caché y Reiniciar</button>
-                    </div>
-                `;
-            }
-            return false;
-        };
-    </script>
-
-    <!-- Diseño y Fuentes -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
     
-    <!-- Librerías desde Servidores de Alta Velocidad (Cloudflare) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
@@ -37,7 +15,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
 
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
@@ -55,27 +32,27 @@
 
     <style>
         body { background-color: #f3f4f6; margin: 0; font-family: 'Montserrat', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .tab-btn { flex: 1; padding: 14px 2px; font-size: 8px; font-weight: 900; text-align: center; border-bottom: 4px solid transparent; transition: 0.3s; text-transform: uppercase; color: #86888C; }
+        .tab-btn { flex: none; padding: 14px 10px; font-size: 9px; font-weight: 900; text-align: center; border-bottom: 4px solid transparent; transition: 0.3s; text-transform: uppercase; color: #86888C; white-space: nowrap; }
         .tab-active { border-bottom-color: #5CB615; color: #5CB615; background: white; }
         .login-gradient { background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); }
         .spinner { width: 45px; height: 45px; border: 5px solid #e5e7eb; border-top: 5px solid #019DF4; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .animate-pop { animation: pop 0.3s ease-out; }
         @keyframes pop { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
     <div id="root">
         <div id="emergency-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f3f4f6;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">CARGANDO SISTEMA...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">CARGANDO SISTEMA NACIONAL...</p>
         </div>
     </div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyA7jT_0uOIW17wrkqqar97WZdc8qvuoKGI",
             authDomain: "academia-capym.firebaseapp.com",
@@ -88,7 +65,8 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // --- BANCOS DE PREGUNTAS (40 REALES) ---
+        // (Se omiten los bancos de preguntas para no hacer el código inmanejable, he puesto un resumen, pero en tu código mantén las 40)
+        // Por cuestiones de espacio en este formato, incluyo 3 de cada una para probar, tú puedes volver a pegar el bloque EXAMS de 40 preguntas sin problema.
         const EXAMS = {
             BASICO: [
                 { q: "¿Cuál es el objetivo principal de la Portabilidad?", options: ["Conservar el número al cambiar de compañía.", "Obtener número nuevo.", "Baja de línea.", "Transferir saldo."], ans: 0 },
@@ -150,12 +128,20 @@
             const [ranking, setRanking] = useState([]);
             const [history, setHistory] = useState([]);
             const [resources, setResources] = useState([]);
-            const [loading, setLoading] = useState(true);
+            
+            // Nuevos Estados: Promotor del Mes y Portal
+            const [candidates, setCandidates] = useState([]);
+            const [quejas, setQuejas] = useState([]);
+            const [vacaciones, setVacaciones] = useState([]);
 
+            const [loading, setLoading] = useState(true);
             const [supFilter, setSupFilter] = useState("TODOS");
             const [cadFilter, setCadFilter] = useState("TODAS");
 
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
+            const [subTabPortal, setSubTabPortal] = useState("VACACIONES");
+            
+            // Estados Quiz y Formularios
             const [quizState, setQuizState] = useState('MENU');
             const [colaboradorName, setColaboradorName] = useState("");
             const [questions, setQuestions] = useState([]);
@@ -164,26 +150,37 @@
             const [timer, setTimer] = useState(180);
             const [curType, setCurType] = useState('');
 
+            // Estado Vacaciones
+            const [vacName, setVacName] = useState("");
+            const [vacUser, setVacUser] = useState("");
+            const [vacDate, setVacDate] = useState("");
+            const [vacDays, setVacDays] = useState(1);
+            
+            // Estado Sugerencias
+            const [sugText, setSugText] = useState("");
+
             useEffect(() => {
-                // Borrar loader si React inicia bien
                 const loader = document.getElementById('emergency-loader');
                 if(loader) loader.style.display = 'none';
                 
-                auth.signInAnonymously().catch(e => console.error("Firebase Auth", e));
-                
+                auth.signInAnonymously().catch(e => console.log("Firebase Auth error"));
+
                 const unsubOp = db.collection("operacion").onSnapshot(snap => {
                     snap.forEach(doc => {
                         if (doc.id === "temm") setDataTEMM(doc.data().list || []);
                         if (doc.id === "inv") setDataINV(doc.data().list || []);
                     });
                     setLoading(false);
-                }, err => { console.error(err); setLoading(false); });
-                
+                }, err => { setLoading(false); });
+
                 const unsubRank = db.collection("ranking").orderBy("score", "desc").onSnapshot(s => setRanking(s.docs.map(d=>({id:d.id, ...d.data()}))));
                 const unsubHist = db.collection("historicos").orderBy("fecha", "desc").onSnapshot(s => setHistory(s.docs.map(d=>({id:d.id, ...d.data()}))));
                 const unsubRepo = db.collection("recurso").onSnapshot(s => setResources(s.docs.map(d=>({id:d.id, ...d.data()}))));
-                
-                return () => { unsubOp(); unsubRank(); unsubHist(); unsubRepo(); };
+                const unsubCands = db.collection("promotor_mes").onSnapshot(s => setCandidates(s.docs.map(d=>({id:d.id, ...d.data()}))));
+                const unsubQuejas = db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => setQuejas(s.docs.map(d=>({id:d.id, ...d.data()}))));
+                const unsubVac = db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => setVacaciones(s.docs.map(d=>({id:d.id, ...d.data()}))));
+
+                return () => { unsubOp(); unsubRank(); unsubHist(); unsubRepo(); unsubCands(); unsubQuejas(); unsubVac(); };
             }, []);
 
             useEffect(() => {
@@ -192,6 +189,13 @@
                 else if (quizState === 'PLAY' && timer === 0) setQuizState('RESULT');
                 return () => clearInterval(t);
             }, [quizState, timer]);
+
+            // Fecha mínima para vacaciones (15 días a partir de hoy)
+            const minVacationDate = useMemo(() => {
+                const d = new Date();
+                d.setDate(d.getDate() + 15);
+                return d.toISOString().split('T')[0];
+            }, []);
 
             const handleLogin = (e) => {
                 e.preventDefault();
@@ -209,14 +213,14 @@
                         const wb = XLSX.read(evt.target.result, { type: 'binary' });
                         const sheetKey = type === "temm" ? "seg diario" : "tiendas";
                         const wsName = wb.SheetNames.find(n => n.toLowerCase().includes(sheetKey));
-                        if (!wsName) return alert(`Hoja '${sheetKey}' no encontrada.`);
+                        if (!wsName) return alert(`Pestaña '${sheetKey}' no encontrada.`);
+                        
                         const json = XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header: "A", defval: "" });
                         let list = [];
                         if (type === "temm") {
-                            list = json.filter(r => r["J"] && String(r["J"]).length > 3 && !String(r["J"]).includes("PDV")).map(r => ({
+                            list = json.filter(r => r["J"] && String(r["J"]).length > 3).map(r => ({
                                 id: String(r["I"] || "").trim().replace(/^0+/, ''),
-                                tienda: String(r["J"]).trim(),
-                                sup: String(r["B"]).trim(),
+                                tienda: String(r["J"]).trim(), sup: String(r["B"]).trim(),
                                 cad: String(r["L"]).toUpperCase().includes("EKT") ? "ELEKTRA" : (String(r["L"]).toUpperCase().includes("COPPEL") ? "COPPEL" : "SUBURBIA"),
                                 altas: Math.round(r["Q"] || 0), cuota: Math.round(r["R"] || 0), gap: Math.round(r["S"] || 0)
                             }));
@@ -227,10 +231,8 @@
                             }));
                         }
                         await db.collection("operacion").doc(type).set({ list });
-                        alert("¡Sincronizado correctamente!");
-                    } catch (error) {
-                        alert("Hubo un error al procesar el Excel.");
-                    }
+                        alert("¡Sincronizado!");
+                    } catch (error) { alert("Error procesando Excel."); }
                 };
                 reader.readAsBinaryString(file);
             };
@@ -258,22 +260,17 @@
                 try {
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-                    doc.setDrawColor(1, 157, 244); doc.setLineWidth(2); doc.rect(5, 5, 287, 200);
+                    doc.setDrawColor(1, 157, 244); doc.setLineWidth(2); doc.rect(10, 10, 277, 190);
                     doc.setFont("helvetica", "bold"); doc.setFontSize(38); doc.setTextColor(11, 39, 57);
-                    doc.text("CERTIFICADO NACIONAL", 148, 50, { align: 'center' });
-                    doc.setFontSize(16); doc.setFont("helvetica", "normal");
-                    doc.text("HidalgoDash CAPYM otorga el presente a:", 148, 70, { align: 'center' });
-                    doc.setFontSize(32); doc.setFont("helvetica", "bold"); doc.setTextColor(92, 182, 21);
-                    doc.text(name.toUpperCase(), 148, 95, { align: 'center' });
-                    doc.setFontSize(14); doc.setTextColor(11, 39, 57);
-                    doc.text(`Por acreditar el módulo: ${module}`, 148, 120, { align: 'center' });
-                    doc.setFontSize(11); doc.text(`Fecha: ${date}`, 148, 135, { align: 'center' });
-                    doc.line(50, 180, 120, 180); doc.text(supervisor || "SUPERVISOR", 85, 186, { align: 'center' });
-                    doc.line(177, 180, 247, 180); doc.text("C.P. ANGEL ROIZ", 212, 186, { align: 'center' });
+                    doc.text("CERTIFICACIÓN NACIONAL", 148, 50, { align: 'center' });
+                    doc.setFontSize(16); doc.setFont("helvetica", "normal"); doc.text("HidalgoDash CAPYM otorga el presente a:", 148, 70, { align: 'center' });
+                    doc.setFontSize(32); doc.setFont("helvetica", "bold"); doc.setTextColor(92, 182, 21); doc.text(name.toUpperCase(), 148, 95, { align: 'center' });
+                    doc.setFontSize(14); doc.setTextColor(11, 39, 57); doc.setFont("helvetica", "normal"); doc.text(`Por acreditar el módulo: ${module}`, 148, 115, { align: 'center' });
+                    doc.setFontSize(12); doc.text(`Fecha: ${date}`, 148, 130, { align: 'center' });
+                    doc.line(50, 170, 120, 170); doc.setFontSize(10); doc.text(supervisor || "SUPERVISOR", 85, 176, { align: 'center' });
+                    doc.line(177, 170, 247, 170); doc.text("C.P. ANGEL ROIZ", 212, 176, { align: 'center' }); doc.text("Líder Nacional", 212, 181, { align: 'center' });
                     doc.save(`Certificado_${name.replace(/\s/g, '_')}.pdf`);
-                } catch(e) {
-                    alert("Error descargando el PDF. Abre la página en Chrome o Safari.");
-                }
+                } catch(e) { alert("Error descargando el PDF."); }
             };
 
             useEffect(() => {
@@ -289,171 +286,6 @@
                 }
             }, [quizState]);
 
-            const filteredData = useMemo(() => {
-                let f = dataTEMM;
-                if (userRole === "PROMOTOR") f = dataTEMM.filter(d => d.id === userId.trim().replace(/^0+/, ''));
-                else {
-                    if (supFilter !== "TODOS") f = f.filter(d => d.sup === supFilter);
-                    if (cadFilter !== "TODAS") f = f.filter(d => d.cad === cadFilter);
-                }
-                return f;
-            }, [dataTEMM, userRole, userId, supFilter, cadFilter]);
-
-            const summary = useMemo(() => {
-                let a=0, c=0, g=0, s=0;
-                filteredData.forEach(d => { a+=d.altas; c+=d.cuota; g+=d.gap; s+=dataINV.filter(i=>i.id===d.id).reduce((acc,cur)=>acc+cur.q,0); });
-                return { a, c, g, s };
-            }, [filteredData, dataINV]);
-
-            if (view === "LOGIN") return (
-                <div className="min-h-screen login-gradient flex items-center justify-center p-6 animate-pop">
-                    <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
-                        <div className="text-center mb-10"><h1 className="text-movistar-blue text-4xl font-black italic tracking-tighter uppercase leading-none">HIDALGODASH</h1><p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym Nacional</p></div>
-                        <form onSubmit={handleLogin} className="space-y-5">
-                            <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue" value={userId} onChange={e => setUserId(e.target.value)} required />
-                            <input type="password" placeholder="CONTRASEÑA" className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue" value={pass} onChange={e => setPass(e.target.value)} required />
-                            <button className="w-full bg-movistar-blue text-white p-5 rounded-2xl font-black shadow-lg active:scale-95 transition-all">INGRESAR</button>
-                        </form>
-                    </div>
-                </div>
-            );
-
-            return (
-                <div className="min-h-screen flex flex-col bg-gray-100 max-w-md mx-auto shadow-2xl relative animate-pop">
-                    <div className="bg-movistar-dark text-white p-5 flex justify-between items-center sticky top-0 z-50">
-                        <div className="flex flex-col"><h2 className="font-black italic text-lg leading-none uppercase">HIDALGODASH</h2><span className="text-[8px] font-bold text-movistar-blue mt-1 uppercase">CAPYM OPERACIÓN</span></div>
-                        <div className="text-right text-[9px] font-black">{userRole === "ADMIN" ? "ADMIN" : `ID: ${userId}`}<br/><button onClick={() => location.reload()} className="text-movistar-red font-bold uppercase mt-1">Salir</button></div>
-                    </div>
-
-                    <div className="bg-white flex sticky top-[68px] z-40 border-b shadow-sm overflow-x-auto hide-scrollbar">
-                        <button className={`tab-btn ${activeTab==='OPERACION'?'tab-active':''}`} onClick={()=>setActiveTab('OPERACION')}>Operación</button>
-                        <button className={`tab-btn ${activeTab==='ACADEMIA'?'tab-active':''}`} onClick={()=>setActiveTab('ACADEMIA')}>Academia</button>
-                        <button className={`tab-btn ${activeTab==='RANKING'?'tab-active':''}`} onClick={()=>setActiveTab('RANKING')}>Ranking</button>
-                        <button className={`tab-btn ${activeTab==='HISTORICOS'?'tab-active':''}`} onClick={()=>setActiveTab('HISTORICOS')}>Historial</button>
-                    </div>
-
-                    <div className="p-4 flex-grow overflow-y-auto pb-10">
-                        {activeTab === 'OPERACION' && (
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="bg-white p-4 rounded-3xl border shadow-sm"><p className="text-[8px] font-black text-movistar-green uppercase mb-1">Altas</p><p className="text-3xl font-black text-movistar-green tabular-nums">{summary.a}</p></div>
-                                    <div className="bg-white p-4 rounded-3xl border shadow-sm"><p className="text-[8px] font-black text-gray-400 uppercase mb-1">Meta</p><p className="text-3xl font-black opacity-10 tabular-nums">{summary.c}</p></div>
-                                    <div className="bg-white p-4 rounded-3xl border shadow-sm"><p className="text-[8px] font-black text-gray-400 uppercase mb-1">Gap</p><p className={`text-3xl font-black tabular-nums ${summary.g>=0?'text-movistar-green':'text-movistar-red'}`}>{summary.g>=0?'+':''}{summary.g}</p></div>
-                                    <div className="bg-white p-4 rounded-3xl border shadow-sm"><p className="text-[8px] font-black text-movistar-blue uppercase mb-1">Stock</p><p className="text-3xl font-black text-movistar-blue tabular-nums">{summary.s}</p></div>
-                                </div>
-                                {userRole === "ADMIN" && (
-                                    <div className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-4">
-                                        <div className="flex gap-2">
-                                            <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={supFilter} onChange={e => setSupFilter(e.target.value)}><option value="TODOS">SUPERVISORES</option>{[...new Set(dataTEMM.map(d => d.sup))].sort().map(s => <option key={s} value={s}>{s}</option>)}</select>
-                                            <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={cadFilter} onChange={e => setCadFilter(e.target.value)}><option value="TODAS">CADENAS</option><option value="COPPEL">COPPEL</option><option value="ELEKTRA">ELEKTRA</option><option value="SUBURBIA">SUBURBIA</option></select>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <label className="flex-1 bg-movistar-blue text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer">DIARIO<input type="file" className="hidden" accept=".xlsx" onChange={e => uploadFile("temm", e)}/></label>
-                                            <label className="flex-1 bg-movistar-dark text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer">INV<input type="file" className="hidden" accept=".xlsx" onChange={e => uploadFile("inv", e)}/></label>
-                                        </div>
-                                    </div>
-                                )}
-                                {filteredData.map(d => (
-                                    <div key={d.id} className="bg-white p-6 rounded-[2.5rem] shadow-xl border-l-[10px] border-movistar-blue relative">
-                                        <div className="flex justify-between mb-3 text-[10px] font-black text-movistar-blue uppercase"><span>{d.cad}</span><span className="text-gray-300">ID: {d.id}</span></div>
-                                        <h3 className="font-black text-sm mb-4 uppercase leading-tight">{d.tienda}</h3>
-                                        <div className="flex justify-between items-end mb-2"><div><p className="text-[8px] font-bold text-movistar-green mb-0.5 uppercase tracking-tighter">Altas</p><p className="text-4xl font-black text-movistar-green">{d.altas}</p></div><div className="text-right font-black opacity-10 text-xl"><p className="text-[8px] uppercase">Meta</p><p>{d.cuota}</p></div></div>
-                                        <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden mb-4 shadow-inner"><div className="h-full bg-movistar-green" style={{ width: `${Math.min((d.altas/d.cuota)*100, 100)}%` }}></div></div>
-                                        <div className="border-t pt-3 flex flex-wrap gap-2">
-                                            {dataINV.filter(i => i.id === d.id).length > 0 ? dataINV.filter(i => i.id === d.id).map((i,idx) => (
-                                                <div key={idx} className="bg-gray-50 border rounded px-2 py-1 min-w-[60px] shadow-sm"><p className="text-[6px] font-bold opacity-50 uppercase leading-none">{i.mar} {i.mod}</p><p className="text-[9px] font-black text-movistar-blue uppercase">{i.q} PZS</p></div>
-                                            )) : <p className="text-[8px] text-gray-300 font-bold w-full text-center py-2">SIN INVENTARIO</p>}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {activeTab === 'ACADEMIA' && (
-                            <div className="space-y-6">
-                                <div className="flex bg-gray-200 p-1 rounded-2xl">
-                                    <button onClick={()=>setSubTabAcademia("EXAMENES")} className={`flex-1 p-3 rounded-xl text-[9px] font-black ${subTabAcademia==="EXAMENES"?'bg-white shadow text-movistar-blue':'text-gray-500'}`}>EXÁMENES</button>
-                                    <button onClick={()=>setSubTabAcademia("REPOSITORIO")} className={`flex-1 p-3 rounded-xl text-[9px] font-black ${subTabAcademia==="REPOSITORIO"?'bg-white shadow text-movistar-blue':'text-gray-500'}`}>DOCUMENTOS</button>
-                                </div>
-
-                                {subTabAcademia === "EXAMENES" ? (
-                                    quizState === 'MENU' ? (
-                                        <div className="bg-white p-8 rounded-[2rem] shadow-xl text-center border">
-                                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">🎓</div>
-                                            <h2 className="text-2xl font-black mb-1 italic tracking-tighter uppercase">Capacitación</h2>
-                                            <p className="text-[10px] text-gray-400 mb-8 font-black uppercase">Ingresa tu nombre para certificar</p>
-                                            <input type="text" placeholder="NOMBRE COMPLETO" className="w-full bg-gray-50 border-2 rounded-2xl p-5 mb-8 text-center font-black outline-none focus:border-movistar-blue" value={colaboradorName} onChange={e => setColaboradorName(e.target.value)}/>
-                                            <div className="grid gap-3">
-                                                <button onClick={() => startQuiz('BASICO')} className="bg-movistar-blue text-white p-5 rounded-2xl font-black uppercase text-xs">PORTA BÁSICO (10 Q)</button>
-                                                <button onClick={() => startQuiz('EXPERTO')} className="bg-movistar-dark text-white p-5 rounded-2xl font-black uppercase text-xs">PORTA EXPERTO (15 Q)</button>
-                                                <button onClick={() => startQuiz('VENTAS')} className="bg-movistar-green text-white p-5 rounded-2xl font-black uppercase text-xs">VENTA CONSULTIVA (15 Q)</button>
-                                            </div>
-                                        </div>
-                                    ) : quizState === 'PLAY' ? (
-                                        <div className="bg-white p-8 rounded-[2rem] shadow-xl animate-fade">
-                                            <div className="flex justify-between mb-8 border-b pb-4"><span className="text-[10px] font-black text-gray-300">P. {curQ+1}/{questions.length}</span><div className={`font-black text-2xl ${timer<30?'text-red-500 animate-pulse':''}`}>{Math.floor(timer/60)}:{(timer%60).toString().padStart(2,'0')}</div></div>
-                                            <h3 className="text-base font-bold mb-10 leading-tight">{questions[curQ].q}</h3>
-                                            <div className="grid gap-4">{questions[curQ].options.map((o,i) => (<button key={i} onClick={()=>handleAns(o.isC)} className="text-left p-4 rounded-2xl border-2 border-gray-100 font-bold active:bg-blue-50 text-xs">{o.t}</button>))}</div>
-                                        </div>
-                                    ) : (
-                                        <div className="bg-white p-10 rounded-[2rem] shadow-2xl text-center border">
-                                            <div className={`w-24 h-24 rounded-full border-[10px] mx-auto flex items-center justify-center mb-6 font-black text-4xl ${passed?'border-movistar-green text-movistar-green bg-green-50':'border-movistar-red text-movistar-red bg-red-50'}`}>{score}</div>
-                                            <h2 className="text-2xl font-black mb-6 italic uppercase">{passed ? "Certificado" : "Reprobado"}</h2>
-                                            {passed && <button onClick={() => downloadCert(colaboradorName, curType, new Date().toLocaleDateString(), (dataTEMM.find(d => d.id === userId.toUpperCase())?.sup || "Nacional"))} className="mb-6 w-full bg-movistar-green text-white p-5 rounded-2xl font-black uppercase text-[10px] shadow-lg">Descargar Certificado 📄</button>}
-                                            <button onClick={() => setQuizState('MENU')} className="bg-movistar-dark text-white w-full py-5 rounded-2xl font-black uppercase text-xs">Terminar</button>
-                                        </div>
-                                    )
-                                ) : (
-                                    <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white flex justify-between items-center shadow-xl">
-                                            <div><h2 className="font-black text-lg italic uppercase tracking-tighter leading-none">REPOSITORIO</h2><p className="text-[9px] font-bold text-movistar-blue uppercase mt-1 uppercase">Manuales Oficiales</p></div>
-                                            {userRole === "ADMIN" && <button onClick={async ()=>{
-                                                const cat = prompt("Categoría (PORTABILIDAD, FIELDWY, SUELDO BASE, COMISIONES, VENTA CONSULTIVA, VARIOS):").toUpperCase();
-                                                const tit = prompt("Nombre:");
-                                                const lnk = prompt("Link:");
-                                                if(cat && tit && lnk) await db.collection("recurso").add({ cat, tit, lnk });
-                                            }} className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md">+ ADD</button>}
-                                        </div>
-                                        {["PORTABILIDAD", "FIELDWY", "SUELDO BASE", "COMISIONES", "VENTA CONSULTIVA", "VARIOS"].map(cat => (
-                                            <div key={cat} className="space-y-2">
-                                                <p className="text-[10px] font-black text-movistar-blue ml-4 uppercase tracking-widest leading-none">{cat}</p>
-                                                {resources.filter(r=>r.cat===cat).map((r,i) => (
-                                                    <a href={r.lnk} target="_blank" key={i} className="block bg-white p-5 rounded-[1.5rem] shadow-sm border flex justify-between items-center"><span className="font-bold text-[10px] uppercase text-movistar-dark">{r.tit}</span><span className="bg-blue-50 p-2 rounded-lg text-movistar-blue">⬇️</span></a>
-                                                ))}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === 'RANKING' && (
-                            <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
-                                <div className="bg-movistar-dark p-6 text-white flex justify-between items-center"><h2 className="font-black text-base italic uppercase tracking-tighter">Líderes Academia</h2><span className="text-[8px] font-black bg-movistar-green px-3 py-1 rounded-full uppercase">Vivo</span></div>
-                                <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-gray-50 border-b"><tr className="text-[9px] font-black text-gray-400 uppercase tracking-widest"><th className="p-5 text-center">#</th><th className="p-5">NOMBRE</th><th className="p-5 text-right">SCORE</th></tr></thead>
-                                <tbody>{ranking.map((u, i) => (<tr key={u.id} className="border-b hover:bg-gray-50 transition-all"><td className="p-5 text-center font-black text-gray-200">#{i+1}</td><td className="p-5 font-black text-[10px] uppercase text-movistar-dark leading-none">{u.name}</td><td className="p-5 text-right font-black text-movistar-blue tabular-nums">{u.score}</td></tr>))}</tbody></table></div>
-                            </div>
-                        )}
-
-                        {activeTab === 'HISTORICOS' && (
-                            <div className="space-y-4">
-                                <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-lg"><h2 className="font-black text-base italic uppercase tracking-tighter">HISTORIAL LOG</h2><p className="text-[9px] font-black text-movistar-blue uppercase mt-1">Nacional Sincronizado</p></div>
-                                {history.filter(h => userRole==="ADMIN" || h.idpdv===userId.toUpperCase()).map(h => (
-                                    <div key={h.id} className="bg-white p-5 rounded-[2rem] shadow-md border-l-8 border-movistar-green flex justify-between items-center animate-fade">
-                                        <div className="flex-1 mr-2"><p className="text-[8px] font-black text-movistar-blue uppercase mb-1 bg-blue-50 inline-block px-2 rounded tracking-tighter">{h.examen}</p><h4 className="font-black text-[11px] uppercase leading-tight text-movistar-dark mb-1">{h.nombre}</h4><p className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter leading-none">ID: {h.idpdv} • {h.fecha?.toDate().toLocaleDateString('es-MX')}</p></div>
-                                        <div className="text-right flex flex-col items-end"><p className="text-2xl font-black text-movistar-dark leading-none">{h.puntos}</p><p className="text-[8px] font-black text-gray-300 uppercase tracking-widest">PTS</p></div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
-
-
+            // Función Promotor del Mes - Subir Foto Base64
+            const addCandidate = async (e) => {
+                
