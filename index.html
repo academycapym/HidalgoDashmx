@@ -5,39 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HidalgoDash CAPYM</title>
     
-    <!-- Radar de Errores -->
     <script>
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             var loader = document.getElementById('emergency-loader');
             if (loader) {
                 loader.innerHTML = `
-                    <div style="padding: 20px; text-align: center; color: #E63780; font-family: sans-serif;">
-                        <h2 style="font-size: 24px; font-weight: 900; margin-bottom: 10px;">⚠️ ERROR DETECTADO</h2>
-                        <div style="background: #fce4ec; padding: 15px; border-radius: 10px; font-family: monospace; font-size: 12px; word-break: break-all; text-align: left;">
-                            ${msg}<br>Línea: ${lineNo}
+                    <div style="padding:20px;text-align:center;color:#E63780;font-family:sans-serif;">
+                        <h2 style="font-size:24px;font-weight:900;margin-bottom:10px;">⚠️ ERROR</h2>
+                        <div style="background:#fce4ec;padding:15px;border-radius:10px;font-family:monospace;font-size:12px;text-align:left;">
+                            ${msg}<br>Linea: ${lineNo}
                         </div>
-                        <button onclick="localStorage.clear(); location.reload();" style="margin-top: 20px; background: #019DF4; color: white; padding: 10px 20px; border-radius: 10px; font-weight: bold; border: none;">REINICIAR</button>
-                    </div>
-                `;
+                        <button onclick="localStorage.clear(); location.reload();" style="margin-top:20px;background:#019DF4;color:white;padding:10px 20px;border-radius:10px;font-weight:bold;border:none;">REINICIAR</button>
+                    </div>`;
             }
             return false;
         };
     </script>
 
-    <!-- Diseño -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
-    
-    <!-- Librerías de Alta Velocidad -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <!-- React y Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
@@ -66,63 +59,61 @@
 </head>
 <body>
     <div id="root">
-        <!-- Loader inicial V15 -->
         <div id="emergency-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f3f4f6;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px; letter-spacing: 1px;">INICIANDO V15...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px; letter-spacing: 1px;">INICIANDO V16...</p>
         </div>
     </div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- BANCOS DE PREGUNTAS COMPLETOS ---
         const EXAMS_DATA = {
             BASICO: [
-                { q: "¿Cuál es el objetivo primordial de la Portabilidad Numérica en México?", options: ["Conservar el número telefónico al cambiar de compañía de forma gratuita.", "Obtener un número nuevo sin costo.", "Dar de baja una línea definitivamente.", "Fusionar saldos de diferentes compañías."], ans: 0 },
-                { q: "¿Cuál es el periodo de vigencia oficial del NIP de Portabilidad?", options: ["5 días naturales a partir de su generación.", "24 horas hábiles.", "15 días según el IFT.", "Vigencia ilimitada."], ans: 0 },
-                { q: "¿Cuántos dígitos componen el ICC (serie) de la SIM Movistar?", options: ["19 dígitos numéricos.", "15 dígitos.", "10 dígitos.", "13 dígitos."], ans: 0 },
-                { q: "En portabilidad, ¿qué significan las siglas FVC?", options: ["Fecha de Ventana de Cambio (día de migración).", "Folio de Venta Confirmada.", "Firma de Validación.", "Fin de Venta."], ans: 0 },
-                { q: "¿Quién regula y autoriza nacionalmente los cambios de compañía?", options: ["El ABD (Administrador de Base de Datos).", "Movistar.", "El promotor.", "El donador."], ans: 0 },
-                { q: "Si ingresas la CURP en Ónix, ¿qué paso logras omitir?", options: ["Las fotos de la identificación oficial.", "El ingreso del NIP.", "La firma del contrato.", "El escaneo del ICC."], ans: 0 },
-                { q: "¿A qué número oficial se marca para pedir el NIP?", options: ["051", "*611", "050", "*123"], ans: 0 },
-                { q: "¿Qué sucede si la línea es de Persona Moral?", options: ["El ABD rechazará el trámite sin documentos corporativos.", "Pasa normal.", "Tarda 48 horas más.", "No requiere NIP."], ans: 0 },
-                { q: "¿En qué horario se ejecutan normalmente las portabilidades?", options: ["2:00 AM a 6:00 AM.", "Mediodía.", "Al capturar.", "10:00 PM."], ans: 0 },
-                { q: "Motivo principal de rechazo por Back Office:", options: ["Fotos borrosas o identificación cortada.", "Falta de señal.", "NIP expirado.", "Equipo bloqueado."], ans: 0 }
+                { q: "¿Cual es el objetivo primordial de la Portabilidad Numerica?", options: ["Conservar el numero telefonico al cambiar de compania.", "Obtener un numero nuevo sin costo.", "Dar de baja una linea definitivamente.", "Fusionar saldos de diferentes companias."], ans: 0 },
+                { q: "¿Cual es el periodo de vigencia oficial del NIP de Portabilidad?", options: ["5 dias naturales a partir de su generacion.", "24 horas habiles.", "15 dias segun el IFT.", "Vigencia ilimitada."], ans: 0 },
+                { q: "¿Cuantos digitos componen el ICC (serie) de la SIM Movistar?", options: ["19 digitos numericos.", "15 digitos.", "10 digitos.", "13 digitos."], ans: 0 },
+                { q: "En portabilidad, ¿que significan las siglas FVC?", options: ["Fecha de Ventana de Cambio.", "Folio de Venta Confirmada.", "Firma de Validacion.", "Fin de Venta."], ans: 0 },
+                { q: "¿Quien regula y autoriza nacionalmente los cambios de compania?", options: ["El ABD (Administrador de Base de Datos).", "Movistar.", "El promotor.", "El donador."], ans: 0 },
+                { q: "Si ingresas la CURP en Onix, ¿que paso logras omitir?", options: ["Las fotos de la identificacion oficial.", "El ingreso del NIP.", "La firma del contrato.", "El escaneo del ICC."], ans: 0 },
+                { q: "¿A que numero oficial se marca para pedir el NIP?", options: ["051", "*611", "050", "*123"], ans: 0 },
+                { q: "¿Que sucede si la linea es de Persona Moral?", options: ["El ABD rechazara el tramite sin documentos corporativos.", "Pasa normal.", "Tarda 48 horas mas.", "No requiere NIP."], ans: 0 },
+                { q: "¿En que horario se ejecutan normalmente las portabilidades?", options: ["2:00 AM a 6:00 AM.", "Mediodia.", "Al capturar.", "10:00 PM."], ans: 0 },
+                { q: "Motivo principal de rechazo por Back Office:", options: ["Fotos borrosas o identificacion cortada.", "Falta de senal.", "NIP expirado.", "Equipo bloqueado."], ans: 0 }
             ],
             EXPERTO: [
-                { q: "¿Qué significa técnicamente el Error Code: 3059 en Ónix?", options: ["Línea con proceso de portabilidad previo activo.", "NIP incorrecto ingresado.", "La SIM Movistar ya fue utilizada.", "Sin conexión con el servidor."], ans: 0 },
-                { q: "¿Cuál es el horario del Back Office para cancelaciones?", options: ["Lunes a Sábado de 9:00 a 17:00h.", "24 horas los 365 días.", "Lunes a Viernes 8:00 a 20:00h.", "Solo Domingos mañanas."], ans: 0 },
-                { q: "Si aparece 'Order number does not exist' en reinyección:", options: ["Se debe crear un trámite nuevo desde cero.", "Reiniciar la aplicación Ónix.", "Pedir NIP de nuevo inmediatamente.", "Llamar al soporte Nivel 2."], ans: 0 },
-                { q: "¿Qué valida legalmente a un cliente como Suscriptor Prepago?", options: ["Posesión física de la SIM y acceso a SMS.", "Factura de compra del equipo.", "Identificación oficial del titular.", "Conocer el IDPV de la tienda."], ans: 0 },
-                { q: "¿Qué elegir si el cliente trae su equipo liberado de origen?", options: ["BYOD (Bring Your Own Device).", "Equipo Externo.", "Smartphone Genérico.", "Cualquier marca."], ans: 0 },
-                { q: "Estatus 'En espera de envío' en Ónix significa:", options: ["En revisión por el equipo de BO Prepago.", "NIP validado por el ABD.", "Portabilidad terminada con éxito.", "Falta realizar la recarga inicial."], ans: 0 },
-                { q: "Si el cliente no recibe llamadas post-FVC, ¿qué procede?", options: ["Escalar a 2L para revisar enrutamiento.", "Esperar 48 horas a que se estabilice.", "Reinyectar el mismo trámite.", "Cargar $50 de saldo para activar."], ans: 0 },
-                { q: "¿Cuántas llamadas al 051 se permiten por vigencia de NIP?", options: ["Máximo 2 llamadas en los 5 días.", "Ilimitadas mientras tenga señal.", "Solo una llamada.", "Ninguna, solo por mensaje SMS."], ans: 0 },
-                { q: "¿Cuáles son los datos mínimos para escalar a Nivel 2 (2L)?", options: ["ID Proveedor, IDPV, DN, ICC.", "Nombre y CURP.", "Folio y Marca.", "Correo y Contraseña."], ans: 0 },
-                { q: "Estatus 'En espera de validación ABD' significa:", options: ["El sistema nacional está verificando el NIP.", "BO revisa fotos.", "Línea activa.", "Rechazo deuda."], ans: 0 },
-                { q: "¿De dónde se debe descargar siempre la App Ónix oficial?", options: ["Portal asistentemovistar.com.mx/login", "Google Play Store.", "Grupos de WhatsApp.", "Navegador normal."], ans: 0 },
-                { q: "¿Qué documento NO es válido para identificar al cliente?", options: ["Credencial escolar o privada.", "INE / IFE vigente.", "Pasaporte Mexicano.", "Cédula Profesional."], ans: 0 },
-                { q: "Si el ABD rechaza por NIP incorrecto, ¿dónde se corrige?", options: ["En el módulo de Reinyección.", "En un Trámite Nuevo.", "En Soporte Técnico.", "En Ajustes."], ans: 0 },
-                { q: "¿Qué significa el estatus 'Rechazo por Donador'?", options: ["Compañía anterior bloqueó la salida por deuda.", "Movistar no aceptó al cliente.", "El NIP se escribió mal.", "Falta señal."], ans: 0 },
-                { q: "Tiempo máximo de respuesta del ABD nacional:", options: ["90 minutos hábiles tras el envío.", "24 horas calendario.", "Respuesta inmediata (5 seg).", "48 horas hábiles."], ans: 0 }
+                { q: "¿Que significa tecnicamente el Error Code: 3059 en Onix?", options: ["Linea con proceso de portabilidad previo activo.", "NIP incorrecto ingresado.", "La SIM Movistar ya fue utilizada.", "Sin conexion con el servidor."], ans: 0 },
+                { q: "¿Cual es el horario del Back Office para cancelaciones?", options: ["Lunes a Sabado de 9:00 a 17:00h.", "24 horas los 365 dias.", "Lunes a Viernes 8:00 a 20:00h.", "Solo Domingos mananas."], ans: 0 },
+                { q: "Si aparece 'Order number does not exist' en reinyeccion:", options: ["Se debe crear un tramite nuevo desde cero.", "Reiniciar la aplicacion Onix.", "Pedir NIP de nuevo.", "Llamar al soporte."], ans: 0 },
+                { q: "¿Que valida legalmente a un cliente como Suscriptor Prepago?", options: ["Posesion fisica de la SIM y acceso a SMS.", "Factura de compra del equipo.", "Identificacion oficial.", "Conocer el IDPV de la tienda."], ans: 0 },
+                { q: "¿Que elegir si el cliente trae su equipo liberado de origen?", options: ["BYOD (Bring Your Own Device).", "Equipo Externo.", "Smartphone Generico.", "Cualquier marca."], ans: 0 },
+                { q: "Estatus 'En espera de envio' en Onix significa:", options: ["En revision por el equipo de BO Prepago.", "NIP validado por el ABD.", "Portabilidad terminada.", "Falta recarga inicial."], ans: 0 },
+                { q: "Si el cliente no recibe llamadas post-FVC, ¿que procede?", options: ["Escalar a 2L para revisar enrutamiento.", "Esperar 48 horas.", "Reinyectar el tramite.", "Cargar $50 de saldo."], ans: 0 },
+                { q: "¿Cuantas llamadas al 051 se permiten por vigencia de NIP?", options: ["Maximo 2 llamadas en los 5 dias.", "Ilimitadas.", "Solo una llamada.", "Ninguna."], ans: 0 },
+                { q: "¿Cuales son los datos minimos para escalar a Nivel 2?", options: ["ID Proveedor, IDPV, DN, ICC.", "Nombre y CURP.", "Folio y Marca.", "Correo y Contrasena."], ans: 0 },
+                { q: "Estatus 'En espera de validacion ABD' significa:", options: ["El sistema nacional esta verificando el NIP.", "BO revisa fotos.", "Linea activa.", "Rechazo deuda."], ans: 0 },
+                { q: "¿De donde se debe descargar la App Onix oficial?", options: ["Portal asistentemovistar.com.mx", "Google Play Store.", "Grupos WhatsApp.", "Navegador."], ans: 0 },
+                { q: "¿Que documento NO es valido para identificar al cliente?", options: ["Credencial escolar.", "INE vigente.", "Pasaporte Mexicano.", "Cedula Profesional."], ans: 0 },
+                { q: "Si el ABD rechaza por NIP incorrecto, ¿donde se corrige?", options: ["En el modulo de Reinyeccion.", "En Tramite Nuevo.", "En Soporte Tecnico.", "En Ajustes."], ans: 0 },
+                { q: "¿Que significa el estatus 'Rechazo por Donador'?", options: ["Compania anterior bloqueo la salida por deuda.", "Movistar no acepto.", "NIP mal escrito.", "Falta senal."], ans: 0 },
+                { q: "Tiempo maximo de respuesta del ABD nacional:", options: ["90 minutos habiles.", "24 horas.", "Inmediata (5 seg).", "48 horas."], ans: 0 }
             ],
             VENTAS: [
-                { q: "¿Cuál es el objetivo principal de la Venta Consultiva?", options: ["Indagar necesidades reales para dar la mejor solución.", "Vender el equipo más caro del catálogo.", "Hablar mucho tiempo.", "Despachar al cliente rápido."], ans: 0 },
-                { q: "¿Cuál es la diferencia entre Característica y Beneficio?", options: ["Característica es técnica y Beneficio es la utilidad.", "Son lo mismo en términos comerciales.", "Característica es el precio.", "Beneficio es el regalo."], ans: 0 },
-                { q: "¿Para qué se utilizan las Preguntas Abiertas en el sondeo?", options: ["Para obtener información detallada del cliente.", "Para que responda solo 'Sí' o 'No'.", "Para confundir al cliente.", "Para saber si trae dinero."], ans: 0 },
-                { q: "¿Cómo actuar ante una objeción de 'Está muy caro'?", options: ["Empatizar y resaltar el valor y ahorro futuro.", "Ignorar el comentario.", "Enojarse con el cliente.", "Bajar el precio sin preguntar."], ans: 0 },
-                { q: "Si el cliente pregunta: '¿Qué necesito traer?', estamos ante:", options: ["Una Señal de Compra clara.", "Una objeción oculta.", "Duda sobre la marca.", "Distracción para ganar tiempo."], ans: 0 },
-                { q: "¿Qué es técnicamente el Cierre de Ventas?", options: ["La acción directa que concreta el acuerdo.", "Entregar la bolsa.", "Llenar los datos en Ónix.", "Saludar al siguiente."], ans: 0 },
-                { q: "Si logramos que lleve un plan superior al buscado, hicimos:", options: ["Up-Selling (Venta de nivel superior).", "Cross-Selling.", "Venta Perdida.", "Servicio al Cliente."], ans: 0 },
-                { q: "Si ofrecemos protector y audífonos adicionales, hicimos:", options: ["Cross-Selling (Venta de complementos).", "Up-Selling.", "Portabilidad Express.", "Sondeo."], ans: 0 },
-                { q: "La Escucha Activa requiere primordialmente:", options: ["Mantener contacto visual y parafrasear.", "Estar revisando el celular.", "Interrumpir al cliente.", "Mirar hacia la puerta."], ans: 0 },
-                { q: "¿Cuál es el objetivo de 'Romper el Hielo' al inicio?", options: ["Generar empatía y bajar defensas del cliente.", "Saber cuánto dinero trae.", "Presumir conocimientos técnicos.", "Hacer bromas."], ans: 0 },
-                { q: "¿Técnica efectiva ante el 'Lo voy a pensar'?", options: ["Preguntar qué duda específica le impide decidir.", "Decirle que se acaba la promoción.", "Dejar que se vaya.", "Retirar el equipo."], ans: 0 },
-                { q: "¿Qué significa Vender Valor en lugar de Precio?", options: ["Resaltar cómo el producto resuelve sus problemas.", "Dar el precio más bajo.", "Regalar accesorios.", "Hablar de historia Movistar."], ans: 0 },
-                { q: "¿Por qué es vital el Seguimiento Post-Venta?", options: ["Para fidelizar, satisfacción y pedir referidos.", "Para cobrar deudas.", "Para verificar si tiene familia en otra red.", "Ninguna."], ans: 0 },
-                { q: "Un lenguaje corporal cerrado transmite:", options: ["Falta de interés y barrera.", "Profesionalismo y autoridad.", "Concentración.", "Que eres el líder."], ans: 0 },
-                { q: "Si un cliente llega molesto por un error previo:", options: ["Mantener la calma, escuchar y buscar solución.", "Decirle que tú no fuiste.", "Ignorarlo.", "Llamar a seguridad."], ans: 0 }
+                { q: "¿Cual es el objetivo principal de la Venta Consultiva?", options: ["Indagar necesidades reales para dar la mejor solucion.", "Vender el equipo mas caro.", "Hablar mucho tiempo.", "Despachar rapido."], ans: 0 },
+                { q: "¿Cual es la diferencia entre Caracteristica y Beneficio?", options: ["Caracteristica es tecnica y Beneficio es utilidad.", "Son lo mismo.", "Caracteristica es precio.", "Beneficio es regalo."], ans: 0 },
+                { q: "¿Para que se utilizan las Preguntas Abiertas?", options: ["Para obtener informacion detallada.", "Para responder 'Si' o 'No'.", "Para confundir al cliente.", "Saber si trae dinero."], ans: 0 },
+                { q: "¿Como actuar ante una objecion de 'Esta muy caro'?", options: ["Empatizar y resaltar ahorro futuro.", "Ignorar el comentario.", "Enojarse.", "Bajar el precio."], ans: 0 },
+                { q: "Si el cliente pregunta: '¿Que necesito traer?' es:", options: ["Una Senal de Compra.", "Una objecion oculta.", "Duda sobre marca.", "Distraccion."], ans: 0 },
+                { q: "¿Que es tecnicamente el Cierre de Ventas?", options: ["La accion directa que concreta el acuerdo.", "Entregar la bolsa.", "Llenar datos en Onix.", "Saludar al cliente."], ans: 0 },
+                { q: "Si logramos que lleve un plan superior, hicimos:", options: ["Up-Selling (Venta superior).", "Cross-Selling.", "Venta Perdida.", "Servicio al Cliente."], ans: 0 },
+                { q: "Si ofrecemos protector y audifonos, hicimos:", options: ["Cross-Selling (Venta cruzada).", "Up-Selling.", "Portabilidad.", "Sondeo."], ans: 0 },
+                { q: "La Escucha Activa requiere primordialmente:", options: ["Contacto visual y parafrasear.", "Estar revisando el celular.", "Interrumpir.", "Mirar a la puerta."], ans: 0 },
+                { q: "¿Cual es el objetivo de 'Romper el Hielo'?", options: ["Generar empatia y bajar defensas.", "Saber cuanto dinero trae.", "Presumir tecnica.", "Hacer bromas."], ans: 0 },
+                { q: "¿Tecnica efectiva ante el 'Lo voy a pensar'?", options: ["Preguntar que duda le impide decidir.", "Decir que se acaba promocion.", "Dejar que se vaya.", "Retirar el equipo."], ans: 0 },
+                { q: "¿Que significa Vender Valor en lugar de Precio?", options: ["Resaltar como el producto resuelve problemas.", "Dar el precio mas bajo.", "Regalar accesorios.", "Hablar de historia."], ans: 0 },
+                { q: "¿Por que es vital el Seguimiento Post-Venta?", options: ["Para fidelizar y pedir referidos.", "Para cobrar deudas.", "Verificar otra red.", "Ninguna."], ans: 0 },
+                { q: "Un lenguaje corporal cerrado transmite:", options: ["Falta de interes y barrera.", "Profesionalismo.", "Concentracion.", "Liderazgo."], ans: 0 },
+                { q: "Si un cliente llega molesto por error previo:", options: ["Mantener calma y buscar solucion.", "Decir que tu no fuiste.", "Ignorarlo.", "Llamar a seguridad."], ans: 0 }
             ]
         };
 
@@ -142,7 +133,7 @@
             db = firebase.firestore();
             auth = firebase.auth();
         } catch (e) {
-            console.error("Fallo init firebase", e);
+            console.error("Fallo init", e);
         }
 
         const App = () => {
@@ -157,11 +148,15 @@
             const [ranking, setRanking] = useState([]);
             const [history, setHistory] = useState([]);
             const [resources, setResources] = useState([]);
-            
+            const [candidates, setCandidates] = useState([]);
+            const [quejas, setQuejas] = useState([]);
+            const [vacaciones, setVacaciones] = useState([]);
+
             const [supFilter, setSupFilter] = useState("TODOS");
             const [cadFilter, setCadFilter] = useState("TODAS");
 
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
+            const [subTabPortal, setSubTabPortal] = useState("VACACIONES");
             
             const [quizState, setQuizState] = useState('MENU');
             const [colaboradorName, setColaboradorName] = useState("");
@@ -171,6 +166,12 @@
             const [timer, setTimer] = useState(180);
             const [curType, setCurType] = useState('');
 
+            const [vacName, setVacName] = useState("");
+            const [vacUser, setVacUser] = useState("");
+            const [vacDate, setVacDate] = useState("");
+            const [vacDays, setVacDays] = useState(1);
+            const [sugText, setSugText] = useState("");
+
             useEffect(() => {
                 const loader = document.getElementById('emergency-loader');
                 if (loader) loader.style.display = 'none';
@@ -179,7 +180,6 @@
 
                 auth.signInAnonymously().catch(e => console.warn(e));
 
-                // LECTURA SEGURA: Usamos la nueva colección "operacion_v2" para ignorar la basura vieja
                 const unsubs = [];
                 try {
                     unsubs.push(db.collection("operacion_v2").onSnapshot(snap => {
@@ -192,13 +192,16 @@
                         });
                         setDataTEMM(temmList);
                         setDataINV(invList);
-                    }, e => console.warn("Error leyendo Firestore", e)));
+                    }, e => console.warn(e)));
 
                     unsubs.push(db.collection("ranking").orderBy("score", "desc").onSnapshot(s => setRanking(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
                     unsubs.push(db.collection("historicos").orderBy("fecha", "desc").onSnapshot(s => setHistory(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
                     unsubs.push(db.collection("recurso").onSnapshot(s => setResources(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
+                    unsubs.push(db.collection("promotor_mes").onSnapshot(s => setCandidates(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
+                    unsubs.push(db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => setQuejas(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
+                    unsubs.push(db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => setVacaciones(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.warn(e)));
                 } catch(error) {
-                    console.error("Error al montar listeners", error);
+                    console.error(error);
                 }
 
                 return () => unsubs.forEach(unsub => { if(unsub) unsub(); });
@@ -211,16 +214,21 @@
                 return () => clearInterval(t);
             }, [quizState, timer]);
 
+            const minVacationDate = useMemo(() => {
+                const d = new Date(); d.setDate(d.getDate() + 15);
+                return d.toISOString().split('T')[0];
+            }, []);
+
             const handleLogin = (e) => {
                 e.preventDefault();
                 const u = userId.trim().toUpperCase();
                 if (u === "ADMIN" && pass === "2024") { setUserRole("ADMIN"); setView("APP"); }
                 else if (pass === "Movistar1" && u.length >= 4) { setUserRole("PROMOTOR"); setView("APP"); }
-                else { alert("ID o Contraseña incorrectos."); }
+                else { alert("Credenciales incorrectas."); }
             };
 
             const uploadFile = async (type, e) => {
-                if (!db) return alert("Sin conexión a Base de Datos");
+                if (!db) return alert("Sin red");
                 const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = async (evt) => {
@@ -228,7 +236,7 @@
                         const wb = XLSX.read(evt.target.result, { type: 'binary' });
                         const sheetKey = type === "temm" ? "seg diario" : "tiendas";
                         const wsName = wb.SheetNames.find(n => n.toLowerCase().includes(sheetKey));
-                        if (!wsName) return alert(`Pestaña '${sheetKey}' no encontrada en el Excel.`);
+                        if (!wsName) return alert("Pestana no encontrada en Excel.");
                         
                         const json = XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header: "A", defval: "" });
                         let list = [];
@@ -245,9 +253,10 @@
                                 mod: String(r["T"] || "").trim(), mar: String(r["U"] || "").trim(), q: parseInt(Number(r["AG"]) || 0)
                             }));
                         }
-                        
-                        // Guardar en la NUEVA colección operacion_v2
                         await db.collection("operacion_v2").doc(type).set({ list });
-                        alert("¡Excel Sincronizado a Nivel Nacional con Éxito!");
+                        alert("Sincronizado a Nivel Nacional!");
                     } catch (error) { 
-                        alert("Error subiendo 
+                        alert("Error subiendo datos. Verifica Excel."); 
+                    }
+                };
+                reader.readAsBin
