@@ -2,21 +2,28 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" 
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HidalgoDash CAPYM</title>
     
     <!-- Radar de Errores -->
     <script>
-        window.onerror = function(msg, url, lineNo, columnNo, error) {
+        window.onerror = function(msg, url, lineNo) {
             var loader = document.getElementById('emergency-loader');
             if (loader) {
                 loader.innerHTML = `
-                    <div style="padding:20px;text-align:center;color:#E63780;font-family:sans-serif;">
-                        <h2 style="font-size:24px;font-weight:900;margin-bottom:10px;">⚠️ ERROR</h2>
-                        <div style="background:#fce4ec;padding:15px;border-radius:10px;font-family:monospace;font-size:12px;text-align:left;">
+                    <div style="padding:20px;text-align:center;color:#E63780;">
+                        <h2 style="font-size:20px;font-weight:900;">⚠️ ERROR DE PEGADO</h2>
+                        <p style="font-size:12px;margin-bottom:10px;">
+                            Tu celular volvio a cortar el texto al pegar.
+                        </p>
+                        <div style="background:#fce4ec;padding:10px;font-family:monospace;font-size:10px;text-align:left;">
                             ${msg}<br>Linea: ${lineNo}
                         </div>
-                        <button onclick="localStorage.clear(); location.reload();" style="margin-top:20px;background:#019DF4;color:white;padding:10px 20px;border-radius:10px;font-weight:bold;border:none;">REINICIAR</button>
+                        <button onclick="location.reload();" 
+                                style="margin-top:20px;background:#019DF4;color:white;padding:10px;border-radius:10px;border:none;">
+                            REINICIAR
+                        </button>
                     </div>`;
             }
             return false;
@@ -25,12 +32,13 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
 
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -50,57 +58,113 @@
     </script>
 
     <style>
-        body { background-color: #f3f4f6; margin: 0; font-family: 'Montserrat', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .tab-btn { flex: 1; padding: 12px 2px; font-size: 8.5px; font-weight: 900; text-align: center; border-bottom: 4px solid transparent; transition: 0.3s; text-transform: uppercase; color: #86888C; }
-        .tab-active { border-bottom-color: #5CB615; color: #5CB615; background: white; }
-        .login-gradient { background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); }
-        .spinner { width: 45px; height: 45px; border: 5px solid #e5e7eb; border-top: 5px solid #019DF4; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { 
+            background-color: #f3f4f6; 
+            margin: 0; 
+            font-family: 'Montserrat', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .tab-btn { 
+            flex: 1; padding: 12px 2px; font-size: 8.5px; font-weight: 900; 
+            text-align: center; border-bottom: 4px solid transparent; 
+            transition: 0.3s; text-transform: uppercase; color: #86888C; 
+        }
+        .tab-active { 
+            border-bottom-color: #5CB615; color: #5CB615; background: white; 
+        }
+        .login-gradient { 
+            background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); 
+        }
+        .spinner { 
+            width: 45px; height: 45px; border: 5px solid #e5e7eb; 
+            border-top: 5px solid #019DF4; border-radius: 50%; 
+            animation: spin 1s linear infinite; margin: 0 auto; 
+        }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } 
+        }
         .animate-pop { animation: pop 0.3s ease-out; }
-        @keyframes pop { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes pop { 
+            0% { transform: scale(0.95); opacity: 0; } 
+            100% { transform: scale(1); opacity: 1; } 
+        }
     </style>
 </head>
 <body>
     <div id="root">
-        <div id="emergency-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f3f4f6;">
+        <div id="emergency-loader" 
+             style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px; letter-spacing: 1px;">INICIANDO V17...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">
+                INICIANDO V18...
+            </p>
         </div>
     </div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
+        // Preguntas cortadas hacia abajo para evitar error del celular
         const EXAMS_DATA = {
             BASICO: [
                 { 
                     q: "¿Cual es el objetivo primordial de la Portabilidad Numerica?", 
-                    options: ["Conservar el numero telefonico al cambiar.", "Obtener un numero nuevo sin costo.", "Dar de baja una linea definitivamente.", "Fusionar saldos de diferentes companias."], 
+                    options: [
+                        "Conservar el numero telefonico al cambiar de compania.", 
+                        "Obtener un numero nuevo sin costo extra.", 
+                        "Dar de baja una linea definitivamente.", 
+                        "Fusionar saldos de diferentes companias."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Cual es el periodo de vigencia oficial del NIP de Portabilidad?", 
-                    options: ["5 dias naturales a partir de su generacion.", "24 horas habiles.", "15 dias segun el IFT.", "Vigencia ilimitada."], 
+                    q: "¿Cual es el periodo de vigencia oficial del NIP?", 
+                    options: [
+                        "5 dias naturales a partir de su generacion.", 
+                        "24 horas habiles en dias de semana.", 
+                        "15 dias segun normativas del IFT.", 
+                        "Vigencia ilimitada hasta usarse."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Cuantos digitos componen el ICC (serie) de la SIM Movistar?", 
-                    options: ["19 digitos numericos.", "15 digitos.", "10 digitos.", "13 digitos."], 
+                    q: "¿Cuantos digitos componen el ICC (serie) de la SIM?", 
+                    options: [
+                        "19 digitos numericos.", 
+                        "15 digitos alfanumericos.", 
+                        "10 digitos fijos.", 
+                        "13 digitos seriales."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "En portabilidad, ¿que significan las siglas FVC?", 
-                    options: ["Fecha de Ventana de Cambio.", "Folio de Venta Confirmada.", "Firma de Validacion.", "Fin de Venta."], 
+                    options: [
+                        "Fecha de Ventana de Cambio.", 
+                        "Folio de Venta Confirmada.", 
+                        "Firma de Validacion.", 
+                        "Fin de Venta."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Quien regula y autoriza nacionalmente los cambios de compania?", 
-                    options: ["El ABD (Administrador de Base de Datos).", "Movistar.", "El promotor.", "El donador."], 
+                    q: "¿Quien regula y autoriza los cambios de compania?", 
+                    options: [
+                        "El ABD (Administrador de Base de Datos).", 
+                        "Movistar en sistema.", 
+                        "El promotor de venta.", 
+                        "El operador donador."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "Si ingresas la CURP en Onix, ¿que paso logras omitir?", 
-                    options: ["Las fotos de la identificacion oficial.", "El ingreso del NIP.", "La firma del contrato.", "El escaneo del ICC."], 
+                    q: "Si ingresas la CURP en Onix, ¿que logras omitir?", 
+                    options: [
+                        "Las fotos de la identificacion oficial.", 
+                        "El ingreso del NIP del cliente.", 
+                        "La firma digital del contrato.", 
+                        "El escaneo del codigo ICC."
+                    ], 
                     ans: 0 
                 },
                 { 
@@ -110,171 +174,336 @@
                 },
                 { 
                     q: "¿Que sucede si la linea es de Persona Moral?", 
-                    options: ["El ABD rechazara el tramite sin documentos corporativos.", "Pasa normal.", "Tarda 48 horas mas.", "No requiere NIP."], 
+                    options: [
+                        "El ABD rechazara el tramite sin acta corporativa.", 
+                        "Pasa normal como si fuera prepago.", 
+                        "Tarda 48 horas mas en procesar.", 
+                        "No requiere NIP para el cambio."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿En que horario se ejecutan normalmente las portabilidades?", 
-                    options: ["2:00 AM a 6:00 AM.", "Mediodia.", "Al capturar.", "10:00 PM."], 
+                    q: "¿En que horario se ejecutan las portabilidades?", 
+                    options: [
+                        "De 2:00 AM a 6:00 AM.", 
+                        "Mediodia exactamente.", 
+                        "Al capturar en Onix.", 
+                        "A las 10:00 PM diario."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "Motivo principal de rechazo por Back Office:", 
-                    options: ["Fotos borrosas o identificacion cortada.", "Falta de senal.", "NIP expirado.", "Equipo bloqueado."], 
+                    options: [
+                        "Fotos borrosas o identificacion cortada.", 
+                        "Falta de senal en la tienda.", 
+                        "NIP de portabilidad expirado.", 
+                        "Equipo del cliente bloqueado."
+                    ], 
                     ans: 0 
                 }
             ],
             EXPERTO: [
                 { 
-                    q: "¿Que significa tecnicamente el Error Code: 3059 en Onix?", 
-                    options: ["Linea con proceso de portabilidad previo activo.", "NIP incorrecto ingresado.", "La SIM Movistar ya fue utilizada.", "Sin conexion con el servidor."], 
+                    q: "¿Que significa tecnicamente el Error Code: 3059?", 
+                    options: [
+                        "Linea con proceso de portabilidad previo activo.", 
+                        "NIP incorrecto ingresado en el sistema.", 
+                        "La SIM Movistar ya fue utilizada antes.", 
+                        "Falla de conexion con el servidor."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Cual es el horario del Back Office para cancelaciones?", 
-                    options: ["Lunes a Sabado de 9:00 a 17:00h.", "24 horas los 365 dias.", "Lunes a Viernes 8:00 a 20:00h.", "Solo Domingos mananas."], 
+                    q: "¿Cual es el horario de Back Office para cancelaciones?", 
+                    options: [
+                        "Lunes a Sabado de 9:00 a 17:00h.", 
+                        "24 horas los 365 dias del ano.", 
+                        "Lunes a Viernes de 8:00 a 20:00h.", 
+                        "Solo Domingos por las mananas."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "Si aparece 'Order number does not exist' en reinyeccion:", 
-                    options: ["Se debe crear un tramite nuevo desde cero.", "Reiniciar la aplicacion Onix.", "Pedir NIP de nuevo inmediatamente.", "Llamar al soporte Nivel 2."], 
+                    q: "Si en reinyeccion sale 'Order number does not exist':", 
+                    options: [
+                        "Se debe crear un tramite nuevo desde cero.", 
+                        "Reiniciar la aplicacion Onix por completo.", 
+                        "Pedir NIP de nuevo inmediatamente al cliente.", 
+                        "Llamar a la linea de soporte Nivel 2."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Que valida legalmente a un cliente como Suscriptor Prepago?", 
-                    options: ["Posesion fisica de la SIM y acceso a SMS.", "Factura de compra del equipo.", "Identificacion oficial.", "Conocer el IDPV."], 
+                    q: "¿Que valida legalmente a un Suscriptor Prepago?", 
+                    options: [
+                        "Posesion fisica de la SIM y acceso a SMS.", 
+                        "Factura original de compra del equipo.", 
+                        "Identificacion oficial vigente del titular.", 
+                        "Conocer el numero de IDPV de la tienda."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Que elegir si el cliente trae su equipo liberado de origen?", 
-                    options: ["BYOD (Bring Your Own Device).", "Equipo Externo.", "Smartphone Generico.", "Cualquier marca."], 
+                    q: "¿Que elegir si el cliente trae equipo liberado?", 
+                    options: [
+                        "BYOD (Bring Your Own Device).", 
+                        "Seleccionar Equipo Externo.", 
+                        "Marcar como Smartphone Generico.", 
+                        "Seleccionar cualquier marca."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "Estatus 'En espera de envio' en Onix significa:", 
-                    options: ["En revision por el equipo de BO Prepago.", "NIP validado por el ABD.", "Portabilidad terminada.", "Falta recarga inicial."], 
+                    options: [
+                        "En revision visual por BO Prepago.", 
+                        "NIP validado por el sistema ABD.", 
+                        "Portabilidad terminada con gran exito.", 
+                        "Falta realizar la recarga de saldo inicial."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "Si el cliente no recibe llamadas post-FVC, ¿que procede?", 
-                    options: ["Escalar a 2L para revisar enrutamiento.", "Esperar 48 horas.", "Reinyectar el tramite.", "Cargar saldo."], 
+                    options: [
+                        "Escalar a 2L para revisar el enrutamiento.", 
+                        "Esperar 48 horas a que red se estabilice.", 
+                        "Reinyectar el mismo tramite en el sistema.", 
+                        "Cargar $50 de saldo para forzar alta."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Cuantas llamadas al 051 se permiten por vigencia de NIP?", 
-                    options: ["Maximo 2 llamadas en los 5 dias.", "Ilimitadas.", "Solo una llamada.", "Ninguna."], 
+                    q: "¿Cuantas llamadas al 051 se permiten por NIP?", 
+                    options: [
+                        "Maximo 2 llamadas en los 5 dias de vigencia.", 
+                        "Llamadas ilimitadas mientras tenga senal.", 
+                        "Solo una llamada se permite.", 
+                        "Ninguna, es solo por mensaje de texto SMS."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "¿Cuales son los datos minimos para escalar a Nivel 2?", 
-                    options: ["ID Proveedor, IDPV, DN, ICC.", "Nombre y CURP.", "Folio y Marca.", "Correo y Contrasena."], 
+                    options: [
+                        "ID Proveedor, IDPV, DN, numero de ICC.", 
+                        "Nombre del cliente y su CURP.", 
+                        "Folio de venta y Marca de equipo celular.", 
+                        "Correo y Contrasena del promotor."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "Estatus 'En espera de validacion ABD' significa:", 
-                    options: ["El sistema nacional esta verificando el NIP.", "BO revisa fotos.", "Linea activa.", "Rechazo deuda."], 
+                    options: [
+                        "El sistema nacional esta verificando el NIP.", 
+                        "Back Office revisa las fotos subidas.", 
+                        "Linea activa y funcionando en Movistar.", 
+                        "Rechazo emitido por deuda o contrato."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "¿De donde se debe descargar la App Onix oficial?", 
-                    options: ["Portal asistentemovistar.com.mx", "Google Play Store.", "Grupos WhatsApp.", "Navegador."], 
+                    options: [
+                        "Del Portal asistentemovistar.com.mx", 
+                        "De la Google Play Store.", 
+                        "De los Grupos de WhatsApp.", 
+                        "De un Navegador normal de internet."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "¿Que documento NO es valido para identificar al cliente?", 
-                    options: ["Credencial escolar.", "INE vigente.", "Pasaporte Mexicano.", "Cedula Profesional."], 
+                    options: [
+                        "Credencial escolar o identificacion privada.", 
+                        "INE o IFE vigente con foto clara.", 
+                        "Pasaporte Mexicano oficial.", 
+                        "Cedula Profesional avalada."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "Si el ABD rechaza por NIP incorrecto, ¿donde se corrige?", 
-                    options: ["En el modulo de Reinyeccion.", "En Tramite Nuevo.", "En Soporte Tecnico.", "En Ajustes."], 
+                    options: [
+                        "Directamente en el modulo de Reinyeccion.", 
+                        "Se captura en un Tramite Nuevo.", 
+                        "Enviando correo al Soporte Tecnico.", 
+                        "Desde el menu en Ajustes."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "¿Que significa el estatus 'Rechazo por Donador'?", 
-                    options: ["Compania anterior bloqueo la salida por deuda.", "Movistar no acepto.", "NIP mal escrito.", "Falta senal."], 
+                    options: [
+                        "Compania anterior bloqueo por adeudo o contrato.", 
+                        "Movistar no acepto el perfil del cliente.", 
+                        "El NIP se escribio mal en la plataforma.", 
+                        "Falta de senal en el equipo del cliente."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "Tiempo maximo de respuesta del ABD nacional:", 
-                    options: ["90 minutos habiles.", "24 horas.", "Inmediata.", "48 horas."], 
+                    options: [
+                        "90 minutos habiles despues del envio.", 
+                        "24 horas calendario completas.", 
+                        "Respuesta inmediata en 5 segundos.", 
+                        "Hasta 48 horas habiles."
+                    ], 
                     ans: 0 
                 }
             ],
             VENTAS: [
                 { 
                     q: "¿Cual es el objetivo principal de la Venta Consultiva?", 
-                    options: ["Indagar necesidades reales para dar la mejor solucion.", "Vender el equipo mas caro.", "Hablar mucho tiempo.", "Despachar rapido."], 
+                    options: [
+                        "Indagar necesidades reales para dar la mejor solucion.", 
+                        "Vender siempre el equipo mas caro disponible.", 
+                        "Hablar mucho tiempo sobre la compania.", 
+                        "Despachar al cliente lo mas rapido posible."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "¿Cual es la diferencia entre Caracteristica y Beneficio?", 
-                    options: ["Caracteristica es tecnica y Beneficio es utilidad.", "Son lo mismo.", "Caracteristica es precio.", "Beneficio es regalo."], 
+                    options: [
+                        "Caracteristica es tecnica, Beneficio es la utilidad.", 
+                        "Son exactamente lo mismo comercialmente.", 
+                        "Caracteristica es el precio a pagar.", 
+                        "Beneficio es un regalo de la tienda."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "¿Para que se utilizan las Preguntas Abiertas?", 
-                    options: ["Para obtener informacion detallada.", "Para responder 'Si' o 'No'.", "Para confundir al cliente.", "Saber si trae dinero."], 
+                    options: [
+                        "Para obtener informacion detallada del estilo de uso.", 
+                        "Para que el cliente responda solo 'Si' o 'No'.", 
+                        "Para confundir al cliente e intimidarlo.", 
+                        "Para saber rapidamente si trae dinero."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "¿Como actuar ante una objecion de 'Esta muy caro'?", 
-                    options: ["Empatizar y resaltar ahorro futuro.", "Ignorar el comentario.", "Enojarse.", "Bajar el precio."], 
+                    options: [
+                        "Empatizar y resaltar el valor y ahorro futuro.", 
+                        "Ignorar el comentario y cambiar de tema.", 
+                        "Enojarse con el cliente de forma evidente.", 
+                        "Bajar el precio sin hacer mas preguntas."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "Si el cliente pregunta: '¿Que necesito traer?' es:", 
-                    options: ["Una Senal de Compra.", "Una objecion oculta.", "Duda sobre marca.", "Distraccion."], 
+                    q: "Si el cliente pregunta: '¿Que necesito traer?', esto es:", 
+                    options: [
+                        "Una clara Senal de Compra a nuestro favor.", 
+                        "Una objecion oculta y disfrazada.", 
+                        "Duda especifica sobre la marca telefonica.", 
+                        "Una distraccion para ganar tiempo."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "¿Que es tecnicamente el Cierre de Ventas?", 
-                    options: ["La accion directa que concreta el acuerdo.", "Entregar la bolsa.", "Llenar datos en Onix.", "Saludar al cliente."], 
+                    options: [
+                        "La accion directa que concreta el acuerdo comercial.", 
+                        "El simple acto de entregar la bolsa al cliente.", 
+                        "Llenar todos los datos en el sistema Onix.", 
+                        "Saludar al siguiente cliente en la fila."
+                    ], 
                     ans: 0 
                 },
                 { 
                     q: "Si logramos que lleve un plan superior, hicimos:", 
-                    options: ["Up-Selling (Venta superior).", "Cross-Selling.", "Venta Perdida.", "Servicio al Cliente."], 
+                    options: [
+                        "Up-Selling o Venta de nivel superior.", 
+                        "Cross-Selling o Venta cruzada.", 
+                        "Una Venta Perdida lamentablemente.", 
+                        "Solo Servicio al Cliente basico."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "Si ofrecemos protector y audifonos, hicimos:", 
-                    options: ["Cross-Selling (Venta cruzada).", "Up-Selling.", "Portabilidad.", "Sondeo."], 
+                    q: "Si ofrecemos protector y audifonos adicionales, hicimos:", 
+                    options: [
+                        "Cross-Selling o Venta de complementos cruzados.", 
+                        "Up-Selling de plan tarifario superior.", 
+                        "Portabilidad Express no planeada.", 
+                        "Sondeo de necesidades secundarias."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "La Escucha Activa requiere primordialmente:", 
-                    options: ["Contacto visual y parafrasear.", "Estar revisando el celular.", "Interrumpir.", "Mirar a la puerta."], 
+                    q: "La Escucha Activa requiere primordialmente de nosotros:", 
+                    options: [
+                        "Mantener contacto visual y parafrasear ideas.", 
+                        "Estar revisando el celular mientras nos hablan.", 
+                        "Interrumpir al cliente para corregirlo siempre.", 
+                        "Mirar hacia la puerta del establecimiento."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Cual es el objetivo de 'Romper el Hielo'?", 
-                    options: ["Generar empatia y bajar defensas.", "Saber cuanto dinero trae.", "Presumir tecnica.", "Hacer bromas."], 
+                    q: "¿Cual es el objetivo de 'Romper el Hielo' al abordaje?", 
+                    options: [
+                        "Generar empatia y bajar las defensas del cliente.", 
+                        "Saber exactamente cuanto dinero trae en efectivo.", 
+                        "Presumir de forma rapida nuestros conocimientos.", 
+                        "Hacer bromas sobre la ropa o aspecto del cliente."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Tecnica efectiva ante el 'Lo voy a pensar'?", 
-                    options: ["Preguntar que duda le impide decidir.", "Decir que se acaba promocion.", "Dejar que se vaya.", "Retirar el equipo."], 
+                    q: "¿Tecnica mas efectiva ante el 'Lo voy a pensar'?", 
+                    options: [
+                        "Preguntar que duda especifica le impide decidir hoy.", 
+                        "Decirle bruscamente que la promocion ya se acaba.", 
+                        "Dejar que se vaya a su casa en total silencio.", 
+                        "Retirar el equipo mostrado del mostrador de ventas."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Que significa Vender Valor en lugar de Precio?", 
-                    options: ["Resaltar como el producto resuelve problemas.", "Dar el precio mas bajo.", "Regalar accesorios.", "Hablar de historia."], 
+                    q: "¿Que significa Vender Valor en lugar de Vender Precio?", 
+                    options: [
+                        "Resaltar como el producto en verdad resuelve problemas.", 
+                        "Dar el precio mas bajo y sin competencia alguna.", 
+                        "Regalar accesorios para que ignoren el alto costo.", 
+                        "Hablar prolongadamente de la historia de Movistar."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "¿Por que es vital el Seguimiento Post-Venta?", 
-                    options: ["Para fidelizar y pedir referidos.", "Para cobrar deudas.", "Verificar otra red.", "Ninguna."], 
+                    q: "¿Por que es de vital importancia el Seguimiento Post-Venta?", 
+                    options: [
+                        "Para fidelizar, asegurar la satisfaccion y pedir referidos.", 
+                        "Exclusivamente para cobrar deudas pendientes del usuario.", 
+                        "Para verificar si tiene a algun familiar en otra red movil.", 
+                        "No tiene importancia, la labor termina al cobrar el ticket."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "Un lenguaje corporal cerrado transmite:", 
-                    options: ["Falta de interes y barrera.", "Profesionalismo.", "Concentracion.", "Liderazgo."], 
+                    q: "Un lenguaje corporal muy cerrado (brazos cruzados) transmite:", 
+                    options: [
+                        "Falta absoluta de interes, barrera y poca disposicion.", 
+                        "Extremo profesionalismo y una alta autoridad tecnica.", 
+                        "Mucha concentracion en los procesos internos de tienda.", 
+                        "Que eres indiscutiblemente el lider de tu zona comercial."
+                    ], 
                     ans: 0 
                 },
                 { 
-                    q: "Si un cliente llega molesto por error previo:", 
-                    options: ["Mantener calma y buscar solucion.", "Decir que tu no fuiste.", "Ignorarlo.", "Llamar a seguridad."], 
+                    q: "Si un cliente entra a la tienda muy molesto por un error previo:", 
+                    options: [
+                        "Debes mantener la calma, escuchar atento y buscar solucion.", 
+                        "Decirle rapido que tu no fuiste quien lo atendio ayer.", 
+                        "Ignorar al usuario completamente hasta que baje la voz.", 
+                        "Llamar a seguridad privada antes de dirigirle la palabra."
+                    ], 
                     ans: 0 
                 }
             ]
@@ -292,11 +521,13 @@
         let db = null;
         let auth = null;
         try {
-            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
             db = firebase.firestore();
             auth = firebase.auth();
         } catch (e) {
-            console.error("Fallo init", e);
+            console.error("Fallo config DB", e);
         }
 
         const App = () => {
@@ -345,35 +576,815 @@
 
                 const unsubs = [];
                 try {
-                    unsubs.push(db.collection("operacion_v2").onSnapshot(snap => {
-                        let temmList = [];
-                        let invList = [];
-                        snap.forEach(doc => {
-                            const d = doc.data();
-                            if (doc.id === "temm" && Array.isArray(d.list)) temmList = d.list;
-                            if (doc.id === "inv" && Array.isArray(d.list)) invList = d.list;
-                        });
-                        setDataTEMM(temmList);
-                        setDataINV(invList);
-                    }, e => console.warn(e)));
+                    const snapOp = db.collection("operacion_v2").onSnapshot(
+                        snap => {
+                            let temmList = [];
+                            let invList = [];
+                            snap.forEach(doc => {
+                                const d = doc.data();
+                                if (doc.id === "temm" && Array.isArray(d.list)) {
+                                    temmList = d.list;
+                                }
+                                if (doc.id === "inv" && Array.isArray(d.list)) {
+                                    invList = d.list;
+                                }
+                            });
+                            setDataTEMM(temmList);
+                            setDataINV(invList);
+                        }, 
+                        e => console.warn(e)
+                    );
+                    unsubs.push(snapOp);
 
-                    unsubs.push(db.collection("ranking").orderBy("score", "desc").onSnapshot(s => {
-                        setRanking(s.docs.map(d=>({id:d.id, ...d.data()})));
-                    }, e => console.warn(e)));
+                    const snapRank = db.collection("ranking")
+                        .orderBy("score", "desc")
+                        .onSnapshot(
+                            s => setRanking(s.docs.map(d=>({id:d.id, ...d.data()}))), 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(snapRank);
+
+                    const snapHist = db.collection("historicos")
+                        .orderBy("fecha", "desc")
+                        .onSnapshot(
+                            s => setHistory(s.docs.map(d=>({id:d.id, ...d.data()}))), 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(snapHist);
+
+                    const snapRec = db.collection("recurso").onSnapshot(
+                        s => setResources(s.docs.map(d=>({id:d.id, ...d.data()}))), 
+                        e => console.warn(e)
+                    );
+                    unsubs.push(snapRec);
+
+                    const snapCand = db.collection("promotor_mes").onSnapshot(
+                        s => setCandidates(s.docs.map(d=>({id:d.id, ...d.data()}))), 
+                        e => console.warn(e)
+                    );
+                    unsubs.push(snapCand);
+
+                    const snapQuej = db.collection("quejas")
+                        .orderBy("fecha", "desc")
+                        .onSnapshot(
+                            s => setQuejas(s.docs.map(d=>({id:d.id, ...d.data()}))), 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(snapQuej);
+
+                    const snapVac = db.collection("vacaciones")
+                        .orderBy("fecha", "desc")
+                        .onSnapshot(
+                            s => setVacaciones(s.docs.map(d=>({id:d.id, ...d.data()}))), 
+                            e => console.warn(e)
+                        );
+                    unsubs.push(snapVac);
+
+                } catch(error) {
+                    console.error(error);
+                }
+
+                return () => unsubs.forEach(unsub => { if(unsub) unsub(); });
+            }, []);
+
+            useEffect(() => {
+                let t = null;
+                if (quizState === 'PLAY' && timer > 0) {
+                    t = setInterval(() => setTimer(v => v - 1), 1000);
+                } else if (quizState === 'PLAY' && timer === 0) {
+                    setQuizState('RESULT');
+                }
+                return () => clearInterval(t);
+            }, [quizState, timer]);
+
+            const minVacationDate = useMemo(() => {
+                const d = new Date(); 
+                d.setDate(d.getDate() + 15);
+                return d.toISOString().split('T')[0];
+            }, []);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const u = userId.trim().toUpperCase();
+                if (u === "ADMIN" && pass === "2024") { 
+                    setUserRole("ADMIN"); setView("APP"); 
+                } else if (pass === "Movistar1" && u.length >= 4) { 
+                    setUserRole("PROMOTOR"); setView("APP"); 
+                } else { 
+                    alert("ID o Contrasena incorrectos."); 
+                }
+            };
+
+            // Funcion reescrita para evitar renglones muy largos
+            const uploadFile = async (type, e) => {
+                if (!db) {
+                    alert("Sin red.");
+                    return;
+                }
+                const file = e.target.files[0]; 
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (evt) => {
+                    try {
+                        const res = evt.target.result;
+                        const wb = XLSX.read(res, { type: 'binary' });
+                        const sKey = type === "temm" ? "seg diario" : "tiendas";
+                        
+                        const wsName = wb.SheetNames.find(n => 
+                            n.toLowerCase().includes(sKey)
+                        );
+                        
+                        if (!wsName) {
+                            alert("Pestana no encontrada.");
+                            return;
+                        }
+                        
+                        const jsData = XLSX.utils.sheet_to_json(
+                            wb.Sheets[wsName], { header: "A", defval: "" }
+                        );
+                        
+                        let list = [];
+
+                        if (type === "temm") {
+                            list = jsData.filter(r => {
+                                const j = String(r["J"] || "");
+                                return j.length > 3 && !j.includes("PDV");
+                            }).map(r => {
+                                let cadena = "SUBURBIA";
+                                let l = String(r["L"]).toUpperCase();
+                                if (l.includes("EKT")) cadena = "ELEKTRA";
+                                if (l.includes("COPPEL")) cadena = "COPPEL";
+
+                                return {
+                                    id: String(r["I"] || "").trim().replace(/^0+/, ''),
+                                    tienda: String(r["J"]).trim(),
+                                    sup: String(r["B"]).trim(),
+                                    cad: cadena,
+                                    altas: Math.round(Number(r["Q"]) || 0),
+                                    cuota: Math.round(Number(r["R"]) || 0),
+                                    gap: Math.round(Number(r["S"]) || 0)
+                                };
+                            });
+                        } else {
+                            list = jsData.filter(r => {
+                                const i = String(r["I"] || "");
+                                return i.length > 3;
+                            }).map(r => ({
+                                id: String(r["I"] || "").trim().replace(/^0+/, ''),
+                                mod: String(r["T"] || "").trim(),
+                                mar: String(r["U"] || "").trim(),
+                                q: parseInt(Number(r["AG"]) || 0)
+                            }));
+                        }
+                        
+                        await db.collection("operacion_v2").doc(type).set({ list });
+                        alert("Sincronizado a Nivel Nacional!");
+
+                    } catch (error) { 
+                        alert("Error subiendo datos."); 
+                    }
+                };
+                
+                // Este es el renglon que se cortaba en tu celular
+                reader.readAsBinaryString(file);
+            };
+
+            const addCandidate = async (e) => {
+                if(!db) return;
+                const file = e.target.files[0]; 
+                if (!file) return;
+                
+                const name = prompt("Nombre del Nominado:"); 
+                if(!name) return;
+                
+                if(candidates.length >= 4) {
+                    alert("Maximo 4 nominados.");
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const img = new Image();
+                    img.onload = async () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 200;
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH; 
+                        canvas.height = img.height * scaleSize;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const b64 = canvas.toDataURL('image/jpeg', 0.5);
+                        
+                        try {
+                            await db.collection("promotor_mes").add({ 
+                                nombre: name.toUpperCase(), 
+                                foto: b64, 
+                                votos: [] 
+                            });
+                            alert("Candidato agregado.");
+                        } catch(err) { 
+                            alert("Error guardando."); 
+                        }
+                    };
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const voteCandidate = async (candidateId) => {
+                if(userRole === "ADMIN") {
+                    alert("Admin no vota.");
+                    return;
+                }
+                if(!db) return;
+                
+                const logId = userId.trim().toUpperCase();
+                let yaVoto = false;
+                
+                candidates.forEach(c => { 
+                    if(c.votos && c.votos.includes(logId)) yaVoto = true; 
+                });
+                
+                if(yaVoto) {
+                    alert("Solo 1 voto por tienda.");
+                    return;
+                }
+
+                try {
+                    const candRef = db.collection("promotor_mes").doc(candidateId);
+                    const candDoc = await candRef.get();
+                    if(candDoc.exists) {
+                        const currentVotes = candDoc.data().votos || [];
+                        const newVotes = [...currentVotes, logId];
+                        await candRef.update({ votos: newVotes });
+                        alert("Voto registrado.");
+                    }
+                } catch (e) { 
+                    alert("Error."); 
+                }
+            };
+
+            const submitSugerencia = async (e) => {
+                e.preventDefault();
+                if(!sugText.trim() || !db) return;
+                try {
+                    await db.collection("quejas").add({ 
+                        idpdv: userId.toUpperCase(), 
+                        texto: sugText, 
+                        fecha: firebase.firestore.FieldValue.serverTimestamp() 
+                    });
+                    setSugText(""); 
+                    alert("Enviado al Lider Nacional.");
+                } catch(e) { 
+                    alert("Error."); 
+                }
+            };
+
+            const submitVacaciones = async (e) => {
+                e.preventDefault();
+                if(!db) return;
+                try {
+                    await db.collection("vacaciones").add({ 
+                        idpdv: userId.toUpperCase(), 
+                        nombre: vacName.toUpperCase(), 
+                        usuarioFw: vacUser.toUpperCase(), 
+                        fechaDeseada: vacDate, 
+                        diasSolicitados: vacDays, 
+                        estatus: 'Pendiente',
+                        fecha: firebase.firestore.FieldValue.serverTimestamp() 
+                    });
+                    setVacName(""); setVacUser(""); setVacDate(""); setVacDays(1);
+                    alert("Solicitud enviada.");
+                } catch(e) { 
+                    alert("Error."); 
+                }
+            };
+
+            const startQuiz = (type) => {
+                if (!colaboradorName.trim()) {
+                    alert("Nombre obligatorio.");
+                    return;
+                }
+                setCurType(type);
+                const bank = EXAMS_DATA[type];
+                const shuffled = [...bank].sort(() => 0.5 - Math.random()).map(q => {
+                    const ops = [...q.options];
+                    const shOps = ops.map((o, i) => ({ t: o, isC: i === q.ans }));
+                    shOps.sort(() => 0.5 - Math.random());
+                    return { ...q, options: shOps };
+                });
+                
+                setQuestions(shuffled); 
+                setCurQ(0); 
+                setAnswers([]); 
+                setTimer(180); 
+                setQuizState('PLAY');
+            };
+
+            const handleAns = (isC) => {
+                const nextA = [...answers, isC]; 
+                setAnswers(nextA);
+                if (curQ + 1 < questions.length) {
+                    setCurQ(v => v + 1);
+                } else {
+                    setQuizState('RESULT');
+                }
+            };
+
+            const score = answers.filter(Boolean).length;
+            const passed = score >= Math.ceil(questions.length * 0.8);
+            const pts = (score * 5) + (passed ? timer : 0);
+
+            const downloadCert = (name, module, date, supervisor) => {
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ 
+                        orientation: 'landscape', unit: 'mm', format: 'a4' 
+                    });
                     
-                    unsubs.push(db.collection("historicos").orderBy("fecha", "desc").onSnapshot(s => {
-                        setHistory(s.docs.map(d=>({id:d.id, ...d.data()})));
-                    }, e => console.warn(e)));
+                    doc.setDrawColor(1, 157, 244); 
+                    doc.setLineWidth(2); 
+                    doc.rect(10, 10, 277, 190);
                     
-                    unsubs.push(db.collection("recurso").onSnapshot(s => {
-                        setResources(s.docs.map(d=>({id:d.id, ...d.data()})));
-                    }, e => console.warn(e)));
+                    doc.setFont("helvetica", "bold"); 
+                    doc.setFontSize(38); 
+                    doc.setTextColor(11, 39, 57);
+                    doc.text("CERTIFICACION NACIONAL", 148, 50, { align: 'center' });
                     
-                    unsubs.push(db.collection("promotor_mes").onSnapshot(s => {
-                        setCandidates(s.docs.map(d=>({id:d.id, ...d.data()})));
-                    }, e => console.warn(e)));
+                    doc.setFontSize(16); 
+                    doc.setFont("helvetica", "normal");
+                    doc.text("HidalgoDash CAPYM otorga diploma a:", 148, 70, { align: 'center' });
                     
-                    unsubs.push(db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => {
-                        setQuejas(s.docs.map(d=>({id:d.id, ...d.data()})));
-                    }, e => console.warn(e)));
-           
+                    doc.setFontSize(32); 
+                    doc.setFont("helvetica", "bold"); 
+                    doc.setTextColor(92, 182, 21);
+                    doc.text(name.toUpperCase(), 148, 95, { align: 'center' });
+                    
+                    doc.setFontSize(14); 
+                    doc.setTextColor(11, 39, 57);
+                    doc.text(`Por acreditar el modulo: ${module}`, 148, 120, { align: 'center' });
+                    
+                    doc.setFontSize(12); 
+                    doc.text(`Fecha oficial de acreditacion: ${date}`, 148, 140, { align: 'center' });
+                    
+                    doc.line(50, 175, 120, 175); 
+                    doc.text(supervisor || "SUPERVISOR", 85, 182, { align: 'center' });
+                    
+                    doc.line(177, 175, 247, 175); 
+                    doc.text("C.P. ANGEL ROIZ", 212, 182, { align: 'center' });
+                    
+                    const fileName = `Certificado_${name.replace(/\s/g, '_')}.pdf`;
+                    doc.save(fileName);
+                } catch(e) {
+                    alert("Celular bloqueo descarga de PDF.");
+                }
+            };
+
+            useEffect(() => {
+                if(quizState === 'RESULT' && passed && db) {
+                    const name = colaboradorName.trim().toUpperCase();
+                    const logId = userId.trim().toUpperCase();
+                    let sName = "SUPERVISOR";
+                    
+                    if (userRole === "ADMIN") {
+                        sName = "ADMIN";
+                    } else if (dataTEMM) {
+                        const found = dataTEMM.find(d => {
+                            const clean = userId.trim().replace(/^0+/, '');
+                            return d.id === clean;
+                        });
+                        if (found && found.sup) sName = found.sup;
+                    }
+                    
+                    try {
+                        db.collection("historicos").add({ 
+                            idpdv: logId, 
+                            nombre: name, 
+                            examen: curType, 
+                            puntos: pts, 
+                            sup: sName, 
+                            fecha: firebase.firestore.FieldValue.serverTimestamp() 
+                        });
+                        
+                        db.collection("ranking").where("name", "==", name).get().then(s => {
+                            if (!s.empty) {
+                                const oldScore = s.docs[0].data().score || 0;
+                                const oldBadges = s.docs[0].data().badges || [];
+                                const newBadges = Array.from(new Set([...oldBadges, curType]));
+                                s.docs[0].ref.update({ 
+                                    score: oldScore + pts, 
+                                    badges: newBadges 
+                                });
+                            } else {
+                                db.collection("ranking").add({ 
+                                    name: name, score: pts, badges: [curType] 
+                                });
+                            }
+                        });
+                    } catch(e) { 
+                        console.warn("Error DB", e); 
+                    }
+                }
+            }, [quizState]);
+
+            const filteredData = useMemo(() => {
+                if (!Array.isArray(dataTEMM)) return [];
+                let f = dataTEMM;
+                if (userRole === "PROMOTOR") {
+                    const clId = userId.trim().replace(/^0+/, '');
+                    f = dataTEMM.filter(d => d.id === clId);
+                } else {
+                    if (supFilter !== "TODOS") {
+                        f = f.filter(d => d?.sup === supFilter);
+                    }
+                    if (cadFilter !== "TODAS") {
+                        f = f.filter(d => d?.cad === cadFilter);
+                    }
+                }
+                return f;
+            }, [dataTEMM, userRole, userId, supFilter, cadFilter]);
+
+            const summary = useMemo(() => {
+                let a=0, c=0, g=0, s=0;
+                if (Array.isArray(filteredData)) {
+                    filteredData.forEach(d => { 
+                        a += Number(d?.altas) || 0; 
+                        c += Number(d?.cuota) || 0; 
+                        g += Number(d?.gap) || 0; 
+                        if (Array.isArray(dataINV)) { 
+                            const invT = dataINV.filter(i => i?.id === d?.id);
+                            s += invT.reduce((acc, cur) => acc + (Number(cur?.q) || 0), 0); 
+                        }
+                    });
+                }
+                return { a, c, g, s };
+            }, [filteredData, dataINV]);
+
+            if (view === "LOGIN") return (
+                <div className="min-h-screen login-gradient flex items-center justify-center p-6 animate-pop">
+                    <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
+                        <div className="text-center mb-10">
+                            <h1 className="text-movistar-blue text-4xl font-black italic tracking-tighter uppercase leading-none">
+                                HIDALGODASH
+                            </h1>
+                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">
+                                Capym V18
+                            </p>
+                        </div>
+                        <form onSubmit={handleLogin} className="space-y-5">
+                            <input type="text" placeholder="IDPDV / USUARIO" 
+                                   className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue transition-all" 
+                                   value={userId} onChange={e => setUserId(e.target.value)} required />
+                            <input type="password" placeholder="CONTRASENA" 
+                                   className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue transition-all" 
+                                   value={pass} onChange={e => setPass(e.target.value)} required />
+                            <button className="w-full bg-movistar-blue text-white p-5 rounded-2xl font-black shadow-lg uppercase active:scale-95 transition-all">
+                                Ingresar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen flex flex-col bg-gray-100 max-w-md mx-auto shadow-2xl relative animate-pop">
+                    
+                    <div className="bg-movistar-dark text-white p-5 flex justify-between items-center sticky top-0 z-50">
+                        <div className="flex flex-col">
+                            <h2 className="font-black italic text-lg leading-none uppercase tracking-tighter">HIDALGODASH</h2>
+                            <span className="text-[8px] font-bold text-movistar-blue mt-1 uppercase tracking-widest">CAPYM NACIONAL</span>
+                        </div>
+                        <div className="text-right text-[9px] font-black">
+                            {userRole === "ADMIN" ? "LIDER" : `ID: ${userId}`}<br/>
+                            <button onClick={() => location.reload()} className="text-movistar-red font-bold uppercase mt-1">Salir</button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white flex sticky top-[68px] z-40 border-b shadow-sm overflow-x-auto hide-scrollbar">
+                        <button className={`tab-btn ${activeTab==='OPERACION'?'tab-active':''}`} onClick={()=>setActiveTab('OPERACION')}>Operacion</button>
+                        <button className={`tab-btn ${activeTab==='ACADEMIA'?'tab-active':''}`} onClick={()=>setActiveTab('ACADEMIA')}>Academia</button>
+                        <button className={`tab-btn ${activeTab==='EL_MES'?'tab-active':''}`} onClick={()=>setActiveTab('EL_MES')}>El Mes</button>
+                        <button className={`tab-btn ${activeTab==='PORTAL'?'tab-active':''}`} onClick={()=>setActiveTab('PORTAL')}>Portal</button>
+                        <button className={`tab-btn ${activeTab==='RANKING'?'tab-active':''}`} onClick={()=>setActiveTab('RANKING')}>Top</button>
+                    </div>
+
+                    <div className="p-4 flex-grow overflow-y-auto pb-10">
+                        
+                        {activeTab === 'OPERACION' && (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-white p-4 rounded-3xl border shadow-sm">
+                                        <p className="text-[8px] font-black text-movistar-green uppercase mb-1">Altas</p>
+                                        <p className="text-3xl font-black text-movistar-green tabular-nums">{summary.a}</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-3xl border shadow-sm">
+                                        <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Meta</p>
+                                        <p className="text-3xl font-black opacity-10 tabular-nums">{summary.c}</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-3xl border shadow-sm">
+                                        <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Gap</p>
+                                        <p className={`text-3xl font-black tabular-nums ${summary.g>=0?'text-movistar-green':'text-movistar-red'}`}>{summary.g>=0?'+':''}{summary.g}</p>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-3xl border shadow-sm">
+                                        <p className="text-[8px] font-black text-movistar-blue uppercase mb-1">Stock</p>
+                                        <p className="text-3xl font-black text-movistar-blue tabular-nums">{summary.s}</p>
+                                    </div>
+                                </div>
+
+                                {userRole === "ADMIN" && (
+                                    <div className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-4">
+                                        <div className="flex gap-2">
+                                            <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={supFilter} onChange={e => setSupFilter(e.target.value)}>
+                                                <option value="TODOS">SUPERVISORES</option>
+                                                {[...new Set((Array.isArray(dataTEMM)?dataTEMM:[]).map(d => d?.sup))].filter(Boolean).sort().map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                            <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={cadFilter} onChange={e => setCadFilter(e.target.value)}>
+                                                <option value="TODAS">CADENAS</option>
+                                                <option value="COPPEL">COPPEL</option>
+                                                <option value="ELEKTRA">ELEKTRA</option>
+                                                <option value="SUBURBIA">SUBURBIA</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <label className="flex-1 bg-movistar-blue text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer">
+                                                DIARIO
+                                                <input type="file" className="hidden" accept=".xlsx" onChange={e => uploadFile("temm", e)}/>
+                                            </label>
+                                            <label className="flex-1 bg-movistar-dark text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer">
+                                                INV
+                                                <input type="file" className="hidden" accept=".xlsx" onChange={e => uploadFile("inv", e)}/>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {filteredData?.map(d => (
+                                    <div key={d.id} className="bg-white p-6 rounded-[2.5rem] shadow-xl border-l-[10px] border-movistar-blue relative animate-pop">
+                                        <div className="flex justify-between mb-3 text-[10px] font-black text-movistar-blue uppercase">
+                                            <span>{d.cad}</span>
+                                            <span className="text-gray-300">ID: {d.id}</span>
+                                        </div>
+                                        <h3 className="font-black text-sm mb-4 uppercase leading-tight text-movistar-dark">{d.tienda}</h3>
+                                        
+                                        <div className="flex justify-between items-end mb-2">
+                                            <div>
+                                                <p className="text-[8px] font-bold text-movistar-green mb-0.5 uppercase tracking-tighter">Logro</p>
+                                                <p className="text-4xl font-black text-movistar-green tabular-nums">{d.altas}</p>
+                                            </div>
+                                            <div className="text-right font-black opacity-10 text-xl">
+                                                <p className="text-[8px] uppercase">Meta</p>
+                                                <p>{d.cuota}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden mb-4 shadow-inner">
+                                            <div className="h-full bg-movistar-green" style={{ width: `${Math.min((Number(d.altas)/Number(d.cuota))*100, 100)}%` }}></div>
+                                        </div>
+                                        
+                                        <div className="border-t pt-3 flex flex-wrap gap-2">
+                                            {Array.isArray(dataINV) && dataINV.filter(i => i?.id === d?.id).length > 0 ? 
+                                                dataINV.filter(i => i?.id === d?.id).map((i,idx) => (
+                                                    <div key={idx} className="bg-gray-50 border rounded px-1.5 py-1 min-w-[60px] shadow-sm">
+                                                        <p className="text-[6px] font-bold opacity-50 uppercase leading-none">{i.mar} {i.mod}</p>
+                                                        <p className="text-[9px] font-black text-movistar-blue uppercase">{i.q} PZS</p>
+                                                    </div>
+                                                )) 
+                                                : <span className="text-[8px] font-bold text-gray-300">SIN INVENTARIO</span>
+                                            }
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {activeTab === 'ACADEMIA' && (
+                            <div className="space-y-6 animate-pop">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                    <button onClick={()=>setSubTabAcademia("EXAMENES")} className={`flex-1 p-3 rounded-xl text-[9px] font-black ${subTabAcademia==="EXAMENES"?'bg-white shadow text-movistar-blue':'text-gray-500'}`}>EXAMENES</button>
+                                    <button onClick={()=>setSubTabAcademia("REPOSITORIO")} className={`flex-1 p-3 rounded-xl text-[9px] font-black ${subTabAcademia==="REPOSITORIO"?'bg-white shadow text-movistar-blue':'text-gray-500'}`}>DOCUMENTOS</button>
+                                </div>
+
+                                {subTabAcademia === "EXAMENES" ? (
+                                    quizState === 'MENU' ? (
+                                        <div className="bg-white p-8 rounded-[2rem] shadow-xl text-center border">
+                                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">🎓</div>
+                                            <h2 className="text-xl font-black mb-1 italic tracking-tighter uppercase">Capacitacion</h2>
+                                            <p className="text-[10px] text-gray-400 mb-8 font-black uppercase">Ingresa tu nombre</p>
+                                            <input type="text" placeholder="NOMBRE COMPLETO" className="w-full bg-gray-50 border-2 rounded-2xl p-5 mb-8 text-center font-black outline-none focus:border-movistar-blue" value={colaboradorName} onChange={e => setColaboradorName(e.target.value)}/>
+                                            <div className="grid gap-3">
+                                                <button onClick={() => startQuiz('BASICO')} className="bg-movistar-blue text-white p-5 rounded-2xl font-black text-xs uppercase shadow-md">BASICO</button>
+                                                <button onClick={() => startQuiz('EXPERTO')} className="bg-movistar-dark text-white p-5 rounded-2xl font-black text-xs uppercase shadow-md">EXPERTO</button>
+                                                <button onClick={() => startQuiz('VENTAS')} className="bg-movistar-green text-white p-5 rounded-2xl font-black text-xs uppercase shadow-md">VENTAS</button>
+                                            </div>
+                                        </div>
+                                    ) : quizState === 'PLAY' ? (
+                                        <div className="bg-white p-8 rounded-[2rem] shadow-xl animate-fade">
+                                            <div className="flex justify-between mb-8 border-b pb-4">
+                                                <span className="text-[10px] font-black text-gray-300">P. {curQ+1}/{questions.length}</span>
+                                                <div className={`font-black text-2xl ${timer<30?'text-red-500 animate-pulse':''}`}>{Math.floor(timer/60)}:{(timer%60).toString().padStart(2,'0')}</div>
+                                            </div>
+                                            <h3 className="text-base font-bold mb-10 leading-tight">{questions[curQ]?.q}</h3>
+                                            <div className="grid gap-4">
+                                                {questions[curQ]?.options.map((o,i) => (
+                                                    <button key={i} onClick={()=>handleAns(o.isC)} className="text-left p-4 rounded-2xl border-2 border-gray-100 font-bold active:bg-blue-50 text-xs leading-snug">{o.t}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-white p-10 rounded-[2rem] shadow-2xl text-center border">
+                                            <div className={`w-24 h-24 rounded-full border-[10px] mx-auto flex items-center justify-center mb-6 font-black text-4xl ${passed?'border-movistar-green text-movistar-green bg-green-50':'border-movistar-red text-movistar-red bg-red-50'}`}>{score}</div>
+                                            <h2 className="text-2xl font-black mb-6 italic uppercase">{passed ? "Certificado" : "Reprobado"}</h2>
+                                            {passed && 
+                                                <button onClick={() => downloadCert(colaboradorName, curType, new Date().toLocaleDateString(), (dataTEMM?.find(d => d.id === userId.toUpperCase())?.sup || "Nacional"))} className="mb-6 w-full bg-movistar-green text-white p-5 rounded-2xl font-black uppercase text-[10px] shadow-lg">
+                                                    Descargar PDF 📄
+                                                </button>
+                                            }
+                                            <button onClick={() => setQuizState('MENU')} className="bg-movistar-dark text-white w-full py-5 rounded-2xl font-black uppercase text-xs">Terminar</button>
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white flex justify-between items-center shadow-xl">
+                                            <div><h2 className="font-black text-lg italic uppercase tracking-tighter leading-none">REPOSITORIO</h2></div>
+                                            {userRole === "ADMIN" && <button onClick={async ()=>{
+                                                const cat = prompt("Categoria:"); 
+                                                const tit = prompt("Nombre:"); 
+                                                const lnk = prompt("Link:");
+                                                if(cat && tit && lnk && db) {
+                                                    await db.collection("recurso").add({ cat: cat.toUpperCase(), tit, lnk });
+                                                }
+                                            }} className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md">+ ADD</button>}
+                                        </div>
+                                        {["PORTABILIDAD", "FIELDWY", "SUELDO BASE", "COMISIONES", "VENTA CONSULTIVA", "VARIOS"].map(cat => (
+                                            <div key={cat} className="space-y-2">
+                                                <p className="text-[10px] font-black text-movistar-blue ml-4 uppercase tracking-widest leading-none">{cat}</p>
+                                                {Array.isArray(resources) && resources.filter(r=>r?.cat===cat).map((r,i) => (
+                                                    <a href={r.lnk} target="_blank" key={i} className="block bg-white p-5 rounded-[1.5rem] shadow-sm border flex justify-between items-center">
+                                                        <span className="font-bold text-[10px] uppercase text-movistar-dark">{r.tit}</span>
+                                                        <span className="bg-blue-50 p-2 rounded-lg text-movistar-blue">⬇️</span>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'EL_MES' && (
+                            <div className="space-y-6 animate-pop">
+                                <div className="bg-movistar-dark p-6 rounded-[2.5rem] text-white shadow-xl flex justify-between items-center">
+                                    <div>
+                                        <h2 className="font-black text-lg italic uppercase tracking-tighter">EL MEJOR</h2>
+                                        <p className="text-[9px] font-bold text-movistar-blue uppercase mt-1">Votacion Mensual</p>
+                                    </div>
+                                    {userRole === "ADMIN" && candidates.length < 4 && 
+                                        <label className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md cursor-pointer">
+                                            + FOTO
+                                            <input type="file" accept="image/*" className="hidden" onChange={addCandidate}/>
+                                        </label>
+                                    }
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {candidates.length === 0 ? <p className="col-span-2 text-center text-gray-400 font-bold py-10 text-xs">Sin candidatos.</p> : 
+                                    candidates.map(c => (
+                                        <div key={c.id} className="bg-white p-4 rounded-[2rem] shadow-lg border flex flex-col items-center">
+                                            <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-movistar-blue">
+                                                <img src={c.foto} alt="candidato" className="w-full h-full object-cover"/>
+                                            </div>
+                                            <h4 className="font-black text-[11px] text-center uppercase leading-tight mb-2 h-8">{c.nombre}</h4>
+                                            <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-3">
+                                                <span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span>
+                                            </div>
+                                            {userRole === "PROMOTOR" && 
+                                                <button onClick={()=>voteCandidate(c.id)} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95">VOTAR ⭐</button>
+                                            }
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'PORTAL' && (
+                            <div className="space-y-6 animate-pop">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                    <button onClick={()=>setSubTabPortal("VACACIONES")} className={`flex-1 p-3 rounded-xl text-[9px] font-black ${subTabPortal==="VACACIONES"?'bg-white shadow text-movistar-blue':'text-gray-500'}`}>VACACIONES</button>
+                                    <button onClick={()=>setSubTabPortal("QUEJAS")} className={`flex-1 p-3 rounded-xl text-[9px] font-black ${subTabPortal==="QUEJAS"?'bg-white shadow text-movistar-blue':'text-gray-500'}`}>SUGERENCIAS</button>
+                                </div>
+
+                                {subTabPortal === "VACACIONES" ? (
+                                    userRole === "PROMOTOR" ? (
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                            <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Dias Libres</h2>
+                                            <form onSubmit={submitVacaciones} className="space-y-4">
+                                                <input type="text" placeholder="Nombre" required value={vacName} onChange={e=>setVacName(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-movistar-blue"/>
+                                                <input type="text" placeholder="Usuario FW" required value={vacUser} onChange={e=>setVacUser(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-movistar-blue"/>
+                                                <div>
+                                                    <label className="text-[9px] font-black text-gray-400 ml-2 uppercase">Inicio (Min 15 dias)</label>
+                                                    <input type="date" required min={minVacationDate} value={vacDate} onChange={e=>setVacDate(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] font-black text-gray-400 ml-2 uppercase">Dias a pedir</label>
+                                                    <input type="number" min="1" max="14" required value={vacDays} onChange={e=>setVacDays(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/>
+                                                </div>
+                                                <button type="submit" className="w-full bg-movistar-blue text-white p-4 rounded-xl font-black shadow-lg text-[10px] active:scale-95">ENVIAR</button>
+                                            </form>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <h2 className="text-sm font-black text-movistar-dark uppercase ml-2">Solicitudes</h2>
+                                            {vacaciones.map(v => (
+                                                <div key={v.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-blue">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-[9px] font-black text-movistar-blue">{v.idpdv}</span>
+                                                        <span className="text-[8px] font-bold text-gray-400">{v.fecha?.toDate().toLocaleDateString()}</span>
+                                                    </div>
+                                                    <h4 className="font-black text-xs uppercase my-1">{v.nombre}</h4>
+                                                    <p className="text-[10px] font-bold text-gray-500">
+                                                        Pide <span className="text-movistar-dark font-black">{v.diasSolicitados} dias</span> desde <span className="text-movistar-dark font-black">{v.fechaDeseada}</span>
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                ) : (
+                                    userRole === "PROMOTOR" ? (
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                            <h2 className="text-lg font-black mb-2 uppercase text-movistar-dark">Buzon Operativo</h2>
+                                            <form onSubmit={submitSugerencia} className="space-y-4 mt-4">
+                                                <textarea required placeholder="Sugerencia..." rows="5" value={sugText} onChange={e=>setSugText(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-movistar-blue resize-none"></textarea>
+                                                <button type="submit" className="w-full bg-movistar-dark text-white p-4 rounded-xl font-black shadow-lg text-[10px]">ENVIAR</button>
+                                            </form>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <h2 className="text-sm font-black text-movistar-dark uppercase ml-2">Buzon de Mensajes</h2>
+                                            {quejas.map(q => (
+                                                <div key={q.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-red">
+                                                    <div className="flex justify-between mb-2">
+                                                        <span className="text-[9px] font-black text-movistar-red">ID: {q.idpdv}</span>
+                                                        <span className="text-[8px] font-bold text-gray-400">{q.fecha?.toDate().toLocaleDateString()}</span>
+                                                    </div>
+                                                    <p className="text-xs font-bold text-gray-600 italic">"{q.texto}"</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'RANKING' && (
+                            <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border animate-pop">
+                                <div className="bg-movistar-dark p-6 text-white flex justify-between items-center"><h2 className="font-black text-base italic uppercase tracking-tighter">Lideres</h2><span className="text-[8px] font-black bg-movistar-green px-3 py-1 rounded-full uppercase">Vivo</span></div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-gray-50 border-b">
+                                            <tr className="text-[9px] font-black text-gray-400 uppercase tracking-widest"><th className="p-5 text-center">#</th><th className="p-5">NOMBRE</th><th className="p-5 text-right">SCORE</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {Array.isArray(ranking) && ranking.map((u, i) => (
+                                                <tr key={u.id} className="border-b hover:bg-gray-50">
+                                                    <td className="p-5 text-center font-black text-gray-200">#{i+1}</td>
+                                                    <td className="p-5 font-black text-[10px] uppercase text-movistar-dark leading-none">{u.name}</td>
+                                                    <td className="p-5 text-right font-black text-movistar-blue tabular-nums">{u.score}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'HISTORICOS' && (
+                            <div className="space-y-4 animate-pop">
+                                <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-lg"><h2 className="font-black text-base italic uppercase tracking-tighter">HISTORIAL LOG</h2><p className="text-[9px] font-black text-movistar-blue uppercase mt-1">Nacional Sincronizado</p></div>
+                                {Array.isArray(history) && history.filter(h => userRole==="ADMIN" || h?.idpdv===userId.toUpperCase()).map(h => (
+                                    <div key={h.id} className="bg-white p-5 rounded-[2rem] shadow-md border-l-8 border-movistar-green flex justify-between items-center">
+                                        <div className="flex-1 mr-2">
+                                            <p className="text-[8px] font-black text-movistar-blue uppercase mb-1 bg-blue-50 inline-block px-2 rounded tracking-tighter">{h.examen}</p>
+                                            <h4 className="font-black text-[11px] uppercase leading-tight text-movistar-dark mb-1">{h.nombre}</h4>
+                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter leading-none">ID: {h.idpdv} • {h.fecha?.toDate().toLocaleDateString('es-MX')}</p>
+                                        </div>
+                                        <div className="text-right flex flex-col items-end">
+                                            <p className="text-2xl font-black text-movistar-dark leading-none">{h.puntos}</p>
+                                            <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mt-1">PTS</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                    </div>
+                </div>
+            );
+        };
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
+
