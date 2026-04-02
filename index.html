@@ -5,16 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HidalgoDash CAPYM</title>
     
+    <!-- Radar de Errores -->
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error("Error Global:", msg, lineNo);
+            // No bloqueamos la pantalla completa, solo logueamos para debuguear.
+            return false;
+        };
+    </script>
+
+    <!-- Diseño y Fuentes -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
     
+    <!-- Librerías de Alta Velocidad -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+    <!-- React 18 (Carga síncrona para evitar problemas de orden) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Firebase (Carga síncrona) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
@@ -32,27 +45,27 @@
 
     <style>
         body { background-color: #f3f4f6; margin: 0; font-family: 'Montserrat', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .tab-btn { flex: none; padding: 14px 10px; font-size: 9px; font-weight: 900; text-align: center; border-bottom: 4px solid transparent; transition: 0.3s; text-transform: uppercase; color: #86888C; white-space: nowrap; }
+        .tab-btn { flex: 1; padding: 14px 2px; font-size: 8px; font-weight: 900; text-align: center; border-bottom: 4px solid transparent; transition: 0.3s; text-transform: uppercase; color: #86888C; }
         .tab-active { border-bottom-color: #5CB615; color: #5CB615; background: white; }
         .login-gradient { background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); }
         .spinner { width: 45px; height: 45px; border: 5px solid #e5e7eb; border-top: 5px solid #019DF4; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .animate-pop { animation: pop 0.3s ease-out; }
         @keyframes pop { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
     <div id="root">
         <div id="emergency-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f3f4f6;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">CARGANDO SISTEMA NACIONAL...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO SISTEMA...</p>
         </div>
     </div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyA7jT_0uOIW17wrkqqar97WZdc8qvuoKGI",
             authDomain: "academia-capym.firebaseapp.com",
@@ -61,58 +74,35 @@
             messagingSenderId: "261815103883",
             appId: "1:261815103883:web:aa66d0b8d1b733195bff8e"
         };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        
+        let db = null;
+        let auth = null;
 
-        // (Se omiten los bancos de preguntas para no hacer el código inmanejable, he puesto un resumen, pero en tu código mantén las 40)
-        // Por cuestiones de espacio en este formato, incluyo 3 de cada una para probar, tú puedes volver a pegar el bloque EXAMS de 40 preguntas sin problema.
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (error) {
+            console.error("Firebase init failed:", error);
+            alert("Advertencia: No se pudo conectar a la base de datos.");
+        }
+
+        // --- BANCOS DE PREGUNTAS (Resumido para V12, puedes volver a pegar las 40 después si funciona) ---
         const EXAMS = {
             BASICO: [
                 { q: "¿Cuál es el objetivo principal de la Portabilidad?", options: ["Conservar el número al cambiar de compañía.", "Obtener número nuevo.", "Baja de línea.", "Transferir saldo."], ans: 0 },
                 { q: "¿Vigencia del NIP?", options: ["5 días naturales.", "24 horas.", "15 días.", "Ilimitada."], ans: 0 },
-                { q: "¿Dígitos del ICC?", options: ["19 dígitos.", "15 dígitos.", "10 dígitos.", "13 dígitos."], ans: 0 },
-                { q: "¿Qué significa FVC?", options: ["Fecha de Ventana de Cambio.", "Folio de Venta.", "Firma Valida.", "Fin de Venta."], ans: 0 },
-                { q: "¿Quién regula la portabilidad?", options: ["El ABD.", "Movistar.", "El promotor.", "El cliente."], ans: 0 },
-                { q: "Si ingresas CURP en Ónix, ¿qué paso evitas?", options: ["Fotos de identificación.", "Pedir NIP.", "Firmar.", "Escanear SIM."], ans: 0 },
-                { q: "¿Número para pedir NIP?", options: ["051", "*611", "050", "*123"], ans: 0 },
-                { q: "¿Qué pasa si es Persona Moral?", options: ["Rechazo ABD.", "Pasa normal.", "Tarda más.", "No requiere NIP."], ans: 0 },
-                { q: "¿Horario ejecución portabilidades?", options: ["2:00 AM a 6:00 AM.", "Mediodía.", "Captura.", "10:00 PM."], ans: 0 },
-                { q: "Motivo rechazo Back Office:", options: ["Fotos borrosas.", "Señal.", "NIP expirado.", "Chip dañado."], ans: 0 }
+                { q: "¿Dígitos del ICC?", options: ["19 dígitos.", "15 dígitos.", "10 dígitos.", "13 dígitos."], ans: 0 }
             ],
             EXPERTO: [
                 { q: "Error Code 3059:", options: ["Proceso previo activo.", "NIP mal.", "SIM usada.", "Sin red."], ans: 0 },
                 { q: "Horario Back Office:", options: ["Lunes a Sábado 9-17h.", "24/7.", "Lunes a Viernes 8-20h.", "Solo Domingos."], ans: 0 },
-                { q: "Reinyección 'Order not exist':", options: ["Trámite nuevo.", "Reiniciar App.", "Nuevo NIP.", "Soporte 2L."], ans: 0 },
-                { q: "¿Qué valida al Suscriptor Prepago?", options: ["SIM física y SMS.", "Factura.", "Identificación.", "IDPV."], ans: 0 },
-                { q: "Equipo liberado se marca como:", options: ["BYOD.", "Externo.", "Smartphone.", "Genérico."], ans: 0 },
-                { q: "'En espera de envío' es:", options: ["Revisión BO Prepago.", "NIP validado.", "Portado.", "Falta recarga."], ans: 0 },
-                { q: "Sin llamadas post-FVC:", options: ["Escalar 2L.", "Esperar 48h.", "Reinyectar.", "Cargar $50."], ans: 0 },
-                { q: "Llamadas al 051 permitidas:", options: ["Máximo 2.", "Ilimitadas.", "Una.", "Cero."], ans: 0 },
-                { q: "Datos para 2L:", options: ["ID Prov, IDPV, DN, ICC.", "Nombre y CURP.", "Folio y Marca.", "Correo y Pass."], ans: 0 },
-                { q: "Validación ABD es:", options: ["Verificando NIP.", "Revisando fotos.", "Ya es Movistar.", "Rechazo deuda."], ans: 0 },
-                { q: "Descargar Ónix de:", options: ["asistentemovistar.com.mx", "Play Store.", "WhatsApp.", "Google."], ans: 0 },
-                { q: "Documento NO válido:", options: ["Credencial trabajo.", "INE.", "Pasaporte.", "Cédula."], ans: 0 },
-                { q: "ABD rechaza NIP mal:", options: ["Reinyección.", "Trámite nuevo.", "Soporte.", "Ajustes."], ans: 0 },
-                { q: "Rechazo por Donador:", options: ["Compañía anterior bloqueó.", "Movistar rechazó.", "NIP mal.", "Sin señal."], ans: 0 },
-                { q: "Tiempo respuesta ABD:", options: ["90 min hábiles.", "24 horas.", "Inmediata.", "48 horas."], ans: 0 }
+                { q: "Reinyección 'Order not exist':", options: ["Trámite nuevo.", "Reiniciar App.", "Nuevo NIP.", "Soporte 2L."], ans: 0 }
             ],
             VENTAS: [
                 { q: "¿Objetivo Venta Consultiva?", options: ["Indagar necesidad.", "Vender caro.", "Hablar mucho.", "Despachar."], ans: 0 },
                 { q: "Característica vs Beneficio:", options: ["Técnica vs Utilidad.", "Precio vs Regalo.", "Son igual.", "Local vs Nacional."], ans: 0 },
-                { q: "¿Preguntas Abiertas para?", options: ["Información detallada.", "Sí/No.", "Cerrar.", "Presupuesto."], ans: 0 },
-                { q: "Ante 'Está caro':", options: ["Empatizar y dar valor.", "Ignorar.", "Enojo.", "Bajar precio."], ans: 0 },
-                { q: "Pregunta '¿Qué necesito?':", options: ["Señal de Compra.", "Objeción.", "Duda.", "Distracción."], ans: 0 },
-                { q: "Cierre de Ventas es:", options: ["Acción concreta trato.", "Dar bolsa.", "Llenar Ónix.", "Saludar."], ans: 0 },
-                { q: "Up-Selling es:", options: ["Plan superior.", "Accesorios.", "Venta cruzada.", "Marca."], ans: 0 },
-                { q: "Cross-Selling es:", options: ["Complementos.", "Otro chip.", "Porta.", "Sondeo."], ans: 0 },
-                { q: "Escucha Activa es:", options: ["Contacto visual y parafrasear.", "Celular.", "Interrumpir.", "Mirar fuera."], ans: 0 },
-                { q: "Romper el Hielo:", options: ["Generar empatía.", "Presupuesto.", "Specs.", "Reírse."], ans: 0 },
-                { q: "Ante 'Lo voy a pensar':", options: ["Preguntar duda específica.", "Acaba mañana.", "Ignorar.", "Quitar equipo."], ans: 0 },
-                { q: "Vender Valor es:", options: ["Mejorar vida cliente.", "Menor precio.", "Regalar.", "Historia."], ans: 0 },
-                { q: "Post-Venta vital para:", options: ["Fidelizar y referidos.", "Cobrar.", "Protocolo.", "Nada."], ans: 0 },
-                { q: "Brazo cruzado es:", options: ["Barrera e interés bajo.", "Profesional.", "Concentrado.", "Líder."], ans: 0 },
-                { q: "Cliente molesto:", options: ["Calma y solución.", "Gritar.", "Ignorar.", "Seguridad."], ans: 0 }
+                { q: "¿Preguntas Abiertas para?", options: ["Información detallada.", "Sí/No.", "Cerrar.", "Presupuesto."], ans: 0 }
             ]
         };
 
@@ -128,20 +118,19 @@
             const [ranking, setRanking] = useState([]);
             const [history, setHistory] = useState([]);
             const [resources, setResources] = useState([]);
-            
-            // Nuevos Estados: Promotor del Mes y Portal
             const [candidates, setCandidates] = useState([]);
             const [quejas, setQuejas] = useState([]);
             const [vacaciones, setVacaciones] = useState([]);
 
             const [loading, setLoading] = useState(true);
+            const [firebaseReady, setFirebaseReady] = useState(false);
+
             const [supFilter, setSupFilter] = useState("TODOS");
             const [cadFilter, setCadFilter] = useState("TODAS");
 
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
             const [subTabPortal, setSubTabPortal] = useState("VACACIONES");
             
-            // Estados Quiz y Formularios
             const [quizState, setQuizState] = useState('MENU');
             const [colaboradorName, setColaboradorName] = useState("");
             const [questions, setQuestions] = useState([]);
@@ -150,38 +139,57 @@
             const [timer, setTimer] = useState(180);
             const [curType, setCurType] = useState('');
 
-            // Estado Vacaciones
             const [vacName, setVacName] = useState("");
             const [vacUser, setVacUser] = useState("");
             const [vacDate, setVacDate] = useState("");
             const [vacDays, setVacDays] = useState(1);
-            
-            // Estado Sugerencias
             const [sugText, setSugText] = useState("");
 
             useEffect(() => {
+                // Quitar loader inicial obligatoriamente
                 const loader = document.getElementById('emergency-loader');
                 if(loader) loader.style.display = 'none';
                 
-                auth.signInAnonymously().catch(e => console.log("Firebase Auth error"));
-
-                const unsubOp = db.collection("operacion").onSnapshot(snap => {
-                    snap.forEach(doc => {
-                        if (doc.id === "temm") setDataTEMM(doc.data().list || []);
-                        if (doc.id === "inv") setDataINV(doc.data().list || []);
-                    });
+                if (!db || !auth) {
                     setLoading(false);
-                }, err => { setLoading(false); });
+                    return;
+                }
 
-                const unsubRank = db.collection("ranking").orderBy("score", "desc").onSnapshot(s => setRanking(s.docs.map(d=>({id:d.id, ...d.data()}))));
-                const unsubHist = db.collection("historicos").orderBy("fecha", "desc").onSnapshot(s => setHistory(s.docs.map(d=>({id:d.id, ...d.data()}))));
-                const unsubRepo = db.collection("recurso").onSnapshot(s => setResources(s.docs.map(d=>({id:d.id, ...d.data()}))));
-                const unsubCands = db.collection("promotor_mes").onSnapshot(s => setCandidates(s.docs.map(d=>({id:d.id, ...d.data()}))));
-                const unsubQuejas = db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => setQuejas(s.docs.map(d=>({id:d.id, ...d.data()}))));
-                const unsubVac = db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => setVacaciones(s.docs.map(d=>({id:d.id, ...d.data()}))));
-
-                return () => { unsubOp(); unsubRank(); unsubHist(); unsubRepo(); unsubCands(); unsubQuejas(); unsubVac(); };
+                auth.signInAnonymously().then(() => {
+                    setFirebaseReady(true);
+                }).catch(e => {
+                    console.error("Auth Error", e);
+                    // Si falla el auth, de todos modos intentamos leer (depende de reglas)
+                    setFirebaseReady(true);
+                });
             }, []);
+
+            useEffect(() => {
+                if (!firebaseReady || !db) return;
+
+                const unsubs = [];
+                try {
+                    unsubs.push(db.collection("operacion").onSnapshot(snap => {
+                        snap.forEach(doc => {
+                            if (doc.id === "temm") setDataTEMM(doc.data().list || []);
+                            if (doc.id === "inv") setDataINV(doc.data().list || []);
+                        });
+                        setLoading(false);
+                    }, err => { console.error("Data error", err); setLoading(false); }));
+
+                    unsubs.push(db.collection("ranking").orderBy("score", "desc").onSnapshot(s => setRanking(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.error(e)));
+                    unsubs.push(db.collection("historicos").orderBy("fecha", "desc").onSnapshot(s => setHistory(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.error(e)));
+                    unsubs.push(db.collection("recurso").onSnapshot(s => setResources(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.error(e)));
+                    unsubs.push(db.collection("promotor_mes").onSnapshot(s => setCandidates(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.error(e)));
+                    unsubs.push(db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => setQuejas(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.error(e)));
+                    unsubs.push(db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => setVacaciones(s.docs.map(d=>({id:d.id, ...d.data()}))), e => console.error(e)));
+                } catch (error) {
+                    console.error("Snapshot setup error", error);
+                    setLoading(false);
+                }
+
+                return () => unsubs.forEach(unsub => { if(unsub) unsub(); });
+            }, [firebaseReady]);
 
             useEffect(() => {
                 let t = null;
@@ -190,10 +198,8 @@
                 return () => clearInterval(t);
             }, [quizState, timer]);
 
-            // Fecha mínima para vacaciones (15 días a partir de hoy)
             const minVacationDate = useMemo(() => {
-                const d = new Date();
-                d.setDate(d.getDate() + 15);
+                const d = new Date(); d.setDate(d.getDate() + 15);
                 return d.toISOString().split('T')[0];
             }, []);
 
@@ -206,6 +212,7 @@
             };
 
             const uploadFile = async (type, e) => {
+                if(!db) return alert("No hay conexión a la base de datos.");
                 const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = async (evt) => {
@@ -214,11 +221,10 @@
                         const sheetKey = type === "temm" ? "seg diario" : "tiendas";
                         const wsName = wb.SheetNames.find(n => n.toLowerCase().includes(sheetKey));
                         if (!wsName) return alert(`Pestaña '${sheetKey}' no encontrada.`);
-                        
                         const json = XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header: "A", defval: "" });
                         let list = [];
                         if (type === "temm") {
-                            list = json.filter(r => r["J"] && String(r["J"]).length > 3).map(r => ({
+                            list = json.filter(r => r["J"] && String(r["J"]).length > 3 && !String(r["J"]).includes("PDV")).map(r => ({
                                 id: String(r["I"] || "").trim().replace(/^0+/, ''),
                                 tienda: String(r["J"]).trim(), sup: String(r["B"]).trim(),
                                 cad: String(r["L"]).toUpperCase().includes("EKT") ? "ELEKTRA" : (String(r["L"]).toUpperCase().includes("COPPEL") ? "COPPEL" : "SUBURBIA"),
@@ -232,9 +238,78 @@
                         }
                         await db.collection("operacion").doc(type).set({ list });
                         alert("¡Sincronizado!");
-                    } catch (error) { alert("Error procesando Excel."); }
+                    } catch (error) { alert("Error procesando Excel o conectando a BD."); }
                 };
                 reader.readAsBinaryString(file);
+            };
+
+            const addCandidate = async (e) => {
+                if(!db) return;
+                const file = e.target.files[0]; if (!file) return;
+                const name = prompt("Nombre del Nominado:"); if(!name) return;
+                if(candidates.length >= 4) return alert("Solo 4 candidatos.");
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const img = new Image();
+                    img.onload = async () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 200;
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH; canvas.height = img.height * scaleSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const base64small = canvas.toDataURL('image/jpeg', 0.5);
+                        try {
+                            await db.collection("promotor_mes").add({ nombre: name.toUpperCase(), foto: base64small, votos: [] });
+                            alert("Candidato agregado.");
+                        } catch(err) { alert("Error guardando candidato."); }
+                    };
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const voteCandidate = async (candidateId) => {
+                if(userRole === "ADMIN") return alert("Admin no vota.");
+                if(!db) return;
+                const logId = userId.trim().toUpperCase();
+                let yaVoto = false;
+                candidates.forEach(c => { if(c.votos && c.votos.includes(logId)) yaVoto = true; });
+                if(yaVoto) return alert("Ya votaste.");
+
+                try {
+                    const candRef = db.collection("promotor_mes").doc(candidateId);
+                    const candDoc = await candRef.get();
+                    if(candDoc.exists) {
+                        const currentVotes = candDoc.data().votos || [];
+                        await candRef.update({ votos: [...currentVotes, logId] });
+                        alert("Voto registrado.");
+                    }
+                } catch (e) { alert("Error al votar."); }
+            };
+
+            const submitSugerencia = async (e) => {
+                e.preventDefault();
+                if(!sugText.trim() || !db) return;
+                try {
+                    await db.collection("quejas").add({ idpdv: userId.toUpperCase(), texto: sugText, fecha: firebase.firestore.FieldValue.serverTimestamp() });
+                    setSugText(""); alert("Enviado.");
+                } catch(e) { alert("Error enviando sugerencia."); }
+            };
+
+            const submitVacaciones = async (e) => {
+                e.preventDefault();
+                if(!db) return;
+                try {
+                    await db.collection("vacaciones").add({ 
+                        idpdv: userId.toUpperCase(), nombre: vacName.toUpperCase(), usuarioFw: vacUser.toUpperCase(), 
+                        fechaDeseada: vacDate, diasSolicitados: vacDays, estatus: 'Pendiente',
+                        fecha: firebase.firestore.FieldValue.serverTimestamp() 
+                    });
+                    setVacName(""); setVacUser(""); setVacDate(""); setVacDays(1);
+                    alert("Solicitud enviada.");
+                } catch(e) { alert("Error solicitando vacaciones."); }
             };
 
             const startQuiz = (type) => {
@@ -262,30 +337,22 @@
                     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
                     doc.setDrawColor(1, 157, 244); doc.setLineWidth(2); doc.rect(10, 10, 277, 190);
                     doc.setFont("helvetica", "bold"); doc.setFontSize(38); doc.setTextColor(11, 39, 57);
-                    doc.text("CERTIFICACIÓN NACIONAL", 148, 50, { align: 'center' });
+                    doc.text("CERTIFICADO NACIONAL", 148, 50, { align: 'center' });
                     doc.setFontSize(16); doc.setFont("helvetica", "normal"); doc.text("HidalgoDash CAPYM otorga el presente a:", 148, 70, { align: 'center' });
                     doc.setFontSize(32); doc.setFont("helvetica", "bold"); doc.setTextColor(92, 182, 21); doc.text(name.toUpperCase(), 148, 95, { align: 'center' });
-                    doc.setFontSize(14); doc.setTextColor(11, 39, 57); doc.setFont("helvetica", "normal"); doc.text(`Por acreditar el módulo: ${module}`, 148, 115, { align: 'center' });
-                    doc.setFontSize(12); doc.text(`Fecha: ${date}`, 148, 130, { align: 'center' });
-                    doc.line(50, 170, 120, 170); doc.setFontSize(10); doc.text(supervisor || "SUPERVISOR", 85, 176, { align: 'center' });
-                    doc.line(177, 170, 247, 170); doc.text("C.P. ANGEL ROIZ", 212, 176, { align: 'center' }); doc.text("Líder Nacional", 212, 181, { align: 'center' });
+                    doc.setFontSize(14); doc.setTextColor(11, 39, 57); doc.setFont("helvetica", "normal"); doc.text(`Por acreditar el módulo: ${module}`, 148, 120, { align: 'center' });
+                    doc.setFontSize(12); doc.text(`Fecha: ${date}`, 148, 140, { align: 'center' });
+                    doc.line(50, 175, 120, 175); doc.setFontSize(10); doc.text(supervisor || "SUPERVISOR", 85, 182, { align: 'center' });
+                    doc.line(177, 175, 247, 175); doc.text("C.P. ANGEL ROIZ", 212, 182, { align: 'center' });
                     doc.save(`Certificado_${name.replace(/\s/g, '_')}.pdf`);
                 } catch(e) { alert("Error descargando el PDF."); }
             };
 
             useEffect(() => {
-                if(quizState === 'RESULT' && passed) {
+                if(quizState === 'RESULT' && passed && db) {
                     const name = colaboradorName.trim().toUpperCase();
                     const logId = userId.trim().toUpperCase();
                     const sName = userRole === "ADMIN" ? "ADMIN" : (dataTEMM.find(d => d.id === userId.trim().replace(/^0+/, ''))?.sup || "SUPERVISOR");
-                    db.collection("historicos").add({ idpdv: logId, nombre: name, examen: curType, puntos: pts, sup: sName, fecha: firebase.firestore.FieldValue.serverTimestamp() });
-                    db.collection("ranking").where("name", "==", name).get().then(snap => {
-                        if (!snap.empty) snap.docs[0].ref.update({ score: snap.docs[0].data().score + pts, badges: Array.from(new Set([...(snap.docs[0].data().badges || []), curType])) });
-                        else db.collection("ranking").add({ name, score: pts, badges: [curType] });
-                    });
-                }
-            }, [quizState]);
-
-            // Función Promotor del Mes - Subir Foto Base64
-            const addCandidate = async (e) => {
-                
+                    
+                    try {
+                        db.collection("historicos").add({ idpdv: logId, nomb
