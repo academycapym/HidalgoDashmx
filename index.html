@@ -104,7 +104,7 @@
         const EXAMS_DATA = {
             BASICO: [
                 { q: "De acuerdo al Manual de Portabilidad por App, ¿cuáles son los datos estrictamente necesarios que valida el Administrador de Base de Datos (ABD) en un trámite?", options: ["Que el número corresponda al donador, NIP correcto/vigente, Receptor válido y que sea Persona Física.", "Identificación oficial escaneada, huella digital y firma del cliente en contrato.", "Que el cliente tenga equipo liberado, saldo a favor en su compañía anterior y un correo válido.", "Que sea Persona Moral con RFC validado y cuente con tarjeta de crédito."], ans: 0 },
-                { q: "¿Cuál es el tiempo de vigencia establecido para el NIP de portabilidad y qué restricciones tiene la llamada al 051 durante este periodo según el protocolo oficial?", options: ["Vigencia de 5 días naturales; se permiten máximo dos llamadas al 051 pero SMS ilimitados.", "Vigencia de 24 horas; no hay límite de llamadas al 051.", "Vigencia de 15 días hábiles; solo se permite una llamada al 051.", "Vigencia ilimitada siempre y cuando el cliente no apague su equipo celular."], ans: 0 },
+                { q: "¿Cuál es el tiempo de vigencia establecido para el NIP de portabilidad y qué restricciones tiene la llamada al 051?", options: ["Vigencia de 5 días naturales; se permiten máximo dos llamadas al 051 pero SMS ilimitados.", "Vigencia de 24 horas; no hay límite de llamadas al 051.", "Vigencia de 15 días hábiles; solo se permite una llamada al 051.", "Vigencia ilimitada siempre y cuando el cliente no apague su equipo celular."], ans: 0 },
                 { q: "En el proceso operativo de portabilidad, ¿qué significa exactamente la sigla FVC y cuál es su función principal?", options: ["Fecha de Ventana de Cambio: es el día en que se concreta la portabilidad y la línea se activa en Movistar.", "Firma de Validación de Contrato: el paso final donde el cliente acepta los términos.", "Folio de Venta Confirmado: el comprobante que se le entrega al cliente al salir de la tienda.", "Fin de Vinculación Comercial: el día en que el cliente pierde su número antiguo permanentemente."], ans: 0 },
                 { q: "Al ingresar la CURP del cliente durante el proceso de captura en la App, ¿qué paso procedimental logras omitir para agilizar la venta?", options: ["La captura y adjunto de fotografías (frente y reverso) de la identificación oficial del cliente.", "El ingreso del NIP de 4 dígitos enviado por el ABD.", "El escaneo o ingreso manual del código de barras de la nueva SIM.", "La firma electrónica en la pantalla del dispositivo móvil."], ans: 0 },
                 { q: "¿Cuáles son los horarios de ejecución estándar en los que el Operador Receptor y el Donador realizan la portabilidad efectiva de la línea?", options: ["Entre las 2:00 am y las 3:30 am como máximo del día de la FVC.", "A mediodía, exactamente a las 12:00 pm para no afectar el servicio laboral.", "Inmediatamente después de capturar el NIP, en un lapso de 15 minutos.", "A las 10:00 pm del día anterior a la solicitud."], ans: 0 },
@@ -251,7 +251,7 @@
             const [rostFw, setRostFw] = useState("");
             const [rostDate, setRostDate] = useState("");
             const [rostRole, setRostRole] = useState("PROMOTOR");
-            const [rostNumTrabajo, setRostNumTrabajo] = useState("");
+            const [rostTelefono, setRostTelefono] = useState("");
             const [rostCumple, setRostCumple] = useState("");
             const fileInputRef = useRef(null);
 
@@ -282,71 +282,87 @@
                 if (loader) loader.style.display = 'none';
                 
                 if (!db || !auth) return;
-                auth.signInAnonymously().catch(e => console.warn(e));
 
-                const unsubs = [];
-                try {
-                    const subOp = db.collection("operacion_v2").onSnapshot(s => {
-                        let tm = []; let iv = [];
-                        s.forEach(d => {
-                            const obj = d.data();
-                            if (d.id === "temm") {
-                                tm = Array.isArray(obj.list) ? obj.list : [];
-                                setActualizadoAl(obj.actualizado_al || "Desconocido");
-                            }
-                            if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
-                        });
-                        setDataTEMM(tm); setDataINV(iv);
-                    });
-                    unsubs.push(subOp);
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (e) {
+                        console.error("Auth Error", e);
+                    }
+                };
+                initAuth();
 
-                    const subRank = db.collection("ranking").orderBy("score", "desc").onSnapshot(s => {
-                        setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subRank);
+                const unsubscribeAuth = auth.onAuthStateChanged(user => {
+                    if (user) {
+                        const unsubs = [];
+                        try {
+                            const subOp = db.collection("operacion_v2").onSnapshot(s => {
+                                let tm = []; let iv = [];
+                                s.forEach(d => {
+                                    const obj = d.data();
+                                    if (d.id === "temm") {
+                                        tm = Array.isArray(obj.list) ? obj.list : [];
+                                        setActualizadoAl(obj.actualizado_al || "Desconocido");
+                                    }
+                                    if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
+                                });
+                                setDataTEMM(tm); setDataINV(iv);
+                            });
+                            unsubs.push(subOp);
 
-                    const subRec = db.collection("recurso").onSnapshot(s => {
-                        setResources(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subRec);
+                            const subRank = db.collection("ranking").orderBy("score", "desc").onSnapshot(s => {
+                                setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subRank);
 
-                    const subCand = db.collection("promotor_mes").onSnapshot(s => {
-                        setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subCand);
+                            const subRec = db.collection("recurso").onSnapshot(s => {
+                                setResources(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subRec);
 
-                    const subQuej = db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => {
-                        setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subQuej);
+                            const subCand = db.collection("promotor_mes").onSnapshot(s => {
+                                setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subCand);
 
-                    const subVac = db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
-                        setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subVac);
+                            const subQuej = db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => {
+                                setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subQuej);
 
-                    const subRost = db.collection("roster").orderBy("fecha", "desc").onSnapshot(s => {
-                        setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subRost);
+                            const subVac = db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
+                                setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subVac);
 
-                    const subCom = db.collection("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
-                        setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subCom);
+                            const subRost = db.collection("roster").orderBy("fecha", "desc").onSnapshot(s => {
+                                setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subRost);
 
-                    const subEnc = db.collection("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
-                        setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subEnc);
+                            const subCom = db.collection("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
+                                setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subCom);
 
-                    const subConfig = db.collection("config").doc("general").onSnapshot(d => {
-                        if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
-                    });
-                    unsubs.push(subConfig);
+                            const subEnc = db.collection("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
+                                setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subEnc);
 
-                } catch(error) { console.error("Listeners", error); }
-                return () => unsubs.forEach(u => u());
+                            const subConfig = db.collection("config").doc("general").onSnapshot(d => {
+                                if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
+                            });
+                            unsubs.push(subConfig);
+                        } catch(error) { console.error("Listeners", error); }
+                    }
+                });
+
+                return () => unsubscribeAuth();
             }, []);
 
             useEffect(() => {
@@ -360,6 +376,13 @@
                 const d = new Date(); d.setDate(d.getDate() + 15);
                 return d.toISOString().split('T')[0];
             }, []);
+
+            const calculateAge = (birthday) => {
+                if(!birthday) return null;
+                const ageDifMs = Date.now() - new Date(birthday).getTime();
+                const ageDate = new Date(ageDifMs);
+                return Math.abs(ageDate.getUTCFullYear() - 1970);
+            };
 
             const handleLogin = (e) => {
                 e.preventDefault();
@@ -398,7 +421,7 @@
                                     .filter(val => val.includes("-") && val.toUpperCase() !== "FECHA REGISTRO");
                                 if(strDates.length > 0) {
                                     strDates.sort();
-                                    diaAct = strDates[strDates.length - 1];
+                                    diaAct = strDates[strDates.length - 1]; 
                                 }
                             }
 
@@ -406,27 +429,26 @@
                             if (!wsSegDiario) return alert("Pestaña 'Seg Diario' no encontrada en el archivo.");
 
                             const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
+                            
+                            // Lector 100% estricto para los 43 PDVs
                             list = jData.filter((row, index) => {
                                 const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
-                                const sup = String(row["B"] || "").trim();
-                                const isNumericId = /^\d+$/.test(iVal); 
-                                return isNumericId && iVal.length >= 4 && sup !== "" && index >= 5 && index <= 47; 
+                                const isNumericId = /^\d+$/.test(iVal);
+                                // index 5 a 47 equivale de la fila 6 a la 48
+                                return index >= 5 && index <= 47 && isNumericId && iVal.length >= 3;
                             }).map(row => {
-                                let cadena = "SUBURBIA"; let tUpper = String(row["J"]).toUpperCase();
+                                let cadena = "SUBURBIA"; let tUpper = String(row["J"] || "").toUpperCase();
                                 if (tUpper.includes("EKT") || tUpper.includes("ELEKTRA")) cadena = "ELEKTRA";
                                 else if (tUpper.includes("COPPEL")) cadena = "COPPEL";
                                 return {
                                     id: String(row["I"] || "").trim().replace(/^0+/, ''),
-                                    tienda: String(row["J"]).trim(), 
-                                    sup: String(row["B"]).trim(), 
-                                    cad: cadena,
-                                    altas: Math.round(Number(row["Q"]) || 0), 
-                                    cuota: Math.round(Number(row["R"]) || 0)
+                                    tienda: String(row["J"]).trim(), sup: String(row["B"]).trim(), cad: cadena,
+                                    altas: Math.round(Number(row["Q"]) || 0), cuota: Math.round(Number(row["R"]) || 0)
                                 };
                             });
                             
                             await db.collection("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
-                            alert("¡Sincronizado Diario a Nivel Nacional exitosamente! (Fecha BBDD: " + diaAct + ")");
+                            alert(`¡Sincronizado Diario a Nivel Nacional exitosamente! (${list.length} Tiendas | Fecha: ${diaAct})`);
                             
                         } else if (type === "inv") {
                             const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tiendas") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario"));
@@ -452,11 +474,14 @@
 
             const handleRosterSubmit = async (e) => {
                 e.preventDefault();
-                if(!rostName || !rostFw || !rostDate) { alert("Llena los campos de texto principales."); return; }
+                if(!rostName || !rostFw || !rostDate || !rostTelefono) { 
+                    alert("Llena los campos obligatorios."); 
+                    return; 
+                }
                 const file = fileInputRef.current?.files[0];
 
                 if (!file && !editRostId) {
-                    alert("Debes subir una foto para crear un nuevo perfil."); return;
+                    alert("Debes subir una foto de perfil."); return;
                 }
 
                 const saveData = async (fotoB64) => {
@@ -482,7 +507,9 @@
                         setRostName(""); setRostFw(""); setRostDate(""); setRostRole("PROMOTOR");
                         setRostTelefono(""); setRostCumple(""); setEditRostId(null);
                         if(fileInputRef.current) fileInputRef.current.value = "";
-                    } catch(err) { alert("Error al guardar perfil."); }
+                    } catch(err) { 
+                        alert("Error al guardar perfil en la base: " + err.message); 
+                    }
                 };
 
                 if (file) {
@@ -490,9 +517,18 @@
                     reader.onload = (evt) => {
                         const img = new Image();
                         img.onload = () => {
-                            const can = document.createElement('canvas'); const w = 200; const h = img.height * (200/img.width);
-                            can.width = w; can.height = h; can.getContext('2d').drawImage(img, 0, 0, w, h);
-                            saveData(can.toDataURL('image/jpeg', 0.5));
+                            try {
+                                const can = document.createElement('canvas'); 
+                                const MAX_WIDTH = 400;
+                                let width = img.width; let height = img.height;
+                                if (width > MAX_WIDTH) {
+                                    height = Math.round(height * (MAX_WIDTH / width));
+                                    width = MAX_WIDTH;
+                                }
+                                can.width = width; can.height = height; 
+                                can.getContext('2d').drawImage(img, 0, 0, width, height);
+                                saveData(can.toDataURL('image/jpeg', 0.6));
+                            } catch(er) { alert("Error al procesar foto."); }
                         };
                         img.src = evt.target.result;
                     };
@@ -504,7 +540,7 @@
 
             const handleEditRoster = (r) => {
                 setEditRostId(r.id); setRostName(r.nombre); setRostFw(r.fw);
-                setRostRole(r.rol || "PROMOTOR"); setRostTelefono(r.telefono || r.numTrabajo || "");
+                setRostRole(r.rol || "PROMOTOR"); setRostTelefono(r.telefono || "");
                 setRostCumple(r.cumpleanos || ""); setRostDate(r.ingreso || "");
                 window.scrollTo(0,0);
             };
@@ -743,57 +779,76 @@
 
             const downloadCert = (name, modCode, date) => {
                 try {
-                    const userRank = ranking.find(r => r.name === name);
-                    const badgesText = Array.from(new Set([...(userRank?.badges || []), modCode])).map(b => b==='BASICO'?'PORTABILIDAD BÁSICA':b==='EXPERTO'?'PORTA AVANZADA':b==='VENTAS'?'VENTA CONSULTIVA':b==='SUELDO_FIELDWY'?'SUELDO/FIELDWY':b).join(", ");
-                    
                     const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
                     
                     // Diseño Premium tipo Diploma
-                    doc.setFillColor(11, 39, 57); // Dark Blue
+                    doc.setFillColor(252, 250, 245); // Fondo pergamino
                     doc.rect(0, 0, 297, 210, 'F');
-                    doc.setFillColor(255, 255, 255);
-                    doc.rect(10, 10, 277, 190, 'F');
                     
-                    // Borde Dorado
-                    doc.setDrawColor(212, 175, 55); // Gold
-                    doc.setLineWidth(2);
-                    doc.rect(15, 15, 267, 180, 'D');
+                    // Borde exterior oscuro
+                    doc.setDrawColor(11, 39, 57); 
+                    doc.setLineWidth(3);
+                    doc.rect(12, 12, 273, 186, 'D');
 
-                    // Títulos
+                    // Borde interior dorado
+                    doc.setDrawColor(197, 160, 89);
+                    doc.setLineWidth(1.5);
+                    doc.rect(16, 16, 265, 178, 'D');
+
+                    // Línea decorativa
+                    doc.setDrawColor(11, 39, 57);
+                    doc.setLineWidth(0.5);
+                    doc.rect(18, 18, 261, 174, 'D');
+
+                    // Títulos (Fuente Serif: Times)
                     doc.setFont("times", "bold");
-                    doc.setFontSize(40);
-                    doc.setTextColor(212, 175, 55); 
+                    doc.setFontSize(34);
+                    doc.setTextColor(11, 39, 57); 
                     doc.text("CERTIFICADO DE ACREDITACIÓN", 148.5, 45, { align: 'center' });
                     
                     doc.setFontSize(16);
-                    doc.setTextColor(11, 39, 57);
                     doc.setFont("times", "italic");
-                    doc.text("Se otorga el presente certificado a:", 148.5, 75, { align: 'center' });
+                    doc.text("HidalgoDash y CAPYM otorgan el presente reconocimiento a:", 148.5, 70, { align: 'center' });
                     
-                    doc.setFontSize(36);
+                    // Nombre
+                    doc.setFontSize(40);
                     doc.setFont("times", "bolditalic");
+                    doc.setTextColor(197, 160, 89); // Dorado
+                    doc.text(name.toUpperCase(), 148.5, 95, { align: 'center' });
+                    
+                    doc.setDrawColor(200, 200, 200);
+                    doc.line(60, 100, 237, 100);
+                    
+                    // Cuerpo
+                    doc.setFontSize(16);
                     doc.setTextColor(11, 39, 57);
-                    doc.text(name.toUpperCase(), 148.5, 100, { align: 'center' });
-                    
-                    doc.setFontSize(14);
                     doc.setFont("times", "normal");
-                    doc.text(`Por haber completado con éxito la certificación en:`, 148.5, 120, { align: 'center' });
+                    doc.text("Por haber concluido satisfactoriamente la certificación oficial en el módulo de:", 148.5, 120, { align: 'center' });
                     
-                    doc.setFontSize(18);
+                    doc.setFontSize(24);
                     doc.setFont("times", "bold");
-                    doc.setTextColor(212, 175, 55);
-                    doc.text(modCode, 148.5, 132, { align: 'center' });
+                    doc.setTextColor(1, 157, 244); // Azul Movistar
+                    doc.text(modCode, 148.5, 138, { align: 'center' });
                     
                     doc.setFontSize(11);
                     doc.setTextColor(100, 100, 100);
                     doc.setFont("times", "italic");
-                    doc.text(`Fecha de emisión: ${date}`, 148.5, 145, { align: 'center' });
-                    doc.text(`Cursos Acreditados: ${badgesText}`, 148.5, 152, { align: 'center', maxWidth: 220 });
+                    doc.text(`Emitido el día: ${date}`, 148.5, 150, { align: 'center' });
                     
+                    // Sello simulado
+                    doc.setFillColor(197, 160, 89);
+                    doc.circle(45, 165, 15, 'F');
+                    doc.setFillColor(11, 39, 57);
+                    doc.circle(45, 165, 12, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(8);
+                    doc.setFont("times", "bold");
+                    doc.text("CAPYM", 45, 166, { align: 'center' });
+
                     // Firma Única
                     doc.setDrawColor(11, 39, 57);
                     doc.setLineWidth(0.5);
-                    doc.line(100, 180, 197, 180);
+                    doc.line(105, 180, 192, 180);
                     
                     doc.setFontSize(12);
                     doc.setFont("times", "bold");
@@ -804,7 +859,7 @@
                     doc.text("GTE REGIONAL DE HIDALGO", 148.5, 192, { align: 'center' });
                     
                     doc.save(`Certificado_${name.replace(/\s/g, '_')}.pdf`);
-                } catch(e) { alert("Descarga bloqueada."); }
+                } catch(e) { alert("Descarga bloqueada por el navegador."); }
             };
 
             useEffect(() => {
@@ -877,12 +932,8 @@
                         {activeTab === 'OPERACION' && (
                             <div className="space-y-4">
                                 {actualizadoAl !== "Desconocido" && (
-                                    <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
-                                        <div className="relative z-10">
-                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH EN OPERACIÓN!</p>
-                                            <p className="text-[9px] font-bold opacity-90 mt-1">Datos actualizados al día: {actualizadoAl}</p>
-                                        </div>
-                                        <div className="absolute right-2 opacity-30 text-5xl">📊</div>
+                                    <div className="text-center bg-blue-50 text-movistar-blue py-2 rounded-xl text-[10px] font-black uppercase shadow-sm border border-blue-100">
+                                        Actualizado al día: <span className="text-movistar-dark ml-1">{actualizadoAl}</span>
                                     </div>
                                 )}
 
@@ -1197,23 +1248,23 @@
                                         {userRole === "PROMOTOR" && (
                                             <form onSubmit={handleRosterSubmit} className="bg-white p-6 rounded-[2rem] shadow-lg border">
                                                 <h3 className="font-black text-xs text-movistar-dark uppercase mb-4">{editRostId ? "✏️ Editar Usuario" : "➕ Alta de Usuario"}</h3>
-                                                <input type="text" placeholder="Nombre Completo" value={rostName} onChange={e=>setRostName(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
-                                                <input type="text" placeholder="Usuario FW" value={rostFw} onChange={e=>setRostFw(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
-                                                <select value={rostRole} onChange={e=>setRostRole(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase text-movistar-dark">
+                                                <input type="text" placeholder="Nombre Completo" value={rostName} onChange={e=>setRostName(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                <input type="text" placeholder="Usuario FW" value={rostFw} onChange={e=>setRostFw(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                <select value={rostRole} onChange={e=>setRostRole(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase text-movistar-dark">
                                                     <option value="PROMOTOR">ROL: PROMOTOR</option>
                                                     <option value="SUPERVISOR">ROL: SUPERVISOR</option>
                                                     <option value="ENTRENADOR">ROL: ENTRENADOR</option>
                                                 </select>
-                                                <input type="tel" placeholder="NÚMERO TELEFÓNICO" value={rostTelefono} onChange={e=>setRostTelefono(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                <input type="tel" placeholder="NÚMERO TELEFÓNICO (10 Dígitos)" value={rostTelefono} onChange={e=>setRostTelefono(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
                                                 
                                                 <div className="grid grid-cols-2 gap-2 mb-4">
                                                     <div>
                                                         <label className="text-[9px] font-black text-gray-400 ml-2">Fecha Ingreso</label>
-                                                        <input type="date" value={rostDate} onChange={e=>setRostDate(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                        <input type="date" value={rostDate} onChange={e=>setRostDate(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
                                                     </div>
                                                     <div>
                                                         <label className="text-[9px] font-black text-gray-400 ml-2">Cumpleaños</label>
-                                                        <input type="date" value={rostCumple} onChange={e=>setRostCumple(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                        <input type="date" value={rostCumple} onChange={e=>setRostCumple(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
                                                     </div>
                                                 </div>
 
@@ -1247,8 +1298,8 @@
                                                                     {r.estatus || 'ACTIVO'}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw} <br/>TEL: {r.telefono || r.numTrabajo || 'N/A'}</p>
-                                                            <p className="text-[8px] font-bold text-gray-400 mt-1">Cumpleaños: {r.cumpleanos ? new Date(r.cumpleanos).toLocaleDateString('es-MX', {timeZone:'UTC'}) : 'N/A'} | Antigüedad: {r.ingreso ? Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000) : 0} días</p>
+                                                            <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw} <br/>TEL: {r.telefono || 'N/A'}</p>
+                                                            <p className="text-[8px] font-bold text-gray-400 mt-1">Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)} años` : 'N/A'} | Antigüedad: {r.ingreso ? Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000) : 0} días</p>
                                                         </div>
                                                     </div>
                                                     {userRole === "PROMOTOR" && (
@@ -1371,9 +1422,16 @@
 
                                 {subTabPortal === "COMUNICADOS" && (
                                     <div className="space-y-5">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                            <h2 className="font-black text-lg italic uppercase">TABLÓN OFICIAL</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Noticias, actualizaciones y comunicados importantes de la agencia.</p>
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
+                                            <div className="relative z-10 w-full pr-12">
+                                                <h2 className="font-black text-lg italic uppercase">TABLÓN OFICIAL</h2>
+                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Noticias, actualizaciones y comunicados importantes de la agencia.</p>
+                                            </div>
+                                            <div className="absolute right-2 top-0 bottom-0 flex items-center justify-center">
+                                                <svg viewBox="0 0 100 100" className="w-16 h-16 text-movistar-blue opacity-50" fill="currentColor">
+                                                    <path d="M22.5,70.5 C22.5,70.5 15,35 25,25 C35,15 45,25 45,25 C45,25 55,15 65,25 C75,35 67.5,70.5 67.5,70.5 C67.5,70.5 70,80 80,75 C90,70 90,60 90,60 C90,60 95,65 95,75 C95,85 80,95 65,85 C50,75 45,60 45,60 C45,60 40,75 25,85 C10,95 -5,85 -5,75 C-5,65 0,60 0,60 C0,60 0,70 10,75 C20,80 22.5,70.5 22.5,70.5 Z" />
+                                                </svg>
+                                            </div>
                                         </div>
 
                                         {userRole === "ADMIN" && (
@@ -1419,7 +1477,7 @@
                                                         <div className="border-t p-3 bg-gray-50 flex items-center justify-between">
                                                             <button onClick={() => toggleLike(com.id)} 
                                                                     className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
-                                                                <span className={`text-sm ${hasLiked ? '' : 'grayscale opacity-50'}`}>❤️</span>
+                                                                <span className={`text-lg ${hasLiked ? '' : 'grayscale opacity-50'}`}>❤️</span>
                                                                 Me moviencanta ({likeCount})
                                                             </button>
                                                         </div>
