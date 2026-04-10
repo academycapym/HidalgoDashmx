@@ -2,34 +2,20 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" 
-          content="width=device-width, initial-scale=1.0, 
-                   maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HidalgoDash CAPYM</title>
     
-    <!-- Radar de Errores -->
     <script>
         window.onerror = function(msg, url, lineNo) {
             var loader = document.getElementById('emergency-loader');
             if (loader) {
                 loader.innerHTML = `
-                    <div style="padding:20px;text-align:center;
-                                color:#E63780;">
-                        <h2 style="font-size:20px;font-weight:900;">
-                            ⚠️ ERROR
-                        </h2>
-                        <div style="background:#fce4ec;padding:10px;
-                                    font-family:monospace;
-                                    font-size:10px;text-align:left;">
+                    <div style="padding:20px;text-align:center;color:#E63780;">
+                        <h2 style="font-size:20px;font-weight:900;">⚠️ ERROR</h2>
+                        <div style="background:#fce4ec;padding:10px;font-family:monospace;font-size:10px;text-align:left;">
                             ${msg}<br>Linea: ${lineNo}
                         </div>
-                        <button onclick="location.reload();" 
-                                style="margin-top:20px;
-                                       background:#019DF4;color:white;
-                                       padding:10px;border-radius:10px;
-                                       border:none;">
-                            REINICIAR
-                        </button>
+                        <button onclick="location.reload();" style="margin-top:20px;background:#019DF4;color:white;padding:10px;border-radius:10px;border:none;">REINICIAR</button>
                     </div>`;
             }
             return false;
@@ -54,9 +40,7 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { 
-                        movistar: { blue: '#019DF4', dark: '#0B2739', green: '#5CB615', red: '#E63780' } 
-                    },
+                    colors: { movistar: { blue: '#019DF4', dark: '#0B2739', green: '#5CB615', red: '#E63780' } },
                     fontFamily: { sans: ['Montserrat', 'sans-serif'] }
                 }
             }
@@ -109,31 +93,18 @@
         };
 
         const ENCUESTA_PREGUNTAS = [
-            "Motivación actual para realizar tu trabajo",
-            "Apoyo y liderazgo de tu supervisor/jefe",
-            "Claridad de las metas y objetivos",
-            "Comunicación oficial e información de la agencia",
-            "Calidad de herramientas de trabajo (App, material)",
-            "Ambiente laboral en la tienda asignada",
-            "Capacitación y formación recibida",
-            "Reconocimiento por tus logros",
-            "Equilibrio entre vida personal y trabajo",
-            "Resolución de dudas/problemas (Buzón/Tickets)",
-            "Relación con el personal de la tienda (Elektra/Coppel)",
-            "Seguridad y puntualidad en pago de comisiones",
-            "Confianza en los productos y servicios Movistar",
-            "Oportunidades de crecimiento en la agencia",
-            "Sentido de pertenencia a CAPYM",
-            "Claridad en el esquema de comisiones",
-            "Facilidad para realizar el proceso de portabilidad",
-            "Acompañamiento recibido en tus primeros días",
-            "Satisfacción general con tu puesto de trabajo"
+            "Motivación actual para realizar tu trabajo", "Apoyo y liderazgo de tu supervisor/jefe", "Claridad de las metas y objetivos",
+            "Comunicación oficial e información de la agencia", "Calidad de herramientas de trabajo (App, material)", "Ambiente laboral en la tienda asignada",
+            "Capacitación y formación recibida", "Reconocimiento por tus logros", "Equilibrio entre vida personal y trabajo", "Resolución de dudas/problemas (Buzón/Tickets)",
+            "Relación con el personal de la tienda (Elektra/Coppel)", "Seguridad y puntualidad en pago de comisiones", "Confianza en los productos y servicios Movistar",
+            "Oportunidades de crecimiento en la agencia", "Sentido de pertenencia a CAPYM", "Claridad en el esquema de comisiones",
+            "Facilidad para realizar el proceso de portabilidad", "Acompañamiento recibido en tus primeros días", "Satisfacción general con tu puesto de trabajo"
         ];
 
         const EXAMS_DATA = {
             BASICO: [
-                { q: "De acuerdo al Manual de Portabilidad por App, ¿cuáles son los datos estrictamente necesarios que valida el Administrador de Base de Datos (ABD) en un trámite?", options: ["Que el número corresponda al donador, NIP correcto/vigente, Receptor válido y que sea Persona Física.", "Identificación oficial escaneada, huella digital y firma del cliente en contrato.", "Que el cliente tenga equipo liberado, saldo a favor en su compañía anterior y un correo válido.", "Que sea Persona Moral con RFC validado y cuente con tarjeta de crédito."], ans: 0 },
-                { q: "¿Cuál es el tiempo de vigencia establecido para el NIP de portabilidad y qué restricciones tiene la llamada al 051 durante este periodo según el protocolo oficial?", options: ["Vigencia de 5 días naturales; se permiten máximo dos llamadas al 051 pero SMS ilimitados.", "Vigencia de 24 horas; no hay límite de llamadas al 051.", "Vigencia de 15 días hábiles; solo se permite una llamada al 051.", "Vigencia ilimitada siempre y cuando el cliente no apague su equipo celular."], ans: 0 },
+                { q: "De acuerdo al Manual de Portabilidad por App, ¿cuáles son los datos estrictamente necesarios que valida el ABD en un trámite?", options: ["Que el número corresponda al donador, NIP correcto/vigente, Receptor válido y que sea Persona Física.", "Identificación oficial escaneada, huella digital y firma del cliente en contrato.", "Que el cliente tenga equipo liberado, saldo a favor en su compañía anterior y un correo válido.", "Que sea Persona Moral con RFC validado y cuente con tarjeta de crédito."], ans: 0 },
+                { q: "¿Cuál es el tiempo de vigencia establecido para el NIP de portabilidad y qué restricciones tiene la llamada al 051?", options: ["Vigencia de 5 días naturales; se permiten máximo dos llamadas al 051 pero SMS ilimitados.", "Vigencia de 24 horas; no hay límite de llamadas al 051.", "Vigencia de 15 días hábiles; solo se permite una llamada al 051.", "Vigencia ilimitada siempre y cuando el cliente no apague su equipo celular."], ans: 0 },
                 { q: "En el proceso operativo de portabilidad, ¿qué significa exactamente la sigla FVC y cuál es su función principal?", options: ["Fecha de Ventana de Cambio: es el día en que se concreta la portabilidad y la línea se activa en Movistar.", "Firma de Validación de Contrato: el paso final donde el cliente acepta los términos.", "Folio de Venta Confirmado: el comprobante que se le entrega al cliente al salir de la tienda.", "Fin de Vinculación Comercial: el día en que el cliente pierde su número antiguo permanentemente."], ans: 0 },
                 { q: "Al ingresar la CURP del cliente durante el proceso de captura en la App, ¿qué paso procedimental logras omitir para agilizar la venta?", options: ["La captura y adjunto de fotografías (frente y reverso) de la identificación oficial del cliente.", "El ingreso del NIP de 4 dígitos enviado por el ABD.", "El escaneo o ingreso manual del código de barras de la nueva SIM.", "La firma electrónica en la pantalla del dispositivo móvil."], ans: 0 },
                 { q: "¿Cuáles son los horarios de ejecución estándar en los que el Operador Receptor y el Donador realizan la portabilidad efectiva de la línea?", options: ["Entre las 2:00 am y las 3:30 am como máximo del día de la FVC.", "A mediodía, exactamente a las 12:00 pm para no afectar el servicio laboral.", "Inmediatamente después de capturar el NIP, en un lapso de 15 minutos.", "A las 10:00 pm del día anterior a la solicitud."], ans: 0 },
@@ -248,7 +219,6 @@
             // Data States
             const [dataTEMM, setDataTEMM] = useState([]);
             const [dataINV, setDataINV] = useState([]);
-            const [actualizadoAl, setActualizadoAl] = useState("Desconocido");
             const [ranking, setRanking] = useState([]);
             const [resources, setResources] = useState([]);
             const [candidates, setCandidates] = useState([]);
@@ -329,10 +299,7 @@
                         let tm = []; let iv = [];
                         s.forEach(d => {
                             const obj = d.data();
-                            if (d.id === "temm") {
-                                tm = Array.isArray(obj.list) ? obj.list : [];
-                                setActualizadoAl(obj.actualizado_al || "Desconocido");
-                            }
+                            if (d.id === "temm") tm = Array.isArray(obj.list) ? obj.list : [];
                             if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
                         });
                         setDataTEMM(tm); setDataINV(iv);
@@ -380,9 +347,7 @@
                     unsubs.push(subEnc);
 
                     const subConfig = db.collection("config").doc("general").onSnapshot(d => {
-                        if (d.exists) {
-                            setEncuestaActiva(d.data().encuestaActiva ?? true);
-                        }
+                        if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
                     });
                     unsubs.push(subConfig);
 
@@ -429,46 +394,34 @@
                         const r = evt.target.result;
                         const wb = XLSX.read(r, { type: 'binary', cellDates: true });
                         let list = [];
-                        let diaAct = "Desconocido";
 
                         if (type === "temm") {
-                            const wsBBDDName = wb.SheetNames.find(n => n.toUpperCase().includes("BBDD"));
-                            if (wsBBDDName) {
-                                const dataBBDD = XLSX.utils.sheet_to_json(wb.Sheets[wsBBDDName], { header: "A", raw: false });
-                                const dates = dataBBDD.map(row => row["R"]).map(String).filter(val => val && val.trim() !== "" && val.toUpperCase() !== "FECHA REGISTRO" && val.includes("-"));
-                                if (dates.length > 0) {
-                                    dates.sort();
-                                    diaAct = dates[dates.length - 1]; 
-                                }
-                            }
-
-                            const wsSegDiario = wb.SheetNames.find(n => n.toLowerCase().includes("SEG DIARIO"));
+                            const wsSegDiario = wb.SheetNames.find(n => n.toLowerCase().includes("seg diario"));
                             if (!wsSegDiario) return alert("Pestaña 'Seg Diario' no encontrada en el archivo.");
 
                             const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
-                            list = jData.filter(row => {
-                                const j = String(row["J"] || "").toUpperCase().trim();
-                                const iVal = String(row["I"] || "").toUpperCase().trim();
-                                return j.length > 3 && 
-                                       !iVal.includes("ID") && 
-                                       j !== "NOMBRE_IDPDV" && 
-                                       j !== "NOMBRE" &&
-                                       j !== "TIENDAS EN 0";
+                            
+                            // Mapear Altas de Q y Cuota de R
+                            list = jData.filter((row, index) => {
+                                const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
+                                const isNumericId = /^\d+$/.test(iVal);
+                                return index >= 5 && index <= 47 && isNumericId && iVal.length >= 4;
                             }).map(row => {
-                                let cadena = "SUBURBIA"; let tUpper = String(row["J"]).toUpperCase();
+                                let cadena = "SUBURBIA"; let tUpper = String(row["J"] || "").toUpperCase();
                                 if (tUpper.includes("EKT") || tUpper.includes("ELEKTRA")) cadena = "ELEKTRA";
                                 else if (tUpper.includes("COPPEL")) cadena = "COPPEL";
                                 return {
                                     id: String(row["I"] || "").trim().replace(/^0+/, ''),
-                                    tienda: String(row["J"]).trim(), sup: String(row["B"]).trim(), cad: cadena,
-                                    cuotaTotales: Math.round(Number(row["L"]) || 0), altasTotales: Math.round(Number(row["M"]) || 0),
-                                    altas: Math.round(Number(row["Q"]) || 0), cuota: Math.round(Number(row["R"]) || 0),
-                                    cuotaPorta: Math.round(Number(row["S"]) || 0), altasPorta: Math.round(Number(row["T"]) || 0)
+                                    tienda: String(row["J"]).trim(), 
+                                    sup: String(row["B"]).trim(), 
+                                    cad: cadena,
+                                    altas: Math.round(Number(row["Q"]) || 0), 
+                                    cuota: Math.round(Number(row["R"]) || 0)
                                 };
                             });
                             
-                            await db.collection("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
-                            alert("¡Sincronizado Diario a Nivel Nacional exitosamente! (Fecha extraída: " + diaAct + ")");
+                            await db.collection("operacion_v2").doc("temm").set({ list: list });
+                            alert("¡Sincronizado Diario a Nivel Nacional exitosamente!");
                             
                         } else if (type === "inv") {
                             const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tiendas") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario"));
@@ -476,12 +429,13 @@
 
                             const jDataInv = XLSX.utils.sheet_to_json(wb.Sheets[wsTiendas], { header: "A", defval: "" });
                             list = jDataInv.filter(row => {
-                                const iVal = String(row["I"] || "").toUpperCase().trim();
-                                return iVal.length > 3 && !iVal.includes("ID") && !iVal.includes("TIENDA");
+                                const dVal = String(row["D"] || "").toUpperCase().trim();
+                                return dVal.length >= 3 && !dVal.includes("ID") && !dVal.includes("PDV");
                             }).map(row => ({
-                                id: String(row["I"] || "").trim().replace(/^0+/, ''),
-                                mod: String(row["T"] || "").trim(), mar: String(row["U"] || "").trim(),
-                                q: parseInt(Number(row["AG"])) || 0
+                                id: String(row["D"] || "").trim().replace(/^0+/, ''),
+                                mod: String(row["N"] || "").trim(), 
+                                mar: String(row["O"] || "").trim(),
+                                q: parseInt(Number(row["Z"])) || 0
                             }));
                             
                             await db.collection("operacion_v2").doc("inv").set({ list: list });
@@ -504,12 +458,9 @@
                 const saveData = async (fotoB64) => {
                     try {
                         const data = {
-                            nombre: rostName.toUpperCase(),
-                            fw: rostFw.toUpperCase(),
-                            numTrabajo: rostNumTrabajo.toUpperCase(),
-                            cumpleanos: rostCumple,
-                            rol: rostRole,
-                            ingreso: rostDate
+                            nombre: rostName.toUpperCase(), fw: rostFw.toUpperCase(),
+                            numTrabajo: rostNumTrabajo.toUpperCase(), cumpleanos: rostCumple,
+                            rol: rostRole, ingreso: rostDate
                         };
                         if (fotoB64) data.foto = fotoB64;
 
@@ -548,22 +499,16 @@
             };
 
             const handleEditRoster = (r) => {
-                setEditRostId(r.id);
-                setRostName(r.nombre);
-                setRostFw(r.fw);
-                setRostRole(r.rol || "PROMOTOR");
-                setRostNumTrabajo(r.numTrabajo || "");
-                setRostCumple(r.cumpleanos || "");
-                setRostDate(r.ingreso || "");
+                setEditRostId(r.id); setRostName(r.nombre); setRostFw(r.fw);
+                setRostRole(r.rol || "PROMOTOR"); setRostNumTrabajo(r.numTrabajo || "");
+                setRostCumple(r.cumpleanos || ""); setRostDate(r.ingreso || "");
                 window.scrollTo(0,0);
             };
 
             const toggleRosterStatus = async (id, current) => {
                 if(!db) return;
-                const newStatus = current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO';
-                try {
-                    await db.collection("roster").doc(id).update({ estatus: newStatus });
-                } catch(e) { alert("Error al cambiar estatus"); }
+                try { await db.collection("roster").doc(id).update({ estatus: current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO' }); } 
+                catch(e) { alert("Error al cambiar estatus"); }
             };
 
             const addCandidate = async (e) => {
@@ -746,17 +691,6 @@
                 return [...new Set(base.map(i => i.mod.toUpperCase()))].filter(Boolean).sort();
             }, [dataINV, invStoreIdsAllowed, invMarcaFiltro]);
 
-            // Simulador Dinámico
-            const sumTotal = (Number(cP1)||0) + (Number(cP2)||0) + (Number(cP3)||0) + (Number(cNP1)||0) + (Number(cNP2)||0) + (Number(cNP3)||0);
-            const sumTemm = (Number(cT1)||0) + (Number(cT2)||0) + (Number(cT3)||0);
-            const sumPorta = (Number(cP1)||0) + (Number(cP2)||0) + (Number(cP3)||0);
-            const sumNoPorta = (Number(cNP1)||0) + (Number(cNP2)||0) + (Number(cNP3)||0);
-
-            const alcanceTotal = Number(cuotaTotal) > 0 ? (sumTotal / Number(cuotaTotal)) * 100 : 0;
-            const alcanceTemm = Number(cuotaTemm) > 0 ? (sumTemm / Number(cuotaTemm)) * 100 : 0;
-            const alcancePorta = Number(cuotaPorta) > 0 ? (sumPorta / Number(cuotaPorta)) * 100 : 0;
-            const alcanceNoPorta = Number(cuotaNoPorta) > 0 ? (sumNoPorta / Number(cuotaNoPorta)) * 100 : 0;
-
             const calculatePayout = () => {
                 const lt = alcanceTotal; const ltem = alcanceTemm;
                 let tt = lt < 80 ? 'none' : lt <= 94 ? 't1' : lt <= 99 ? 't2' : 't3';
@@ -890,12 +824,6 @@
                     <div className="p-4 flex-grow overflow-y-auto pb-10">
                         {activeTab === 'OPERACION' && (
                             <div className="space-y-4">
-                                {actualizadoAl !== "Desconocido" && (
-                                    <div className="text-center bg-blue-50 text-movistar-blue py-2 rounded-xl text-[10px] font-black uppercase shadow-sm border border-blue-100">
-                                        Actualizado al día: <span className="text-movistar-dark ml-1">{actualizadoAl}</span>
-                                    </div>
-                                )}
-
                                 <div className="flex bg-gray-200 p-1 rounded-2xl mb-4">
                                     <button onClick={()=>setSubTabOp("GENERAL")} className={`subtab-btn ${subTabOp==="GENERAL"?'subtab-active':'subtab-inactive'}`}>
                                         TIENDAS
@@ -990,15 +918,9 @@
                                                         <div className="flex flex-wrap gap-2">
                                                             {storeInv.length > 0 ? 
                                                                 storeInv.map((i,idx) => (
-                                                                    <div key={idx} 
-                                                                         className={`border rounded px-1.5 py-1 min-w-[60px] shadow-sm
-                                                                                    ${i.q === 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                                                                        <p className="text-[6px] font-bold opacity-50 uppercase leading-none mb-0.5">
-                                                                            {i.mar} {i.mod}
-                                                                        </p>
-                                                                        <p className={`text-[9px] font-black uppercase ${i.q === 0 ? 'text-movistar-red' : 'text-movistar-blue'}`}>
-                                                                            {i.q} PZS
-                                                                        </p>
+                                                                    <div key={idx} className={`border rounded px-1.5 py-1 min-w-[60px] shadow-sm ${i.q === 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                                                                        <p className="text-[6px] font-bold opacity-50 uppercase leading-none mb-0.5">{i.mar} {i.mod}</p>
+                                                                        <p className={`text-[9px] font-black uppercase ${i.q === 0 ? 'text-movistar-red' : 'text-movistar-blue'}`}>{i.q} PZS</p>
                                                                     </div>
                                                                 )) 
                                                                 : <span className="text-[8px] font-bold text-gray-300">SIN INVENTARIO ASIGNADO</span>
@@ -1257,13 +1179,15 @@
                                                             <p className="text-[8px] font-bold text-gray-400 mt-1">Cumpleaños: {r.cumpleanos ? new Date(r.cumpleanos).toLocaleDateString('es-MX', {timeZone:'UTC'}) : 'N/A'} | Antigüedad: {Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000)} días</p>
                                                         </div>
                                                     </div>
-                                                    <div className="flex gap-2 pt-3 border-t">
-                                                        <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">✏️ Editar</button>
-                                                        <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">
-                                                            {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Inactivar'}
-                                                        </button>
-                                                        <button onClick={() => deleteDoc("roster", r.id)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">🗑️ Borrar</button>
-                                                    </div>
+                                                    {userRole === "PROMOTOR" && (
+                                                        <div className="flex gap-2 pt-3 border-t">
+                                                            <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">✏️ Editar</button>
+                                                            <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">
+                                                                {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Inactivar'}
+                                                            </button>
+                                                            <button onClick={() => deleteDoc("roster", r.id)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">🗑️ Borrar</button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -1717,7 +1641,7 @@
                                             <div className="relative z-10">
                                                 <h3 className="font-black text-lg italic uppercase mb-2">¡Ayúdanos a mejorar!</h3>
                                                 <p className="text-[10px] font-bold leading-relaxed opacity-90">
-                                                    Ayúdanos a mejorar, si hay alguna sugerencia o algo que nos quieras comentar acerca de tus jefes o los comunicados, <strong>te leeremos con gusto.</strong> Toda la información se trata con profesionalismo.
+                                                    Si tienes alguna sugerencia, o algo que nos quieras comentar acerca de tus jefes o los comunicados, <strong>te leeremos con gusto.</strong> Toda la información se trata con profesionalismo.
                                                 </p>
                                             </div>
                                             <div className="absolute -right-4 -bottom-4 opacity-20 text-7xl">💬</div>
