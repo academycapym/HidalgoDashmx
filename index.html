@@ -231,21 +231,18 @@
         } catch (e) { console.error("Init Error", e); }
 
         const App = () => {
-            // General Auth & Routing States
             const [view, setView] = useState("LOGIN");
             const [userRole, setUserRole] = useState("");
             const [userId, setUserId] = useState("");
             const [userCluster, setUserCluster] = useState("");
             const [pass, setPass] = useState("");
             
-            // Tab States
             const [activeTab, setActiveTab] = useState("OPERACION");
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
             const [subTabPortal, setSubTabPortal] = useState("COMUNICADOS");
             const [subTabEquipo, setSubTabEquipo] = useState("PERFIL");
             const [subTabOp, setSubTabOp] = useState("GENERAL");
             
-            // Data States
             const [dataTEMM, setDataTEMM] = useState([]);
             const [dataINV, setDataINV] = useState([]);
             const [actualizadoAl, setActualizadoAl] = useState("Desconocido");
@@ -257,14 +254,14 @@
             const [rosters, setRosters] = useState([]);
             const [comunicados, setComunicados] = useState([]);
             const [encuestas, setEncuestas] = useState([]);
+            const [encuestaActiva, setEncuestaActiva] = useState(true);
 
-            // Filter States
             const [supFilter, setSupFilter] = useState("TODOS");
             const [cadFilter, setCadFilter] = useState("TODAS");
+
             const [invMarcaFiltro, setInvMarcaFiltro] = useState("TODAS");
             const [invModeloFiltro, setInvModeloFiltro] = useState("TODOS");
 
-            // Quiz States
             const [quizState, setQuizState] = useState('MENU');
             const [colaboradorName, setColaboradorName] = useState("");
             const [questions, setQuestions] = useState([]);
@@ -273,7 +270,6 @@
             const [timer, setTimer] = useState(180);
             const [curType, setCurType] = useState('');
 
-            // Forms States
             const [vacName, setVacName] = useState("");
             const [vacUser, setVacUser] = useState("");
             const [vacDate, setVacDate] = useState("");
@@ -284,12 +280,13 @@
             const [rostFw, setRostFw] = useState("");
             const [rostDate, setRostDate] = useState("");
             const [rostRole, setRostRole] = useState("PROMOTOR");
+            const [rostNumTrabajo, setRostNumTrabajo] = useState("");
+            const [rostCumple, setRostCumple] = useState("");
 
             const [comTexto, setComTexto] = useState("");
             const [comImgBase64, setComImgBase64] = useState("");
             const [comVideoUrl, setComVideoUrl] = useState("");
 
-            // Simulador Comisiones States
             const [calcCadena, setCalcCadena] = useState("ELEKTRA");
             const [cuotaTotal, setCuotaTotal] = useState("");
             const [cuotaTemm, setCuotaTemm] = useState("");
@@ -300,11 +297,9 @@
             const [cP1, setCP1] = useState(""); const [cP2, setCP2] = useState(""); const [cP3, setCP3] = useState("");
             const [cT1, setCT1] = useState(""); const [cT2, setCT2] = useState(""); const [cT3, setCT3] = useState("");
 
-            // Encuesta 20 Questions States
             const [encRespuestas, setEncRespuestas] = useState(Array(19).fill(5));
             const [encMotivacion, setEncMotivacion] = useState("a");
 
-            // Memoized Data (My Rosters depends on rosters)
             const myRosters = useMemo(() => {
                 if(userRole === "ADMIN" || userRole === "SUPERVISOR") return rosters;
                 return rosters.filter(r => r.idpdv === userId.toUpperCase());
@@ -373,6 +368,13 @@
                     });
                     unsubs.push(subEnc);
 
+                    const subConfig = db.collection("config").doc("general").onSnapshot(d => {
+                        if (d.exists) {
+                            setEncuestaActiva(d.data().encuestaActiva ?? true);
+                        }
+                    });
+                    unsubs.push(subConfig);
+
                 } catch(error) { console.error("Listeners", error); }
                 return () => unsubs.forEach(u => u());
             }, []);
@@ -395,11 +397,11 @@
                 if (u === "ADMIN" && pass === "2024") { 
                     setUserRole("ADMIN"); setView("APP"); 
                 } else if (u === "VIRGINIA" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("VIRGINIA"); setUserCluster("TULANCINGO"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("VIRGINIA"); setUserCluster("VIRGINIA"); setView("APP");
                 } else if (u === "DANIEL" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("DANIEL"); setUserCluster("TIZAYUCA"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("DANIEL"); setUserCluster("DANIEL"); setView("APP");
                 } else if (u === "JIOBANI" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("JIOBANI"); setUserCluster("TULA"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("JIOBANI"); setUserCluster("JIOBANI"); setView("APP");
                 } else if (pass === "Movistar1" && u.length >= 4) { 
                     setUserRole("PROMOTOR"); setView("APP"); 
                 } else { 
@@ -481,7 +483,7 @@
 
             const createProfile = async (e) => {
                 if(!db) return; const file = e.target.files[0]; if (!file) return;
-                if(!rostName || !rostFw || !rostDate) { alert("Llena los campos de texto."); return; }
+                if(!rostName || !rostFw || !rostDate) { alert("Llena los campos de texto principales."); return; }
                 const reader = new FileReader();
                 reader.onload = (evt) => {
                     const img = new Image();
@@ -493,12 +495,16 @@
                                 idpdv: userId.toUpperCase(), 
                                 nombre: rostName.toUpperCase(), 
                                 fw: rostFw.toUpperCase(), 
+                                numTrabajo: rostNumTrabajo.toUpperCase(),
+                                cumpleanos: rostCumple,
                                 rol: rostRole,
                                 ingreso: rostDate, 
                                 foto: can.toDataURL('image/jpeg', 0.5), 
                                 fecha: firebase.firestore.FieldValue.serverTimestamp() 
                             });
-                            alert("Perfil guardado."); setRostName(""); setRostFw(""); setRostDate(""); setRostRole("PROMOTOR");
+                            alert("Perfil guardado."); 
+                            setRostName(""); setRostFw(""); setRostDate(""); 
+                            setRostRole("PROMOTOR"); setRostNumTrabajo(""); setRostCumple("");
                         } catch(err) { alert("Error al guardar perfil."); }
                     }; img.src = evt.target.result;
                 }; reader.readAsDataURL(file);
@@ -523,10 +529,10 @@
                 if(userRole === "ADMIN" || userRole === "SUPERVISOR") return alert("Solo promotores votan.");
                 if(!db) return; const logId = userId.trim().toUpperCase(); let ya = false;
                 candidates.forEach(c => { if(c.votos && c.votos.includes(logId)) ya = true; });
-                if(ya) return alert("Solo 1 voto.");
+                if(ya) return alert("Solo puedes emitir 1 voto por sucursal.");
                 try {
                     const cRef = db.collection("promotor_mes").doc(cId); const cDoc = await cRef.get();
-                    if(cDoc.exists) { await cRef.update({ votos: [...(cDoc.data().votos || []), logId] }); alert("Voto listo."); }
+                    if(cDoc.exists) { await cRef.update({ votos: [...(cDoc.data().votos || []), logId] }); alert("Voto registrado con éxito."); }
                 } catch (e) { alert("Error."); }
             };
 
@@ -543,7 +549,27 @@
             const submitComunicado = async (e) => {
                 e.preventDefault(); if(!db) return;
                 if(!comTexto.trim() && !comImgBase64 && !comVideoUrl) return alert("Vacío.");
-                try { await db.collection("comunicados").add({ texto: comTexto, imgBase64: comImgBase64, videoUrl: comVideoUrl, fecha: firebase.firestore.FieldValue.serverTimestamp() }); setComTexto(""); setComImgBase64(""); setComVideoUrl(""); alert("Publicado!"); } catch (err) { alert("Error."); }
+                try { await db.collection("comunicados").add({ texto: comTexto, imgBase64: comImgBase64, videoUrl: comVideoUrl, likes: [], fecha: firebase.firestore.FieldValue.serverTimestamp() }); setComTexto(""); setComImgBase64(""); setComVideoUrl(""); alert("Publicado!"); } catch (err) { alert("Error."); }
+            };
+
+            const toggleLike = async (comId) => {
+                if(!db) return;
+                if (userRole === "ADMIN" || userRole === "SUPERVISOR") {
+                    return alert("Solo los promotores registrados pueden dar 'Me moviencanta'.");
+                }
+                const logId = userId.trim().toUpperCase();
+                try {
+                    const cRef = db.collection("comunicados").doc(comId);
+                    const cDoc = await cRef.get();
+                    if(cDoc.exists) {
+                        const currentLikes = cDoc.data().likes || [];
+                        if (currentLikes.includes(logId)) {
+                            await cRef.update({ likes: currentLikes.filter(id => id !== logId) });
+                        } else {
+                            await cRef.update({ likes: [...currentLikes, logId] });
+                        }
+                    }
+                } catch (e) { console.warn("Error al dar me moviencanta"); }
             };
 
             const updateEncRespuesta = (index, val) => {
@@ -566,6 +592,13 @@
                     setEncMotivacion("a");
                 } catch(err) { alert("Error al enviar."); }
             }
+
+            const toggleEncuestaAdmin = async () => {
+                if(!db) return;
+                try {
+                    await db.collection("config").doc("general").set({ encuestaActiva: !encuestaActiva }, { merge: true });
+                } catch (error) { console.warn(error); }
+            };
 
             const handleComImageUpload = (e) => {
                 const file = e.target.files[0]; if(!file) return;
@@ -802,7 +835,7 @@
                         {activeTab === 'OPERACION' && (
                             <div className="space-y-4">
                                 {actualizadoAl !== "Desconocido" && (
-                                    <div className="text-center bg-blue-50 text-movistar-blue py-2 rounded-xl text-[10px] font-black uppercase shadow-sm">
+                                    <div className="text-center bg-blue-50 text-movistar-blue py-2 rounded-xl text-[10px] font-black uppercase shadow-sm border border-blue-100">
                                         Actualizado al día: <span className="text-movistar-dark ml-1">{actualizadoAl}</span>
                                     </div>
                                 )}
@@ -818,6 +851,11 @@
 
                                 {subTabOp === "GENERAL" && (
                                     <>
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl mb-4">
+                                            <h2 className="font-black text-lg italic uppercase">Visión Global</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Monitorea el avance de cuotas, alcance TEMM y métricas de tus sucursales.</p>
+                                        </div>
+
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
                                             <div className="bg-white p-4 rounded-3xl border shadow-sm">
                                                 <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Tiendas</p>
@@ -919,8 +957,13 @@
 
                                 {subTabOp === "INVENTARIO" && (
                                     <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl mb-4">
+                                            <h2 className="font-black text-lg italic uppercase">Control de Inventario</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Consulta rápida y filtrado del stock físico disponible por marca y modelo.</p>
+                                        </div>
+
                                         <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                            <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Filtro de Inventario</h2>
+                                            <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Filtros</h2>
                                             
                                             <div className="space-y-3">
                                                 <div>
@@ -995,48 +1038,49 @@
 
                                 {subTabAcademia === "EXAMENES" ? (
                                     quizState === 'MENU' ? (
-                                        <div className="bg-white p-8 rounded-[2rem] shadow-xl border">
-                                            <div className="text-center mb-6">
-                                                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🎓</div>
-                                                <h2 className="text-xl font-black italic uppercase">Certificación</h2>
-                                                <p className="text-[10px] text-gray-400 font-black uppercase">Valida tu perfil de Roster</p>
+                                        <div className="space-y-4">
+                                            <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                                <h2 className="font-black text-lg italic uppercase">Certificaciones</h2>
+                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Pon a prueba tus conocimientos y obtén certificaciones oficiales validando tu perfil.</p>
                                             </div>
-                                            
-                                            {userRole === "PROMOTOR" ? (
-                                                myRosters.length > 0 ? (
-                                                    <select value={colaboradorName} onChange={e => setColaboradorName(e.target.value)} className="w-full bg-gray-50 border-2 rounded-2xl p-5 mb-8 text-center font-black text-xs uppercase outline-none focus:border-movistar-blue">
-                                                        <option value="">SELECCIONA TU PERFIL</option>
-                                                        {myRosters.map(r => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}
-                                                    </select>
-                                                ) : (
-                                                    <div className="bg-red-50 p-4 rounded-xl mb-6 text-center border border-red-100">
-                                                        <p className="text-[10px] font-bold text-red-500 uppercase">No tienes perfiles registrados. Ve a la pestaña "COLABORADORES" -> "MI PERFIL" y crea uno primero.</p>
-                                                    </div>
-                                                )
-                                            ) : (
-                                                <input type="text" placeholder="NOMBRE COMPLETO" value={colaboradorName} onChange={e => setColaboradorName(e.target.value)} className="w-full bg-gray-50 border-2 rounded-2xl p-5 mb-8 text-center font-black uppercase outline-none focus:border-movistar-blue" />
-                                            )}
 
-                                            <div className="space-y-5">
-                                                <div>
-                                                    <h4 className="font-black text-[10px] text-movistar-dark mb-2 uppercase border-b border-gray-200 pb-1">NUEVO INGRESO</h4>
-                                                    <div className="grid gap-2">
-                                                        <button onClick={() => startQuiz('BASICO')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-movistar-blue text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">👉 PORTABILIDAD BÁSICA (10 Q)</button>
-                                                        <button onClick={() => startQuiz('COMISIONES')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-gradient-to-r from-orange-400 to-red-500 text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">👉 ESQUEMA COMISIONES (10 Q)</button>
-                                                        <button onClick={() => startQuiz('SUELDO_FIELDWY')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-indigo-500 text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">👉 SUELDO BASE Y APP FIELDWY (10 Q)</button>
-                                                        <button onClick={() => startQuiz('VENTAS')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-movistar-green text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">💼 VENTA CONSULTIVA (10 Q)</button>
+                                            <div className="bg-white p-8 rounded-[2rem] shadow-xl border">
+                                                {userRole === "PROMOTOR" ? (
+                                                    myRosters.length > 0 ? (
+                                                        <select value={colaboradorName} onChange={e => setColaboradorName(e.target.value)} className="w-full bg-gray-50 border-2 rounded-2xl p-5 mb-8 text-center font-black text-xs uppercase outline-none focus:border-movistar-blue">
+                                                            <option value="">SELECCIONA TU PERFIL</option>
+                                                            {myRosters.map(r => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}
+                                                        </select>
+                                                    ) : (
+                                                        <div className="bg-red-50 p-4 rounded-xl mb-6 text-center border border-red-100">
+                                                            <p className="text-[10px] font-bold text-red-500 uppercase">No tienes perfiles registrados. Ve a la pestaña "COLABORADORES" -> "MI PERFIL" y crea uno primero.</p>
+                                                        </div>
+                                                    )
+                                                ) : (
+                                                    <input type="text" placeholder="NOMBRE COMPLETO" value={colaboradorName} onChange={e => setColaboradorName(e.target.value)} className="w-full bg-gray-50 border-2 rounded-2xl p-5 mb-8 text-center font-black uppercase outline-none focus:border-movistar-blue" />
+                                                )}
+
+                                                <div className="space-y-5">
+                                                    <div>
+                                                        <h4 className="font-black text-[10px] text-movistar-dark mb-2 uppercase border-b border-gray-200 pb-1">NUEVO INGRESO</h4>
+                                                        <div className="grid gap-2">
+                                                            <button onClick={() => startQuiz('BASICO')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-movistar-blue text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">👉 PORTABILIDAD BÁSICA (10 Q)</button>
+                                                            <button onClick={() => startQuiz('COMISIONES')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-gradient-to-r from-orange-400 to-red-500 text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">👉 ESQUEMA COMISIONES (10 Q)</button>
+                                                            <button onClick={() => startQuiz('SUELDO_FIELDWY')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-indigo-500 text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">👉 SUELDO BASE Y APP FIELDWY (10 Q)</button>
+                                                            <button onClick={() => startQuiz('VENTAS')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-movistar-green text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">💼 VENTA CONSULTIVA (10 Q)</button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-black text-[10px] text-movistar-dark mb-2 uppercase border-b border-gray-200 pb-1">TODOS LOS BÁSICOS</h4>
-                                                    <div className="grid gap-2">
-                                                        <button onClick={() => startQuiz('BASICO')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-gray-100 text-movistar-dark border-2 border-movistar-blue p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">🔄 REPASO: PORTABILIDAD BÁSICA</button>
+                                                    <div>
+                                                        <h4 className="font-black text-[10px] text-movistar-dark mb-2 uppercase border-b border-gray-200 pb-1">TODOS LOS BÁSICOS</h4>
+                                                        <div className="grid gap-2">
+                                                            <button onClick={() => startQuiz('BASICO')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-gray-100 text-movistar-dark border-2 border-movistar-blue p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">🔄 REPASO: PORTABILIDAD BÁSICA</button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-black text-[10px] text-movistar-dark mb-2 uppercase border-b border-gray-200 pb-1">AVANZADOS</h4>
-                                                    <div className="grid gap-2">
-                                                        <button onClick={() => startQuiz('EXPERTO')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-movistar-dark text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">🔥 PORTABILIDAD EXPERTA (10 Q)</button>
+                                                    <div>
+                                                        <h4 className="font-black text-[10px] text-movistar-dark mb-2 uppercase border-b border-gray-200 pb-1">AVANZADOS</h4>
+                                                        <div className="grid gap-2">
+                                                            <button onClick={() => startQuiz('EXPERTO')} disabled={userRole === "PROMOTOR" && myRosters.length === 0} className="w-full bg-movistar-dark text-white p-4 disabled:opacity-50 rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform">🔥 PORTABILIDAD EXPERTA (10 Q)</button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1064,9 +1108,14 @@
                                     )
                                 ) : (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white flex justify-between items-center shadow-xl">
-                                            <div><h2 className="font-black text-lg italic uppercase">REPOSITORIO</h2></div>
-                                            {userRole === "ADMIN" && <button onClick={async ()=>{const cat = prompt("Categoría:"); const tit = prompt("Nombre:"); const lnk = prompt("Link:"); if(cat && tit && lnk && db) await db.collection("recurso").add({ cat: cat.toUpperCase(), tit, lnk }); }} className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md active:scale-90">+ ADD</button>}
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <h2 className="font-black text-lg italic uppercase">REPOSITORIO</h2>
+                                                    <p className="text-[9px] font-bold text-gray-400 mt-1">Accede y descarga los manuales, comunicados y documentos oficiales de CAPYM.</p>
+                                                </div>
+                                                {userRole === "ADMIN" && <button onClick={async ()=>{const cat = prompt("Categoría:"); const tit = prompt("Nombre:"); const lnk = prompt("Link:"); if(cat && tit && lnk && db) await db.collection("recurso").add({ cat: cat.toUpperCase(), tit, lnk }); }} className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md active:scale-90">+ ADD</button>}
+                                            </div>
                                         </div>
                                         {["NUEVO INGRESO", "COMISIONES", "ESPECIALES", "VARIOS"].map(cat => (
                                             <div key={cat} className="space-y-2">
@@ -1103,9 +1152,9 @@
 
                                 {subTabEquipo === "PERFIL" && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
                                             <h2 className="font-black text-base italic uppercase">Mi Roster</h2>
-                                            <p className="text-[9px] font-bold text-gray-400">Regístrate si compartes PDV o para acceder a Exámenes.</p>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Crea tu perfil y el de tus compañeros para acceder a Exámenes y encuestas.</p>
                                         </div>
                                         {userRole === "PROMOTOR" && (
                                             <div className="bg-white p-6 rounded-[2rem] shadow-lg border">
@@ -1117,8 +1166,9 @@
                                                     <option value="SUPERVISOR">ROL: SUPERVISOR</option>
                                                     <option value="ENTRENADOR">ROL: ENTRENADOR</option>
                                                 </select>
-                                                <label className="text-[9px] font-black text-gray-400 ml-2">Fecha Ingreso</label>
-                                                <input type="date" value={rostDate} onChange={e=>setRostDate(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-4 outline-none"/>
+                                                <input type="text" placeholder="Número de Empleado / Trabajo" value={rostNumTrabajo} onChange={e=>setRostNumTrabajo(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                <label className="text-[9px] font-black text-gray-400 ml-2">Fecha de Cumpleaños</label>
+                                                <input type="date" value={rostCumple} onChange={e=>setRostCumple(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-4 outline-none"/>
                                                 <label className="w-full block bg-movistar-blue text-white py-4 rounded-xl font-black text-[10px] text-center cursor-pointer mb-2 active:scale-95 transition-transform">
                                                     SUBIR FOTO Y GUARDAR
                                                     <input type="file" accept="image/*" className="hidden" onChange={createProfile}/>
@@ -1131,8 +1181,8 @@
                                                     <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100 flex-shrink-0"><img src={r.foto} className="w-full h-full object-cover" /></div>
                                                     <div>
                                                         <h4 className="font-black text-xs uppercase">{r.nombre}</h4>
-                                                        <p className="text-[9px] font-bold text-movistar-blue">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw}</p>
-                                                        <p className="text-[8px] font-bold text-gray-400 mt-1">Antigüedad: {Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000)} días</p>
+                                                        <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw} <br/>NO. EMP: {r.numTrabajo || 'N/A'}</p>
+                                                        <p className="text-[8px] font-bold text-gray-400 mt-1">Cumpleaños: {r.cumpleanos ? new Date(r.cumpleanos).toLocaleDateString('es-MX', {timeZone:'UTC'}) : 'N/A'} | Antigüedad: {Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000)} días</p>
                                                     </div>
                                                 </div>
                                             ))}
@@ -1140,54 +1190,82 @@
                                     </div>
                                 )}
 
-                                {subTabEquipo === "PROMOTOR_MES" && (
-                                    <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2.5rem] text-white shadow-xl flex justify-between">
-                                            <div><h2 className="font-black text-lg italic uppercase">PROMOTOR DEL MES</h2></div>
-                                            {userRole === "ADMIN" && candidates.length < 4 && 
-                                                <label className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] cursor-pointer active:scale-90">+ FOTO<input type="file" accept="image/*" className="hidden" onChange={addCandidate}/></label>
-                                            }
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {candidates.map(c => (
-                                                <div key={c.id} className="bg-white p-4 rounded-[2rem] shadow-lg border flex flex-col items-center relative">
-                                                    {userRole === "ADMIN" && <button onClick={() => deleteDoc("promotor_mes", c.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-8 h-8 flex items-center justify-center font-black shadow-sm z-10 active:scale-90">X</button>}
-                                                    <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-movistar-blue"><img src={c.foto} className="w-full h-full object-cover"/></div>
-                                                    <h4 className="font-black text-[11px] text-center uppercase mb-2 h-8">{c.nombre}</h4>
-                                                    <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-3"><span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span></div>
-                                                    {userRole === "PROMOTOR" && <button onClick={()=>voteCandidate(c.id)} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">VOTAR ⭐</button>}
+                                {subTabEquipo === "PROMOTOR_MES" && (() => {
+                                    const hoy = new Date().getDate();
+                                    const puedeVotar = hoy <= 20;
+
+                                    return (
+                                        <div className="space-y-4">
+                                            <div className="bg-gradient-to-r from-blue-500 to-movistar-blue p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden flex justify-between">
+                                                <div className="relative z-10 w-full pr-8">
+                                                    <h3 className="font-black text-lg italic uppercase mb-2">¡Reconoce al Mejor!</h3>
+                                                    <p className="text-[10px] font-bold leading-relaxed opacity-90">
+                                                        Cada mes reiniciamos esta dinámica para premiar el esfuerzo de nuestros compañeros. <br/>
+                                                        <strong>Recuerda: Tienes hasta el día 20 del mes para emitir tu único voto.</strong>
+                                                    </p>
                                                 </div>
-                                            ))}
+                                                <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center pr-6">
+                                                    {userRole === "ADMIN" && candidates.length < 4 && 
+                                                        <label className="bg-movistar-dark text-white p-3 rounded-xl font-black text-[9px] cursor-pointer active:scale-90 shadow-md z-20">
+                                                            + FOTO<input type="file" accept="image/*" className="hidden" onChange={addCandidate}/>
+                                                        </label>
+                                                    }
+                                                </div>
+                                                <div className="absolute -right-4 -bottom-4 opacity-20 text-7xl pointer-events-none">🏆</div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {candidates.map(c => (
+                                                    <div key={c.id} className="bg-white p-4 rounded-[2rem] shadow-lg border flex flex-col items-center relative">
+                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("promotor_mes", c.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-8 h-8 flex items-center justify-center font-black shadow-sm z-10 active:scale-90">X</button>}
+                                                        <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-movistar-blue"><img src={c.foto} className="w-full h-full object-cover"/></div>
+                                                        <h4 className="font-black text-[11px] text-center uppercase mb-2 h-8">{c.nombre}</h4>
+                                                        <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-3"><span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span></div>
+                                                        {userRole === "PROMOTOR" && (
+                                                            puedeVotar ? (
+                                                                <button onClick={()=>voteCandidate(c.id)} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">VOTAR ⭐</button>
+                                                            ) : (
+                                                                <button disabled className="w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-black text-[10px] cursor-not-allowed">CERRADO 🔒</button>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
 
                                 {subTabEquipo === "RANKING" && (
-                                    <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
-                                        <div className="bg-movistar-dark p-6 text-white"><h2 className="font-black text-base italic uppercase">Líderes Académicos</h2></div>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left">
-                                                <thead className="bg-gray-50 border-b">
-                                                    <tr className="text-[9px] font-black text-gray-400">
-                                                        <th className="p-5 text-center">#</th><th className="p-5">PROMOTOR Y CURSOS</th><th className="p-5 text-right">SCORE</th>{userRole === "ADMIN" && <th className="p-5 text-center"></th>}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {Array.isArray(ranking) && ranking.map((u, i) => (
-                                                        <tr key={u.id} className="border-b hover:bg-blue-50 transition-colors">
-                                                            <td className="p-5 text-center font-black text-movistar-dark">#{i+1}</td>
-                                                            <td className="p-5">
-                                                                <div className="font-black text-[10px] uppercase text-movistar-dark">{u.name}</div>
-                                                                <div className="text-[7px] text-gray-400 mt-1 font-bold uppercase leading-tight">
-                                                                    {u.badges?.map(b => b==='BASICO'?'Porta Básica':b==='EXPERTO'?'Porta Avanzada':b==='VENTAS'?'Venta Consultiva':b==='SUELDO_FIELDWY'?'Sueldo/Fieldwy':b.includes('COMISIONES')?'Comisiones':b).join(" • ")}
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-5 text-right font-black text-movistar-blue text-lg">{u.score}</td>
-                                                            {userRole === "ADMIN" && <td className="p-3 text-center"><button onClick={() => deleteDoc("ranking", u.id)} className="bg-red-50 text-red-500 rounded-full w-6 h-6 font-black text-[10px] flex items-center justify-center mx-auto active:scale-90">X</button></td>}
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Descubre quiénes lideran la tabla de aprendizaje y certificaciones a nivel nacional.</p>
+                                        </div>
+                                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left">
+                                                    <thead className="bg-gray-50 border-b">
+                                                        <tr className="text-[9px] font-black text-gray-400">
+                                                            <th className="p-5 text-center">#</th><th className="p-5">PROMOTOR Y CURSOS</th><th className="p-5 text-right">SCORE</th>{userRole === "ADMIN" && <th className="p-5 text-center"></th>}
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                                    </thead>
+                                                    <tbody>
+                                                        {Array.isArray(ranking) && ranking.map((u, i) => (
+                                                            <tr key={u.id} className="border-b hover:bg-blue-50 transition-colors">
+                                                                <td className="p-5 text-center font-black text-movistar-dark">#{i+1}</td>
+                                                                <td className="p-5">
+                                                                    <div className="font-black text-[10px] uppercase text-movistar-dark">{u.name}</div>
+                                                                    <div className="text-[7px] text-gray-400 mt-1 font-bold uppercase leading-tight">
+                                                                        {u.badges?.map(b => b==='BASICO'?'Porta Básica':b==='EXPERTO'?'Porta Avanzada':b==='VENTAS'?'Venta Consultiva':b==='SUELDO_FIELDWY'?'Sueldo/Fieldwy':b.includes('COMISIONES')?'Comisiones':b).join(" • ")}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-5 text-right font-black text-movistar-blue text-lg">{u.score}</td>
+                                                                {userRole === "ADMIN" && <td className="p-3 text-center"><button onClick={() => deleteDoc("ranking", u.id)} className="bg-red-50 text-red-500 rounded-full w-6 h-6 font-black text-[10px] flex items-center justify-center mx-auto active:scale-90">X</button></td>}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -1199,7 +1277,7 @@
                                 <div className="flex bg-gray-200 p-1 rounded-2xl flex-wrap">
                                     <button onClick={()=>setSubTabPortal("COMUNICADOS")} className={`subtab-btn ${subTabPortal==="COMUNICADOS"?'subtab-active':'subtab-inactive'}`}>NOTICIAS</button>
                                     <button onClick={()=>setSubTabPortal("ENCUESTA")} className={`subtab-btn ${subTabPortal==="ENCUESTA"?'subtab-active':'subtab-inactive'}`}>ENCUESTA</button>
-                                    <button onClick={()=>setSubTabPortal("CALCULADORA")} className={`subtab-btn ${subTabPortal==="CALCULADORA"?'subtab-active':'subtab-inactive'}`}>SIMULADOR DE COMISIONES</button>
+                                    <button onClick={()=>setSubTabPortal("CALCULADORA")} className={`subtab-btn ${subTabPortal==="CALCULADORA"?'subtab-active':'subtab-inactive'}`}>SIMULADOR</button>
                                     <button onClick={()=>setSubTabPortal("VACACIONES")} className={`subtab-btn ${subTabPortal==="VACACIONES"?'subtab-active':'subtab-inactive'}`}>VACACIONES</button>
                                     <button onClick={()=>setSubTabPortal("QUEJAS")} className={`subtab-btn ${subTabPortal==="QUEJAS"?'subtab-active':'subtab-inactive'}`}>BUZÓN</button>
                                 </div>
@@ -1228,28 +1306,41 @@
 
                                         <div className="space-y-5">
                                             {comunicados.length === 0 && <div className="text-center p-6 bg-gray-50 rounded-2xl text-gray-400 font-bold text-xs">Aún no hay comunicados.</div>}
-                                            {comunicados.map(com => (
-                                                <div key={com.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative">
-                                                    {userRole === "ADMIN" && <button onClick={() => deleteDoc("comunicados", com.id)} className="absolute top-3 right-3 bg-red-100 text-red-500 rounded-full w-7 h-7 flex items-center justify-center font-black text-[10px] z-10 hover:bg-red-200 shadow-sm active:scale-90">X</button>}
-                                                    <div className="p-5 pb-3">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-8 h-8 rounded-full bg-movistar-blue text-white flex items-center justify-center font-black">C</div>
-                                                            <div>
-                                                                <p className="text-[10px] font-black text-movistar-dark leading-none">CAPYM NACIONAL</p>
-                                                                <p className="text-[8px] font-bold text-gray-400">{com.fecha?.toDate().toLocaleString('es-MX')}</p>
+                                            {comunicados.map(com => {
+                                                const hasLiked = com.likes && com.likes.includes(userId.trim().toUpperCase());
+                                                const likeCount = com.likes ? com.likes.length : 0;
+                                                return (
+                                                    <div key={com.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative">
+                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("comunicados", com.id)} className="absolute top-3 right-3 bg-red-100 text-red-500 rounded-full w-7 h-7 flex items-center justify-center font-black text-[10px] z-10 hover:bg-red-200 shadow-sm active:scale-90">X</button>}
+                                                        <div className="p-5 pb-3">
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <div className="w-8 h-8 rounded-full bg-movistar-blue text-white flex items-center justify-center font-black">C</div>
+                                                                <div>
+                                                                    <p className="text-[10px] font-black text-movistar-dark leading-none">CAPYM NACIONAL</p>
+                                                                    <p className="text-[8px] font-bold text-gray-400">{com.fecha?.toDate().toLocaleString('es-MX')}</p>
+                                                                </div>
                                                             </div>
+                                                            <p className="text-xs font-bold text-gray-700 whitespace-pre-wrap">{com.texto}</p>
                                                         </div>
-                                                        <p className="text-xs font-bold text-gray-700 whitespace-pre-wrap">{com.texto}</p>
+                                                        {com.imgBase64 && <img src={com.imgBase64} alt="Comunicado" className="w-full h-auto object-cover border-y" />}
+                                                        {com.videoUrl && getYouTubeEmbedUrl(com.videoUrl) && (
+                                                            <div className="relative w-full aspect-video border-y bg-black"><iframe src={getYouTubeEmbedUrl(com.videoUrl)} frameBorder="0" allowFullScreen className="absolute top-0 left-0 w-full h-full"></iframe></div>
+                                                        )}
+                                                        {com.videoUrl && !getYouTubeEmbedUrl(com.videoUrl) && (
+                                                            <a href={com.videoUrl} target="_blank" className="block w-full bg-blue-50 text-movistar-blue text-center p-3 text-[10px] font-black uppercase hover:bg-blue-100 border-y">🔗 VER ENLACE EXTERNO</a>
+                                                        )}
+                                                        <div className="border-t p-3 bg-gray-50 flex items-center justify-between">
+                                                            <button onClick={() => toggleLike(com.id)} 
+                                                                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
+                                                                <svg className={`w-4 h-4 transition-colors ${hasLiked ? 'text-movistar-blue' : 'text-gray-400'}`} fill={hasLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                                                </svg>
+                                                                Me moviencanta ({likeCount})
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    {com.imgBase64 && <img src={com.imgBase64} alt="Comunicado" className="w-full h-auto object-cover border-y" />}
-                                                    {com.videoUrl && getYouTubeEmbedUrl(com.videoUrl) && (
-                                                        <div className="relative w-full aspect-video border-y bg-black"><iframe src={getYouTubeEmbedUrl(com.videoUrl)} frameBorder="0" allowFullScreen className="absolute top-0 left-0 w-full h-full"></iframe></div>
-                                                    )}
-                                                    {com.videoUrl && !getYouTubeEmbedUrl(com.videoUrl) && (
-                                                        <a href={com.videoUrl} target="_blank" className="block w-full bg-blue-50 text-movistar-blue text-center p-3 text-[10px] font-black uppercase hover:bg-blue-100 border-y">🔗 VER ENLACE EXTERNO</a>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -1257,8 +1348,17 @@
                                 {subTabPortal === "ENCUESTA" && (
                                     <div className="space-y-4">
                                         <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                            <h2 className="font-black text-lg italic uppercase">VOZ AL EQUIPO</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Queremos saber cómo te sientes y qué te motiva.</p>
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <h2 className="font-black text-lg italic uppercase">VOZ AL EQUIPO</h2>
+                                                    <p className="text-[9px] font-bold text-gray-400 mt-1">Queremos saber cómo te sientes y qué te motiva.</p>
+                                                </div>
+                                                {userRole === "ADMIN" && (
+                                                    <button onClick={toggleEncuestaAdmin} className={`px-3 py-2 rounded-xl font-black text-[8px] text-white shadow-md active:scale-90 transition-colors ${encuestaActiva ? 'bg-movistar-red' : 'bg-movistar-green'}`}>
+                                                        {encuestaActiva ? 'APAGAR' : 'ENCENDER'}
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {userRole === "ADMIN" ? (
@@ -1296,7 +1396,7 @@
                                                     </div>
                                                 </div>
 
-                                                <h4 className="font-black text-[10px] text-movistar-dark mb-4 text-center border-t pt-6 uppercase">¿Qué incentivo motivaría más al equipo?</h4>
+                                                <h4 className="font-black text-[10px] text-movistar-dark mb-4 text-center border-t pt-4 uppercase">¿Qué incentivo motivaría más al equipo?</h4>
                                                 <div className="bar-chart mb-8">
                                                     <div className="bar-col" style={{height: `${Math.max((encStats.qMot.a/encStats.total)*100, 5)}%`}}>
                                                         <span className="absolute -top-4 w-full text-center text-[8px] font-black">{encStats.qMot.a}</span>
@@ -1316,7 +1416,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                        ) : (
+                                        ) : encuestaActiva ? (
                                             <form onSubmit={submitEncuesta} className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-6">
                                                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-6">
                                                     <p className="text-[10px] font-bold text-movistar-dark leading-relaxed">
@@ -1362,147 +1462,164 @@
                                                 </div>
                                                 <button type="submit" className="w-full bg-movistar-blue text-white p-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg mt-4 active:scale-95 transition-transform">ENVIAR RESPUESTAS</button>
                                             </form>
+                                        ) : (
+                                            <div className="bg-white p-10 rounded-[2rem] shadow-sm border text-center mt-4">
+                                                <div className="text-5xl mb-4">🔒</div>
+                                                <h3 className="font-black text-movistar-dark uppercase mb-2">Encuesta Cerrada</h3>
+                                                <p className="text-[10px] font-bold text-gray-400">Por el momento, la encuesta de satisfacción no está disponible. ¡Gracias por participar anteriormente!</p>
+                                            </div>
                                         )}
                                     </div>
                                 )}
 
                                 {subTabPortal === "CALCULADORA" && (
-                                    <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                        <h2 className="text-lg font-black mb-2 uppercase text-movistar-dark">Simulador de Comisiones</h2>
-                                        
-                                        {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                            <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-3 rounded-xl font-black text-[10px] text-movistar-blue mb-4 outline-none border border-blue-100">
-                                                <option value="ELEKTRA">CADENA: ELEKTRA</option>
-                                                <option value="COPPEL_SUBURBIA">CADENA: COPPEL / SUBURBIA</option>
-                                            </select>
-                                        )}
-
-                                        <div className="bg-gray-50 p-4 rounded-2xl border mb-6">
-                                            <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">🎯 Metas Semanales</h3>
-                                            <div className="grid grid-cols-2 gap-3 mb-3">
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase">Cuota Total</label>
-                                                    <input type="number" placeholder="0" value={cuotaTotal} onChange={e=>setCuotaTotal(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-dark shadow-sm"/>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase">Cuota TEMM</label>
-                                                    <input type="number" placeholder="0" value={cuotaTemm} onChange={e=>setCuotaTemm(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-green shadow-sm"/>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase">Cuota Porta</label>
-                                                    <input type="number" placeholder="0" value={cuotaPorta} onChange={e=>setCuotaPorta(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-blue shadow-sm"/>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase">Cuota No Porta</label>
-                                                    <input type="number" placeholder="0" value={cuotaNoPorta} onChange={e=>setCuotaNoPorta(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-gray-700 shadow-sm"/>
-                                                </div>
-                                            </div>
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Simulador de Comisiones</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Proyecta tus comisiones semanales ingresando tus metas y ventas logradas.</p>
                                         </div>
 
-                                        <div className="mb-6">
-                                            <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">📈 Ventas Logradas</h3>
-                                            
-                                            <div className="mb-3">
-                                                <h4 className="font-black text-[8px] text-movistar-blue mb-1 uppercase">Altas Portabilidad</h4>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    <input type="number" placeholder="$100" value={cP1} onChange={e=>setCP1(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
-                                                    <input type="number" placeholder="$150" value={cP2} onChange={e=>setCP2(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
-                                                    <input type="number" placeholder="$200" value={cP3} onChange={e=>setCP3(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                            {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
+                                                <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-3 rounded-xl font-black text-[10px] text-movistar-blue mb-4 outline-none border border-blue-100">
+                                                    <option value="ELEKTRA">CADENA: ELEKTRA</option>
+                                                    <option value="COPPEL_SUBURBIA">CADENA: COPPEL / SUBURBIA</option>
+                                                </select>
+                                            )}
+
+                                            <div className="bg-gray-50 p-4 rounded-2xl border mb-6">
+                                                <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">🎯 Metas Semanales</h3>
+                                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase">Cuota Total</label>
+                                                        <input type="number" placeholder="0" value={cuotaTotal} onChange={e=>setCuotaTotal(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-dark shadow-sm"/>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase">Cuota TEMM</label>
+                                                        <input type="number" placeholder="0" value={cuotaTemm} onChange={e=>setCuotaTemm(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-green shadow-sm"/>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            
-                                            <div className="mb-3">
-                                                <h4 className="font-black text-[8px] text-gray-500 mb-1 uppercase">Altas No Porta</h4>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    <input type="number" placeholder="$100" value={cNP1} onChange={e=>setCNP1(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
-                                                    <input type="number" placeholder="$150" value={cNP2} onChange={e=>setCNP2(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
-                                                    <input type="number" placeholder="$200" value={cNP3} onChange={e=>setCNP3(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase">Cuota Porta</label>
+                                                        <input type="number" placeholder="0" value={cuotaPorta} onChange={e=>setCuotaPorta(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-blue shadow-sm"/>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[8px] font-black text-gray-500 uppercase">Cuota No Porta</label>
+                                                        <input type="number" placeholder="0" value={cuotaNoPorta} onChange={e=>setCuotaNoPorta(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-gray-700 shadow-sm"/>
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div className="mb-3">
-                                                <h4 className="font-black text-[8px] text-movistar-green mb-1 uppercase">Equipos TEMM</h4>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    <input type="number" placeholder="$100" value={cT1} onChange={e=>setCT1(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
-                                                    <input type="number" placeholder="$150" value={cT2} onChange={e=>setCT2(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
-                                                    <input type="number" placeholder="$200" value={cT3} onChange={e=>setCT3(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
+                                            <div className="mb-6">
+                                                <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">📈 Ventas Logradas</h3>
+                                                
+                                                <div className="mb-3">
+                                                    <h4 className="font-black text-[8px] text-movistar-blue mb-1 uppercase">Altas Portabilidad</h4>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input type="number" placeholder="$100" value={cP1} onChange={e=>setCP1(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
+                                                        <input type="number" placeholder="$150" value={cP2} onChange={e=>setCP2(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
+                                                        <input type="number" placeholder="$200" value={cP3} onChange={e=>setCP3(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
+                                                
+                                                <div className="mb-3">
+                                                    <h4 className="font-black text-[8px] text-gray-500 mb-1 uppercase">Altas No Porta</h4>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input type="number" placeholder="$100" value={cNP1} onChange={e=>setCNP1(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
+                                                        <input type="number" placeholder="$150" value={cNP2} onChange={e=>setCNP2(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
+                                                        <input type="number" placeholder="$200" value={cNP3} onChange={e=>setCNP3(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
+                                                    </div>
+                                                </div>
 
-                                        <div className="bg-gray-50 p-4 rounded-2xl border mb-6 space-y-4">
-                                            <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center mb-2">📊 Resumen y Alcance</h3>
-                                            
-                                            <div>
-                                                <div className="flex justify-between items-end mb-1">
-                                                    <span className="text-[9px] font-black text-movistar-dark uppercase">TOTAL ALTAS</span>
-                                                    <span className="text-[10px] font-black text-movistar-dark">{sumTotal} / {cuotaTotal || 0} <span className="text-[8px] font-bold text-gray-400 ml-1">({alcanceTotal.toFixed(1)}%)</span></span>
+                                                <div className="mb-3">
+                                                    <h4 className="font-black text-[8px] text-movistar-green mb-1 uppercase">Equipos TEMM</h4>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input type="number" placeholder="$100" value={cT1} onChange={e=>setCT1(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
+                                                        <input type="number" placeholder="$150" value={cT2} onChange={e=>setCT2(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
+                                                        <input type="number" placeholder="$200" value={cT3} onChange={e=>setCT3(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
+                                                    </div>
                                                 </div>
-                                                <div className="progress-bar-container"><div className="progress-bar-fill bg-movistar-dark" style={{width: `${Math.min(alcanceTotal, 100)}%`}}></div></div>
                                             </div>
-                                            
-                                            <div>
-                                                <div className="flex justify-between items-end mb-1">
-                                                    <span className="text-[9px] font-black text-movistar-green uppercase">EQUIPOS TEMM</span>
-                                                    <span className="text-[10px] font-black text-movistar-green">{sumTemm} / {cuotaTemm || 0} <span className="text-[8px] font-bold text-gray-400 ml-1">({alcanceTemm.toFixed(1)}%)</span></span>
-                                                </div>
-                                                <div className="progress-bar-container"><div className="progress-bar-fill bg-movistar-green" style={{width: `${Math.min(alcanceTemm, 100)}%`}}></div></div>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-2 gap-4 pt-2">
+
+                                            <div className="bg-gray-50 p-4 rounded-2xl border mb-6 space-y-4">
+                                                <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center mb-2">📊 Resumen y Alcance</h3>
+                                                
                                                 <div>
                                                     <div className="flex justify-between items-end mb-1">
-                                                        <span className="text-[8px] font-black text-movistar-blue uppercase">PORTA</span>
-                                                        <span className="text-[9px] font-black text-movistar-blue">{sumPorta} <span className="text-gray-400">/ {cuotaPorta || 0}</span></span>
+                                                        <span className="text-[9px] font-black text-movistar-dark uppercase">TOTAL ALTAS</span>
+                                                        <span className="text-[10px] font-black text-movistar-dark">{sumTotal} / {cuotaTotal || 0} <span className="text-[8px] font-bold text-gray-400 ml-1">({alcanceTotal.toFixed(1)}%)</span></span>
                                                     </div>
-                                                    <div className="progress-bar-container h-1.5"><div className="progress-bar-fill bg-movistar-blue" style={{width: `${Math.min(alcancePorta, 100)}%`}}></div></div>
+                                                    <div className="progress-bar-container"><div className="progress-bar-fill bg-movistar-dark" style={{width: `${Math.min(alcanceTotal, 100)}%`}}></div></div>
                                                 </div>
+                                                
                                                 <div>
                                                     <div className="flex justify-between items-end mb-1">
-                                                        <span className="text-[8px] font-black text-gray-600 uppercase">NO PORTA</span>
-                                                        <span className="text-[9px] font-black text-gray-600">{sumNoPorta} <span className="text-gray-400">/ {cuotaNoPorta || 0}</span></span>
+                                                        <span className="text-[9px] font-black text-movistar-green uppercase">EQUIPOS TEMM</span>
+                                                        <span className="text-[10px] font-black text-movistar-green">{sumTemm} / {cuotaTemm || 0} <span className="text-[8px] font-bold text-gray-400 ml-1">({alcanceTemm.toFixed(1)}%)</span></span>
                                                     </div>
-                                                    <div className="progress-bar-container h-1.5"><div className="progress-bar-fill bg-gray-500" style={{width: `${Math.min(alcanceNoPorta, 100)}%`}}></div></div>
+                                                    <div className="progress-bar-container"><div className="progress-bar-fill bg-movistar-green" style={{width: `${Math.min(alcanceTemm, 100)}%`}}></div></div>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 gap-4 pt-2">
+                                                    <div>
+                                                        <div className="flex justify-between items-end mb-1">
+                                                            <span className="text-[8px] font-black text-movistar-blue uppercase">PORTA</span>
+                                                            <span className="text-[9px] font-black text-movistar-blue">{sumPorta} <span className="text-gray-400">/ {cuotaPorta || 0}</span></span>
+                                                        </div>
+                                                        <div className="progress-bar-container h-1.5"><div className="progress-bar-fill bg-movistar-blue" style={{width: `${Math.min(alcancePorta, 100)}%`}}></div></div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex justify-between items-end mb-1">
+                                                            <span className="text-[8px] font-black text-gray-600 uppercase">NO PORTA</span>
+                                                            <span className="text-[9px] font-black text-gray-600">{sumNoPorta} <span className="text-gray-400">/ {cuotaNoPorta || 0}</span></span>
+                                                        </div>
+                                                        <div className="progress-bar-container h-1.5"><div className="progress-bar-fill bg-gray-500" style={{width: `${Math.min(alcanceNoPorta, 100)}%`}}></div></div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div className="bg-movistar-green text-white p-6 rounded-2xl text-center shadow-lg relative overflow-hidden">
-                                            <div className="relative z-10">
-                                                <p className="text-[10px] font-bold uppercase mb-1">Pago Estimado (Según % Alcance)</p>
-                                                <p className="text-5xl font-black">${calculatePayout()}</p>
+                                            <div className="bg-movistar-green text-white p-6 rounded-2xl text-center shadow-lg relative overflow-hidden">
+                                                <div className="relative z-10">
+                                                    <p className="text-[10px] font-bold uppercase mb-1">Pago Estimado (Según % Alcance)</p>
+                                                    <p className="text-5xl font-black">${calculatePayout()}</p>
+                                                </div>
+                                                <div className="absolute -right-4 -top-4 opacity-10 text-8xl">💰</div>
                                             </div>
-                                            <div className="absolute -right-4 -top-4 opacity-10 text-8xl">💰</div>
                                         </div>
                                     </div>
                                 )}
 
                                 {subTabPortal === "VACACIONES" && (
-                                    userRole === "PROMOTOR" ? (
-                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                            <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Días Libres</h2>
-                                            <form onSubmit={submitVac} className="space-y-4">
-                                                <input type="text" placeholder="Nombre" required value={vacName} onChange={e=>setVacName(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
-                                                <input type="text" placeholder="Usuario FW" required value={vacUser} onChange={e=>setVacUser(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
-                                                <div><label className="text-[9px] font-black text-gray-400 ml-2">Inicio (Min 15 días)</label><input type="date" required min={minVacDate} value={vacDate} onChange={e=>setVacDate(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/></div>
-                                                <div><label className="text-[9px] font-black text-gray-400 ml-2">Días a pedir</label><input type="number" min="1" max="14" required value={vacDays} onChange={e=>setVacDays(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/></div>
-                                                <button type="submit" className="w-full bg-movistar-blue text-white p-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">ENVIAR SOLICITUD</button>
-                                            </form>
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Días Libres</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Gestiona y envía tus solicitudes de días de descanso al equipo administrativo.</p>
                                         </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {vacaciones.map(v => (
-                                                <div key={v.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-blue relative">
-                                                    {userRole === "ADMIN" && <button onClick={() => deleteDoc("vacaciones", v.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-sm active:scale-90">X</button>}
-                                                    <div className="flex justify-between w-11/12"><span className="text-[9px] font-black text-movistar-blue">{v.idpdv}</span><span className="text-[8px] font-bold text-gray-400">{v.fecha?.toDate().toLocaleDateString()}</span></div>
-                                                    <h4 className="font-black text-xs uppercase my-1">{v.nombre}</h4>
-                                                    <p className="text-[10px] font-bold text-gray-500">Pide <span className="text-movistar-dark font-black">{v.diasSolicitados} días</span> desde <span className="text-movistar-dark font-black">{v.fechaDeseada}</span></p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )
+
+                                        {userRole === "PROMOTOR" ? (
+                                            <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                                <form onSubmit={submitVac} className="space-y-4">
+                                                    <input type="text" placeholder="Nombre" required value={vacName} onChange={e=>setVacName(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                    <input type="text" placeholder="Usuario FW" required value={vacUser} onChange={e=>setVacUser(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                    <div><label className="text-[9px] font-black text-gray-400 ml-2">Inicio (Min 15 días)</label><input type="date" required min={minVacDate} value={vacDate} onChange={e=>setVacDate(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/></div>
+                                                    <div><label className="text-[9px] font-black text-gray-400 ml-2">Días a pedir</label><input type="number" min="1" max="14" required value={vacDays} onChange={e=>setVacDays(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/></div>
+                                                    <button type="submit" className="w-full bg-movistar-blue text-white p-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">ENVIAR SOLICITUD</button>
+                                                </form>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {vacaciones.map(v => (
+                                                    <div key={v.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-blue relative">
+                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("vacaciones", v.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-sm active:scale-90">X</button>}
+                                                        <div className="flex justify-between w-11/12"><span className="text-[9px] font-black text-movistar-blue">{v.idpdv}</span><span className="text-[8px] font-bold text-gray-400">{v.fecha?.toDate().toLocaleDateString()}</span></div>
+                                                        <h4 className="font-black text-xs uppercase my-1">{v.nombre}</h4>
+                                                        <p className="text-[10px] font-bold text-gray-500">Pide <span className="text-movistar-dark font-black">{v.diasSolicitados} días</span> desde <span className="text-movistar-dark font-black">{v.fechaDeseada}</span></p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
                                 {subTabPortal === "QUEJAS" && (
