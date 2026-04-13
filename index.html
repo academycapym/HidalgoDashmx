@@ -392,11 +392,11 @@
                 if (u === "ADMIN" && pass === "2024") { 
                     setUserRole("ADMIN"); setView("APP"); 
                 } else if (u === "VIRGINIA" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("VIRGINIA"); setUserCluster("TULANCINGO"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("VIRGINIA"); setUserCluster("VIRGINIA"); setView("APP");
                 } else if (u === "DANIEL" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("DANIEL"); setUserCluster("TIZAYUCA"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("DANIEL"); setUserCluster("DANIEL"); setView("APP");
                 } else if (u === "JIOBANI" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("JIOBANI"); setUserCluster("TULA"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("JIOBANI"); setUserCluster("JIOBANI"); setView("APP");
                 } else if (pass === "Movistar1" && u.length >= 4) { 
                     setUserRole("PROMOTOR"); setView("APP"); 
                 } else { 
@@ -419,12 +419,11 @@
                             const wsBBDDName = wb.SheetNames.find(n => n.toUpperCase().includes("BBDD"));
                             if (wsBBDDName) {
                                 const dataBBDD = XLSX.utils.sheet_to_json(wb.Sheets[wsBBDDName], { header: "A", raw: false });
-                                for (let i = dataBBDD.length - 1; i >= 0; i--) {
-                                    const val = String(dataBBDD[i]["R"] || "").trim();
-                                    if (val !== "" && val.toUpperCase() !== "FECHA REGISTRO" && val.includes("-")) {
-                                        diaAct = val;
-                                        break;
-                                    }
+                                const strDates = dataBBDD.map(row => String(row["R"] || "").trim())
+                                    .filter(val => val.includes("-") && val.toUpperCase() !== "FECHA REGISTRO");
+                                if(strDates.length > 0) {
+                                    strDates.sort();
+                                    diaAct = strDates[strDates.length - 1]; 
                                 }
                             }
 
@@ -433,11 +432,10 @@
 
                             const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
                             
-                            // Lectura estricta para garantizar 43 tiendas (fila 6 a 48) y mapeo de las columnas Q y R para TEMM
-                            const validRows = jData.slice(5, 48);
-                            list = validRows.filter(row => {
+                            list = jData.filter((row, index) => {
                                 const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
-                                return /^\d+$/.test(iVal) && iVal.length >= 3;
+                                const isNumericId = /^\d+$/.test(iVal);
+                                return index >= 5 && index <= 47 && isNumericId && iVal.length >= 3;
                             }).map(row => {
                                 let cadena = "SUBURBIA"; let tUpper = String(row["J"] || "").toUpperCase();
                                 if (tUpper.includes("EKT") || tUpper.includes("ELEKTRA")) cadena = "ELEKTRA";
@@ -445,8 +443,8 @@
                                 return {
                                     id: String(row["I"] || "").trim().replace(/^0+/, ''),
                                     tienda: String(row["J"]).trim(),
-                                    plaza: String(row["K"]).trim().toUpperCase(),
-                                    lider: String(row["A"]).trim(),
+                                    plaza: String(row["K"] || "").trim().toUpperCase(),
+                                    lider: String(row["A"] || "").trim(),
                                     sup: String(row["B"]).trim(), 
                                     cad: cadena,
                                     altas: Math.round(Number(row["Q"]) || 0), 
@@ -749,10 +747,20 @@
                 return [...new Set(base.map(i => i.mod.toUpperCase()))].filter(Boolean).sort();
             }, [dataINV, invStoreIdsAllowed, invMarcaFiltro]);
 
+            const sumTotal = (Number(cP1)||0) + (Number(cP2)||0) + (Number(cP3)||0) + (Number(cNP1)||0) + (Number(cNP2)||0) + (Number(cNP3)||0);
+            const sumTemm = (Number(cT1)||0) + (Number(cT2)||0) + (Number(cT3)||0);
+            const sumPorta = (Number(cP1)||0) + (Number(cP2)||0) + (Number(cP3)||0);
+            const sumNoPorta = (Number(cNP1)||0) + (Number(cNP2)||0) + (Number(cNP3)||0);
+
+            const alcanceTotal = Number(cuotaTotal) > 0 ? (sumTotal / Number(cuotaTotal)) * 100 : 0;
+            const alcanceTemm = Number(cuotaTemm) > 0 ? (sumTemm / Number(cuotaTemm)) * 100 : 0;
+            const alcancePorta = Number(cuotaPorta) > 0 ? (sumPorta / Number(cuotaPorta)) * 100 : 0;
+            const alcanceNoPorta = Number(cuotaNoPorta) > 0 ? (sumNoPorta / Number(cuotaNoPorta)) * 100 : 0;
+
             const calculatePayout = () => {
                 const lt = alcanceTotal; const ltem = alcanceTemm;
-                let tt = lt < 80 ? 'none' : lt <= 94 ? 't1' : lt <= 99 ? 't2' : 't3';
-                let ttem = ltem < 80 ? 'none' : ltem <= 94 ? 't1' : ltem <= 99 ? 't2' : 't3';
+                let tt = lt < 80 ? 'none' : lt < 95 ? 't1' : lt < 100 ? 't2' : 't3';
+                let ttem = ltem < 80 ? 'none' : ltem < 95 ? 't1' : ltem < 100 ? 't2' : 't3';
                 let total = 0; const tbl = COMISIONES[calcCadena];
                 if(tt !== 'none') {
                     const t = tbl[tt];
@@ -770,6 +778,13 @@
                 if (!colaboradorName.trim()) return alert("Selecciona/ingresa tu nombre.");
                 let qType = type;
                 if (type === 'COMISIONES') {
+                    let myCadena = "ELEKTRA"; 
+                    if (userRole === "PROMOTOR") {
+                        const myStore = dataTEMM.find(d => d.id === userId.trim().replace(/^0+/, ''));
+                        if (myStore && (myStore.cad === "COPPEL" || myStore.cad === "SUBURBIA")) {
+                            myCadena = "COPPEL";
+                        }
+                    }
                     if (myCadena === "ELEKTRA") qType = 'COMISIONES_EKT';
                     else if (myCadena === "COPPEL" || myCadena === "SUBURBIA") qType = 'COMISIONES_COP';
                     else {
@@ -951,6 +966,15 @@
                     <div className="p-4 flex-grow overflow-y-auto pb-10">
                         {activeTab === 'OPERACION' && (
                             <div className="space-y-4">
+                                {actualizadoAl !== "Desconocido" && (
+                                    <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
+                                        <div className="relative z-10">
+                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH EN OPERACIÓN!</p>
+                                            <p className="text-[9px] font-bold opacity-90 mt-1">Datos actualizados al día: {actualizadoAl}</p>
+                                        </div>
+                                        <div className="absolute right-2 opacity-30 text-5xl">📊</div>
+                                    </div>
+                                )}
 
                                 <div className="flex bg-gray-200 p-1 rounded-2xl mb-4">
                                     <button onClick={()=>setSubTabOp("GENERAL")} className={`subtab-btn ${subTabOp==="GENERAL"?'subtab-active':'subtab-inactive'}`}>
@@ -1636,12 +1660,10 @@
                                         </div>
 
                                         <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                            {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                                <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-3 rounded-xl font-black text-[10px] text-movistar-blue mb-4 outline-none border border-blue-100">
-                                                    <option value="ELEKTRA">CADENA: ELEKTRA</option>
-                                                    <option value="COPPEL_SUBURBIA">CADENA: COPPEL / SUBURBIA</option>
-                                                </select>
-                                            )}
+                                            <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-4 rounded-xl font-black text-xs text-movistar-dark mb-4 outline-none border border-blue-100 shadow-sm cursor-pointer">
+                                                <option value="ELEKTRA">🏢 CADENA: ELEKTRA</option>
+                                                <option value="COPPEL_SUBURBIA">🏢 CADENA: COPPEL / SUBURBIA</option>
+                                            </select>
 
                                             <div className="bg-gray-50 p-4 rounded-2xl border mb-6">
                                                 <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">🎯 Metas Semanales</h3>
@@ -1737,7 +1759,10 @@
 
                                             <div className="bg-movistar-green text-white p-6 rounded-2xl text-center shadow-lg relative overflow-hidden">
                                                 <div className="relative z-10">
-                                                    <p className="text-[10px] font-bold uppercase mb-1">Pago Estimado (Según % Alcance)</p>
+                                                    <p className="text-[10px] font-bold uppercase mb-1">
+                                                        Pago Estimado <br/>
+                                                        <span className="text-[8px] opacity-80">(Alcance Total: {alcanceTotal < 80 ? '<80%' : alcanceTotal < 95 ? 'T1' : alcanceTotal < 100 ? 'T2' : 'T3'} | Alcance TEMM: {alcanceTemm < 80 ? '<80%' : alcanceTemm < 95 ? 'T1' : alcanceTemm < 100 ? 'T2' : 'T3'})</span>
+                                                    </p>
                                                     <p className="text-5xl font-black">${calculatePayout()}</p>
                                                 </div>
                                                 <div className="absolute -right-4 -top-4 opacity-10 text-8xl">💰</div>
