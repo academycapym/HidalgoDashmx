@@ -379,7 +379,9 @@
 
             const calculateAge = (birthday) => {
                 if(!birthday) return null;
-                const ageDifMs = Date.now() - new Date(birthday).getTime();
+                const bdate = new Date(birthday);
+                if (isNaN(bdate.getTime())) return null; 
+                const ageDifMs = Date.now() - bdate.getTime();
                 const ageDate = new Date(ageDifMs);
                 return Math.abs(ageDate.getUTCFullYear() - 1970);
             };
@@ -390,11 +392,11 @@
                 if (u === "ADMIN" && pass === "2024") { 
                     setUserRole("ADMIN"); setView("APP"); 
                 } else if (u === "VIRGINIA" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("VIRGINIA"); setUserCluster("VIRGINIA"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("VIRGINIA"); setUserCluster("TULANCINGO"); setView("APP");
                 } else if (u === "DANIEL" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("DANIEL"); setUserCluster("DANIEL"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("DANIEL"); setUserCluster("TIZAYUCA"); setView("APP");
                 } else if (u === "JIOBANI" && pass === "Supervisor1") {
-                    setUserRole("SUPERVISOR"); setUserId("JIOBANI"); setUserCluster("JIOBANI"); setView("APP");
+                    setUserRole("SUPERVISOR"); setUserId("JIOBANI"); setUserCluster("TULA"); setView("APP");
                 } else if (pass === "Movistar1" && u.length >= 4) { 
                     setUserRole("PROMOTOR"); setView("APP"); 
                 } else { 
@@ -417,11 +419,12 @@
                             const wsBBDDName = wb.SheetNames.find(n => n.toUpperCase().includes("BBDD"));
                             if (wsBBDDName) {
                                 const dataBBDD = XLSX.utils.sheet_to_json(wb.Sheets[wsBBDDName], { header: "A", raw: false });
-                                const strDates = dataBBDD.map(row => String(row["R"] || "").trim())
-                                    .filter(val => val.includes("-") && val.toUpperCase() !== "FECHA REGISTRO");
-                                if(strDates.length > 0) {
-                                    strDates.sort();
-                                    diaAct = strDates[strDates.length - 1]; 
+                                for (let i = dataBBDD.length - 1; i >= 0; i--) {
+                                    const val = String(dataBBDD[i]["R"] || "").trim();
+                                    if (val !== "" && val.toUpperCase() !== "FECHA REGISTRO" && val.includes("-")) {
+                                        diaAct = val;
+                                        break;
+                                    }
                                 }
                             }
 
@@ -430,25 +433,29 @@
 
                             const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
                             
-                            // Lector 100% estricto para los 43 PDVs
-                            list = jData.filter((row, index) => {
+                            // Lectura estricta para garantizar 43 tiendas (fila 6 a 48) y mapeo de las columnas Q y R para TEMM
+                            const validRows = jData.slice(5, 48);
+                            list = validRows.filter(row => {
                                 const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
-                                const isNumericId = /^\d+$/.test(iVal);
-                                // index 5 a 47 equivale de la fila 6 a la 48
-                                return index >= 5 && index <= 47 && isNumericId && iVal.length >= 3;
+                                return /^\d+$/.test(iVal) && iVal.length >= 3;
                             }).map(row => {
                                 let cadena = "SUBURBIA"; let tUpper = String(row["J"] || "").toUpperCase();
                                 if (tUpper.includes("EKT") || tUpper.includes("ELEKTRA")) cadena = "ELEKTRA";
                                 else if (tUpper.includes("COPPEL")) cadena = "COPPEL";
                                 return {
                                     id: String(row["I"] || "").trim().replace(/^0+/, ''),
-                                    tienda: String(row["J"]).trim(), sup: String(row["B"]).trim(), cad: cadena,
-                                    altas: Math.round(Number(row["Q"]) || 0), cuota: Math.round(Number(row["R"]) || 0)
+                                    tienda: String(row["J"]).trim(),
+                                    plaza: String(row["K"]).trim().toUpperCase(),
+                                    lider: String(row["A"]).trim(),
+                                    sup: String(row["B"]).trim(), 
+                                    cad: cadena,
+                                    altas: Math.round(Number(row["Q"]) || 0), 
+                                    cuota: Math.round(Number(row["R"]) || 0)
                                 };
                             });
                             
                             await db.collection("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
-                            alert(`¡Sincronizado Diario a Nivel Nacional exitosamente! (${list.length} Tiendas | Fecha: ${diaAct})`);
+                            alert(`¡Sincronizado TEMM a Nivel Nacional exitosamente! (${list.length} Tiendas guardadas | Fecha BBDD: ${diaAct})`);
                             
                         } else if (type === "inv") {
                             const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tiendas") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario"));
@@ -487,9 +494,12 @@
                 const saveData = async (fotoB64) => {
                     try {
                         const data = {
-                            nombre: rostName.toUpperCase(), fw: rostFw.toUpperCase(),
-                            telefono: rostTelefono.toUpperCase(), cumpleanos: rostCumple,
-                            rol: rostRole, ingreso: rostDate
+                            nombre: (rostName || "").toUpperCase(), 
+                            fw: (rostFw || "").toUpperCase(),
+                            telefono: (rostTelefono || "").toUpperCase(), 
+                            cumpleanos: rostCumple || "",
+                            rol: rostRole || "PROMOTOR", 
+                            ingreso: rostDate || ""
                         };
                         if (fotoB64) data.foto = fotoB64;
 
@@ -497,7 +507,7 @@
                             await db.collection("roster").doc(editRostId).update(data);
                             alert("Perfil actualizado correctamente.");
                         } else {
-                            data.idpdv = userId.toUpperCase();
+                            data.idpdv = (userId || "").toUpperCase();
                             data.estatus = 'ACTIVO';
                             data.fecha = firebase.firestore.FieldValue.serverTimestamp();
                             await db.collection("roster").add(data);
@@ -528,7 +538,10 @@
                                 can.width = width; can.height = height; 
                                 can.getContext('2d').drawImage(img, 0, 0, width, height);
                                 saveData(can.toDataURL('image/jpeg', 0.6));
-                            } catch(er) { alert("Error al procesar foto."); }
+                            } catch(er) { 
+                                alert("Error al procesar foto."); 
+                                saveData(null);
+                            }
                         };
                         img.src = evt.target.result;
                     };
@@ -680,7 +693,12 @@
                 if (userRole === "PROMOTOR") {
                     const cl = userId.trim().replace(/^0+/, ''); f = dataTEMM.filter(d => d.id === cl);
                 } else if (userRole === "SUPERVISOR") {
-                    f = dataTEMM.filter(d => d.sup.toUpperCase().includes(userCluster));
+                    f = dataTEMM.filter(d => 
+                        (d.sup && d.sup.toUpperCase().includes(userCluster)) || 
+                        (d.lider && d.lider.toUpperCase().includes(userCluster)) ||
+                        (d.plaza && d.plaza.toUpperCase().includes(userCluster)) ||
+                        (d.tienda && d.tienda.toUpperCase().includes(userCluster))
+                    );
                 } else {
                     if (supFilter !== "TODOS") f = f.filter(d => d?.sup === supFilter);
                     if (cadFilter !== "TODAS") f = f.filter(d => d?.cad === cadFilter);
@@ -779,6 +797,8 @@
 
             const downloadCert = (name, modCode, date) => {
                 try {
+                    const userRank = ranking.find(r => r.name === name);
+                    const badgesText = Array.from(new Set([...(userRank?.badges || []), modCode])).map(b => b==='BASICO'?'PORTABILIDAD BÁSICA':b==='EXPERTO'?'PORTA AVANZADA':b==='VENTAS'?'VENTA CONSULTIVA':b==='SUELDO_FIELDWY'?'SUELDO/FIELDWY':b).join(", ");
                     const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
                     
                     // Diseño Premium tipo Diploma
@@ -931,11 +951,6 @@
                     <div className="p-4 flex-grow overflow-y-auto pb-10">
                         {activeTab === 'OPERACION' && (
                             <div className="space-y-4">
-                                {actualizadoAl !== "Desconocido" && (
-                                    <div className="text-center bg-blue-50 text-movistar-blue py-2 rounded-xl text-[10px] font-black uppercase shadow-sm border border-blue-100">
-                                        Actualizado al día: <span className="text-movistar-dark ml-1">{actualizadoAl}</span>
-                                    </div>
-                                )}
 
                                 <div className="flex bg-gray-200 p-1 rounded-2xl mb-4">
                                     <button onClick={()=>setSubTabOp("GENERAL")} className={`subtab-btn ${subTabOp==="GENERAL"?'subtab-active':'subtab-inactive'}`}>
@@ -1427,10 +1442,8 @@
                                                 <h2 className="font-black text-lg italic uppercase">TABLÓN OFICIAL</h2>
                                                 <p className="text-[9px] font-bold text-gray-400 mt-1">Noticias, actualizaciones y comunicados importantes de la agencia.</p>
                                             </div>
-                                            <div className="absolute right-2 top-0 bottom-0 flex items-center justify-center">
-                                                <svg viewBox="0 0 100 100" className="w-16 h-16 text-movistar-blue opacity-50" fill="currentColor">
-                                                    <path d="M22.5,70.5 C22.5,70.5 15,35 25,25 C35,15 45,25 45,25 C45,25 55,15 65,25 C75,35 67.5,70.5 67.5,70.5 C67.5,70.5 70,80 80,75 C90,70 90,60 90,60 C90,60 95,65 95,75 C95,85 80,95 65,85 C50,75 45,60 45,60 C45,60 40,75 25,85 C10,95 -5,85 -5,75 C-5,65 0,60 0,60 C0,60 0,70 10,75 C20,80 22.5,70.5 22.5,70.5 Z" />
-                                                </svg>
+                                            <div className="absolute right-2 top-0 bottom-0 flex items-center justify-center text-6xl opacity-30">
+                                                📰
                                             </div>
                                         </div>
 
