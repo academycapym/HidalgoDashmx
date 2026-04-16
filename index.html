@@ -7,7 +7,6 @@
     
     <script>
         window.onerror = function(msg, url, lineNo) {
-            // Ignorar errores de Auth de Firebase para que no rompan la pantalla
             if (typeof msg === 'string' && (msg.includes('auth/') || msg.includes('configuration-not-found'))) {
                 console.warn("Ignorado error de Auth de Firebase:", msg);
                 return true; 
@@ -28,7 +27,7 @@
 
         window.onunhandledrejection = function(event) {
             if (event.reason && event.reason.message && (event.reason.message.includes('auth/') || event.reason.message.includes('configuration-not-found'))) {
-                console.warn("Ignorado Unhandled Promise Rejection de Auth:", event.reason.message);
+                console.warn("Ignorado Rejection de Auth:", event.reason.message);
                 event.preventDefault();
             }
         };
@@ -196,7 +195,7 @@
             { cat: "ESPECIALES", tit: "Manual Venta Consultiva.pdf", file: "Manual Venta Consultiva.pdf" }
         ];
 
-        const firebaseConfig = {
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyA7jT_0uOIW17wrkqqar97WZdc8qvuoKGI",
             authDomain: "academia-capym.firebaseapp.com",
             projectId: "academia-capym",
@@ -216,6 +215,19 @@
         const App = () => {
             const [userAuth, setUserAuth] = useState(null);
             
+            // 🔥 GPS INTELIGENTE: Diferencia entre Canvas y Vercel para guardar los datos
+            const isCanvasEnv = typeof __firebase_config !== 'undefined';
+            
+            const getDbPath = (name) => {
+                if (!db) return null;
+                if (isCanvasEnv) {
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(name);
+                }
+                // Si estamos en Vercel (fuera de Canvas), usamos la ruta original
+                return db.collection(name);
+            };
+
             const [view, setView] = useState("LOGIN");
             const [userRole, setUserRole] = useState("");
             const [userId, setUserId] = useState("");
@@ -299,14 +311,16 @@
                 const initAuth = async () => {
                     if (auth) {
                         try {
-                            await auth.signInAnonymously();
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                await auth.signInWithCustomToken(__initial_auth_token);
+                            } else {
+                                await auth.signInAnonymously();
+                            }
                         } catch (e) {
-                            console.warn("Auth Error ignorado de forma segura:", e);
-                            setUserAuth({ uid: "local_dummy_user" });
+                            console.warn("Auth Error ignorado de forma segura:", e.message);
                         }
-                    } else {
-                        setUserAuth({ uid: "local_dummy_user" });
                     }
+                    setUserAuth(auth?.currentUser || { uid: "local_dummy_user" });
                 };
 
                 initAuth();
@@ -326,7 +340,7 @@
 
                 const unsubs = [];
                 try {
-                    const subOp = db.collection("operacion_v2").onSnapshot(s => {
+                    const subOp = getDbPath("operacion_v2").onSnapshot(s => {
                         let tm = []; let iv = [];
                         s.forEach(d => {
                             const obj = d.data();
@@ -337,52 +351,52 @@
                             if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
                         });
                         setDataTEMM(tm); setDataINV(iv);
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Op:", e));
                     unsubs.push(subOp);
 
-                    const subRank = db.collection("ranking").orderBy("score", "desc").onSnapshot(s => {
+                    const subRank = getDbPath("ranking").orderBy("score", "desc").onSnapshot(s => {
                         setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Rank:", e));
                     unsubs.push(subRank);
 
-                    const subRec = db.collection("recurso").onSnapshot(s => {
+                    const subRec = getDbPath("recurso").onSnapshot(s => {
                         setResources(s.docs.map(d => ({...d.data(), id: d.id})));
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Rec:", e));
                     unsubs.push(subRec);
 
-                    const subCand = db.collection("promotor_mes").onSnapshot(s => {
+                    const subCand = getDbPath("promotor_mes").onSnapshot(s => {
                         setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Cand:", e));
                     unsubs.push(subCand);
 
-                    const subQuej = db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => {
+                    const subQuej = getDbPath("quejas").orderBy("fecha", "desc").onSnapshot(s => {
                         setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Quej:", e));
                     unsubs.push(subQuej);
 
-                    const subVac = db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
+                    const subVac = getDbPath("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
                         setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Vac:", e));
                     unsubs.push(subVac);
 
-                    const subRost = db.collection("roster").orderBy("fecha", "desc").onSnapshot(s => {
+                    const subRost = getDbPath("roster").orderBy("fecha", "desc").onSnapshot(s => {
                         setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Rost:", e));
                     unsubs.push(subRost);
 
-                    const subCom = db.collection("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
+                    const subCom = getDbPath("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
                         setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Com:", e));
                     unsubs.push(subCom);
 
-                    const subEnc = db.collection("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
+                    const subEnc = getDbPath("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
                         setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Enc:", e));
                     unsubs.push(subEnc);
 
-                    const subConfig = db.collection("config").doc("general").onSnapshot(d => {
+                    const subConfig = getDbPath("config").doc("general").onSnapshot(d => {
                         if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
-                    }, e => console.warn(e));
+                    }, e => console.error("Error Config:", e));
                     unsubs.push(subConfig);
                 } catch(error) { console.error("Listeners", error); }
 
@@ -477,7 +491,7 @@
                                 };
                             });
                             
-                            await db.collection("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
+                            await getDbPath("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
                             alert(`¡Sincronizado TEMM a Nivel Nacional exitosamente! (${list.length} Tiendas guardadas | Fecha BBDD: ${diaAct})`);
                             
                         } else if (type === "inv") {
@@ -494,7 +508,7 @@
                                 q: parseInt(Number(row["Z"])) || 0
                             }));
                             
-                            await db.collection("operacion_v2").doc("inv").set({ list: list });
+                            await getDbPath("operacion_v2").doc("inv").set({ list: list });
                             alert("¡Sincronizado Inventario a Nivel Nacional exitosamente!");
                         }
                     } catch (error) { alert("Error procesando Excel. Verifica el formato del archivo."); console.error(error); }
@@ -526,13 +540,13 @@
                         if (fotoB64) data.foto = fotoB64;
 
                         if (editRostId) {
-                            await db.collection("roster").doc(editRostId).update(data);
+                            await getDbPath("roster").doc(editRostId).update(data);
                             alert("Perfil actualizado correctamente.");
                         } else {
                             data.idpdv = (userId || "").toUpperCase();
                             data.estatus = 'ACTIVO';
                             data.fecha = firebase.firestore.FieldValue.serverTimestamp();
-                            await db.collection("roster").add(data);
+                            await getDbPath("roster").add(data);
                             alert("Perfil creado con éxito.");
                         }
                         
@@ -582,7 +596,7 @@
 
             const toggleRosterStatus = async (id, current) => {
                 if(!db) return;
-                try { await db.collection("roster").doc(id).update({ estatus: current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO' }); } 
+                try { await getDbPath("roster").doc(id).update({ estatus: current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO' }); } 
                 catch(e) { alert("Error al cambiar estatus"); }
             };
 
@@ -596,7 +610,7 @@
                     img.onload = async () => {
                         const can = document.createElement('canvas'); const w = 200; const h = img.height * (200/img.width);
                         can.width = w; can.height = h; can.getContext('2d').drawImage(img, 0, 0, w, h);
-                        try { await db.collection("promotor_mes").add({ nombre: name.toUpperCase(), foto: can.toDataURL('image/jpeg', 0.5), votos: [] }); alert("Agregado."); } catch(err) { alert("Error."); }
+                        try { await getDbPath("promotor_mes").add({ nombre: name.toUpperCase(), foto: can.toDataURL('image/jpeg', 0.5), votos: [] }); alert("Agregado."); } catch(err) { alert("Error."); }
                     }; img.src = evt.target.result;
                 }; reader.readAsDataURL(file);
             };
@@ -607,25 +621,25 @@
                 candidates.forEach(c => { if(c.votos && c.votos.includes(logId)) ya = true; });
                 if(ya) return alert("Solo puedes emitir 1 voto por sucursal.");
                 try {
-                    const cRef = db.collection("promotor_mes").doc(cId); const cDoc = await cRef.get();
+                    const cRef = getDbPath("promotor_mes").doc(cId); const cDoc = await cRef.get();
                     if(cDoc.exists) { await cRef.update({ votos: [...(cDoc.data().votos || []), logId] }); alert("Voto registrado con éxito."); }
                 } catch (e) { alert("Error."); }
             };
 
             const submitSug = async (e) => {
                 e.preventDefault(); if(!sugText.trim() || !db) return;
-                try { await db.collection("quejas").add({ idpdv: userId.toUpperCase(), texto: sugText, fecha: firebase.firestore.FieldValue.serverTimestamp() }); setSugText(""); alert("Enviado."); } catch(e) { alert("Error."); }
+                try { await getDbPath("quejas").add({ idpdv: userId.toUpperCase(), texto: sugText, fecha: firebase.firestore.FieldValue.serverTimestamp() }); setSugText(""); alert("Enviado."); } catch(e) { alert("Error."); }
             };
 
             const submitVac = async (e) => {
                 e.preventDefault(); if(!db) return;
-                try { await db.collection("vacaciones").add({ idpdv: userId.toUpperCase(), nombre: vacName.toUpperCase(), usuarioFw: vacUser.toUpperCase(), fechaDeseada: vacDate, diasSolicitados: vacDays, estatus: 'Pendiente', fecha: firebase.firestore.FieldValue.serverTimestamp() }); setVacName(""); setVacUser(""); setVacDate(""); setVacDays(1); alert("Enviada."); } catch(e) { alert("Error."); }
+                try { await getDbPath("vacaciones").add({ idpdv: userId.toUpperCase(), nombre: vacName.toUpperCase(), usuarioFw: vacUser.toUpperCase(), fechaDeseada: vacDate, diasSolicitados: vacDays, estatus: 'Pendiente', fecha: firebase.firestore.FieldValue.serverTimestamp() }); setVacName(""); setVacUser(""); setVacDate(""); setVacDays(1); alert("Enviada."); } catch(e) { alert("Error."); }
             };
 
             const submitComunicado = async (e) => {
                 e.preventDefault(); if(!db) return;
                 if(!comTexto.trim() && !comImgBase64 && !comVideoUrl) return alert("Vacío.");
-                try { await db.collection("comunicados").add({ texto: comTexto, imgBase64: comImgBase64, videoUrl: comVideoUrl, likes: [], fecha: firebase.firestore.FieldValue.serverTimestamp() }); setComTexto(""); setComImgBase64(""); setComVideoUrl(""); alert("Publicado!"); } catch (err) { alert("Error."); }
+                try { await getDbPath("comunicados").add({ texto: comTexto, imgBase64: comImgBase64, videoUrl: comVideoUrl, likes: [], fecha: firebase.firestore.FieldValue.serverTimestamp() }); setComTexto(""); setComImgBase64(""); setComVideoUrl(""); alert("Publicado!"); } catch (err) { alert("Error."); }
             };
 
             const toggleLike = async (comId) => {
@@ -635,7 +649,7 @@
                 }
                 const logId = userId.trim().toUpperCase();
                 try {
-                    const cRef = db.collection("comunicados").doc(comId);
+                    const cRef = getDbPath("comunicados").doc(comId);
                     const cDoc = await cRef.get();
                     if(cDoc.exists) {
                         const currentLikes = cDoc.data().likes || [];
@@ -657,7 +671,7 @@
             const submitEncuesta = async (e) => {
                 e.preventDefault(); if(!db) return;
                 try {
-                    await db.collection("encuestas").add({
+                    await getDbPath("encuestas").add({
                         idpdv: userId.toUpperCase(),
                         respuestas: encRespuestas,
                         motivacionExtra: encMotivacion,
@@ -672,7 +686,7 @@
             const toggleEncuestaAdmin = async () => {
                 if(!db) return;
                 try {
-                    await db.collection("config").doc("general").set({ encuestaActiva: !encuestaActiva }, { merge: true });
+                    await getDbPath("config").doc("general").set({ encuestaActiva: !encuestaActiva }, { merge: true });
                 } catch (error) { console.warn(error); }
             };
 
@@ -702,7 +716,7 @@
                 if(userRole !== "ADMIN" || !db) return;
                 if(window.confirm("¿Seguro de borrar este registro?")) { 
                     try { 
-                        await db.collection(col).doc(docId).delete(); 
+                        await getDbPath(col).doc(docId).delete(); 
                     } catch(e) { alert("Error al borrar: " + e.message); } 
                 }
             };
@@ -928,9 +942,9 @@
             useEffect(() => {
                 if(quizState === 'RESULT' && passed && db) {
                     const name = colaboradorName.trim().toUpperCase();
-                    db.collection("ranking").where("name", "==", name).get().then(s => {
+                    getDbPath("ranking").where("name", "==", name).get().then(s => {
                         if (!s.empty) { s.docs[0].ref.update({ score: (s.docs[0].data().score || 0) + pts, badges: Array.from(new Set([...(s.docs[0].data().badges || []), curType])) }); } 
-                        else { db.collection("ranking").add({ name: name, score: pts, badges: [curType] }); }
+                        else { getDbPath("ranking").add({ name: name, score: pts, badges: [curType] }); }
                     });
                 }
             }, [quizState]);
@@ -1271,7 +1285,7 @@
                                                 <h2 className="font-black text-lg italic uppercase">REPOSITORIO</h2>
                                                 <p className="text-[9px] font-bold text-gray-400 mt-1">Accede y descarga los manuales, comunicados y documentos oficiales de CAPYM.</p>
                                             </div>
-                                            {userRole === "ADMIN" && <button onClick={async ()=>{const cat = prompt("Categoría:"); const tit = prompt("Nombre:"); const lnk = prompt("Link:"); if(cat && tit && lnk && db) await db.collection("recurso").add({ cat: cat.toUpperCase(), tit, lnk }); }} className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md active:scale-90">+ ADD</button>}
+                                            {userRole === "ADMIN" && <button onClick={async ()=>{const cat = prompt("Categoría:"); const tit = prompt("Nombre:"); const lnk = prompt("Link:"); if(cat && tit && lnk && db) await getDbPath("recurso").add({ cat: cat.toUpperCase(), tit, lnk }); }} className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md active:scale-90">+ ADD</button>}
                                         </div>
                                         {["NUEVO INGRESO", "COMISIONES", "ESPECIALES", "VARIOS"].map(cat => (
                                             <div key={cat} className="space-y-2">
