@@ -184,7 +184,7 @@
             { cat: "ESPECIALES", tit: "Manual Venta Consultiva.pdf", file: "Manual Venta Consultiva.pdf" }
         ];
 
-        const firebaseConfig = {
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyA7jT_0uOIW17wrkqqar97WZdc8qvuoKGI",
             authDomain: "academia-capym.firebaseapp.com",
             projectId: "academia-capym",
@@ -280,88 +280,75 @@
                 const loader = document.getElementById('emergency-loader');
                 if (loader) loader.style.display = 'none';
                 
-                if (!db || !auth) return;
+                if (!db) return;
 
-                const initAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await auth.signInWithCustomToken(__initial_auth_token);
-                        } else {
-                            await auth.signInAnonymously();
-                        }
-                    } catch (e) {
-                        console.error("Auth Error", e);
-                    }
-                };
-                initAuth();
+                if (auth) {
+                    auth.signInAnonymously().catch(e => console.warn("Aviso de Auth:", e.message));
+                }
 
-                const unsubscribeAuth = auth.onAuthStateChanged(user => {
-                    if (user) {
-                        const unsubs = [];
-                        try {
-                            const subOp = db.collection("operacion_v2").onSnapshot(s => {
-                                let tm = []; let iv = [];
-                                s.forEach(d => {
-                                    const obj = d.data();
-                                    if (d.id === "temm") {
-                                        tm = Array.isArray(obj.list) ? obj.list : [];
-                                        setActualizadoAl(obj.actualizado_al || "Desconocido");
-                                    }
-                                    if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
-                                });
-                                setDataTEMM(tm); setDataINV(iv);
-                            });
-                            unsubs.push(subOp);
+                const unsubs = [];
+                try {
+                    const subOp = db.collection("operacion_v2").onSnapshot(s => {
+                        let tm = []; let iv = [];
+                        s.forEach(d => {
+                            const obj = d.data();
+                            if (d.id === "temm") {
+                                tm = Array.isArray(obj.list) ? obj.list : [];
+                                setActualizadoAl(obj.actualizado_al || "Desconocido");
+                            }
+                            if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
+                        });
+                        setDataTEMM(tm); setDataINV(iv);
+                    });
+                    unsubs.push(subOp);
 
-                            const subRank = db.collection("ranking").orderBy("score", "desc").onSnapshot(s => {
-                                setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subRank);
+                    const subRank = db.collection("ranking").orderBy("score", "desc").onSnapshot(s => {
+                        setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
+                    });
+                    unsubs.push(subRank);
 
-                            const subRec = db.collection("recurso").onSnapshot(s => {
-                                setResources(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subRec);
+                    const subRec = db.collection("recurso").onSnapshot(s => {
+                        setResources(s.docs.map(d => ({...d.data(), id: d.id})));
+                    });
+                    unsubs.push(subRec);
 
-                            const subCand = db.collection("promotor_mes").onSnapshot(s => {
-                                setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subCand);
+                    const subCand = db.collection("promotor_mes").onSnapshot(s => {
+                        setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
+                    });
+                    unsubs.push(subCand);
 
-                            const subQuej = db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => {
-                                setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subQuej);
+                    const subQuej = db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => {
+                        setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
+                    });
+                    unsubs.push(subQuej);
 
-                            const subVac = db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
-                                setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subVac);
+                    const subVac = db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
+                        setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
+                    });
+                    unsubs.push(subVac);
 
-                            const subRost = db.collection("roster").orderBy("fecha", "desc").onSnapshot(s => {
-                                setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subRost);
+                    const subRost = db.collection("roster").orderBy("fecha", "desc").onSnapshot(s => {
+                        setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
+                    });
+                    unsubs.push(subRost);
 
-                            const subCom = db.collection("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
-                                setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subCom);
+                    const subCom = db.collection("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
+                        setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
+                    });
+                    unsubs.push(subCom);
 
-                            const subEnc = db.collection("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
-                                setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subEnc);
+                    const subEnc = db.collection("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
+                        setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
+                    });
+                    unsubs.push(subEnc);
 
-                            const subConfig = db.collection("config").doc("general").onSnapshot(d => {
-                                if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
-                            });
-                            unsubs.push(subConfig);
-                        } catch(error) { console.error("Listeners", error); }
-                    }
-                });
+                    const subConfig = db.collection("config").doc("general").onSnapshot(d => {
+                        if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
+                    });
+                    unsubs.push(subConfig);
+                } catch(error) { console.error("Listeners Error:", error); }
 
-                return () => unsubscribeAuth();
+                return () => unsubs.forEach(u => u());
             }, []);
 
             useEffect(() => {
@@ -431,7 +418,6 @@
 
                             const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
                             
-                            // Lector 100% estricto para los 43 PDVs (Filas 6 a 48, índice de JS 5 a 47)
                             list = jData.filter((row, index) => {
                                 const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
                                 const isNumericId = /^\d+$/.test(iVal);
@@ -480,7 +466,7 @@
             const handleRosterSubmit = async (e) => {
                 e.preventDefault();
                 if(!rostName || !rostFw || !rostDate || !rostCumple) { 
-                    alert("Por favor llena todos los campos: Nombre, FW, Ingreso y Cumpleaños."); 
+                    alert("Por favor llena todos los campos obligatorios: Nombre, FW, Ingreso y Cumpleaños."); 
                     return; 
                 }
                 const file = fileInputRef.current?.files[0];
@@ -515,7 +501,7 @@
                         setRostCumple(""); setEditRostId(null);
                         if(fileInputRef.current) fileInputRef.current.value = "";
                     } catch(err) { 
-                        alert("Error al guardar perfil en la base: " + err.message); 
+                        alert("Error al guardar perfil en la base de datos: " + err.message); 
                     }
                 };
 
@@ -536,7 +522,7 @@
                                 can.getContext('2d').drawImage(img, 0, 0, width, height);
                                 saveData(can.toDataURL('image/jpeg', 0.6));
                             } catch(er) { 
-                                alert("Error al procesar foto."); 
+                                alert("Error procesando foto, se guardará sin ella."); 
                                 saveData(null);
                             }
                         };
@@ -1296,11 +1282,11 @@
                                                 
                                                 <div className="grid grid-cols-2 gap-2 mb-4">
                                                     <div>
-                                                        <label className="text-[9px] font-black text-gray-400 ml-2">Fecha Ingreso</label>
+                                                        <label className="text-[9px] font-black text-gray-400 ml-2">Fecha de Ingreso</label>
                                                         <input type="date" value={rostDate} onChange={e=>setRostDate(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
                                                     </div>
                                                     <div>
-                                                        <label className="text-[9px] font-black text-gray-400 ml-2">Cumpleaños</label>
+                                                        <label className="text-[9px] font-black text-gray-400 ml-2">Nacimiento (Edad)</label>
                                                         <input type="date" value={rostCumple} onChange={e=>setRostCumple(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
                                                     </div>
                                                 </div>
@@ -1759,10 +1745,7 @@
 
                                             <div className="bg-movistar-green text-white p-6 rounded-2xl text-center shadow-lg relative overflow-hidden">
                                                 <div className="relative z-10">
-                                                    <p className="text-[10px] font-bold uppercase mb-1">
-                                                        Pago Estimado <br/>
-                                                        <span className="text-[8px] opacity-80">(Alcance Total: {alcanceTotal < 80 ? '<80%' : alcanceTotal < 95 ? 'T1' : alcanceTotal < 100 ? 'T2' : 'T3'} | Alcance TEMM: {alcanceTemm < 80 ? '<80%' : alcanceTemm < 95 ? 'T1' : alcanceTemm < 100 ? 'T2' : 'T3'})</span>
-                                                    </p>
+                                                    <p className="text-[10px] font-bold uppercase mb-1">Pago Estimado (Según % Alcance)</p>
                                                     <p className="text-5xl font-black">${calculatePayout()}</p>
                                                 </div>
                                                 <div className="absolute -right-4 -top-4 opacity-10 text-8xl">💰</div>
