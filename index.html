@@ -202,6 +202,14 @@
         } catch (e) { console.error("Init Error", e); }
 
         const App = () => {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            
+            // Helper para usar SIEMPRE la ruta correcta y evitar errores de permisos
+            const getCol = (name) => {
+                if (!db) return null;
+                return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(name);
+            };
+
             const [view, setView] = useState("LOGIN");
             const [userRole, setUserRole] = useState("");
             const [userId, setUserId] = useState("");
@@ -280,75 +288,88 @@
                 const loader = document.getElementById('emergency-loader');
                 if (loader) loader.style.display = 'none';
                 
-                if (!db) return;
+                if (!db || !auth) return;
 
-                if (auth) {
-                    auth.signInAnonymously().catch(e => console.warn("Aviso de Auth:", e.message));
-                }
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (e) {
+                        console.error("Auth Error", e);
+                    }
+                };
+                initAuth();
 
-                const unsubs = [];
-                try {
-                    const subOp = db.collection("operacion_v2").onSnapshot(s => {
-                        let tm = []; let iv = [];
-                        s.forEach(d => {
-                            const obj = d.data();
-                            if (d.id === "temm") {
-                                tm = Array.isArray(obj.list) ? obj.list : [];
-                                setActualizadoAl(obj.actualizado_al || "Desconocido");
-                            }
-                            if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
-                        });
-                        setDataTEMM(tm); setDataINV(iv);
-                    });
-                    unsubs.push(subOp);
+                const unsubscribeAuth = auth.onAuthStateChanged(user => {
+                    if (user) {
+                        const unsubs = [];
+                        try {
+                            const subOp = getCol("operacion_v2").onSnapshot(s => {
+                                let tm = []; let iv = [];
+                                s.forEach(d => {
+                                    const obj = d.data();
+                                    if (d.id === "temm") {
+                                        tm = Array.isArray(obj.list) ? obj.list : [];
+                                        setActualizadoAl(obj.actualizado_al || "Desconocido");
+                                    }
+                                    if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
+                                });
+                                setDataTEMM(tm); setDataINV(iv);
+                            });
+                            unsubs.push(subOp);
 
-                    const subRank = db.collection("ranking").orderBy("score", "desc").onSnapshot(s => {
-                        setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subRank);
+                            const subRank = getCol("ranking").orderBy("score", "desc").onSnapshot(s => {
+                                setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subRank);
 
-                    const subRec = db.collection("recurso").onSnapshot(s => {
-                        setResources(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subRec);
+                            const subRec = getCol("recurso").onSnapshot(s => {
+                                setResources(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subRec);
 
-                    const subCand = db.collection("promotor_mes").onSnapshot(s => {
-                        setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subCand);
+                            const subCand = getCol("promotor_mes").onSnapshot(s => {
+                                setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subCand);
 
-                    const subQuej = db.collection("quejas").orderBy("fecha", "desc").onSnapshot(s => {
-                        setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subQuej);
+                            const subQuej = getCol("quejas").orderBy("fecha", "desc").onSnapshot(s => {
+                                setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subQuej);
 
-                    const subVac = db.collection("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
-                        setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subVac);
+                            const subVac = getCol("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
+                                setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subVac);
 
-                    const subRost = db.collection("roster").orderBy("fecha", "desc").onSnapshot(s => {
-                        setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subRost);
+                            const subRost = getCol("roster").orderBy("fecha", "desc").onSnapshot(s => {
+                                setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subRost);
 
-                    const subCom = db.collection("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
-                        setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subCom);
+                            const subCom = getCol("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
+                                setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subCom);
 
-                    const subEnc = db.collection("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
-                        setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
-                    });
-                    unsubs.push(subEnc);
+                            const subEnc = getCol("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
+                                setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
+                            });
+                            unsubs.push(subEnc);
 
-                    const subConfig = db.collection("config").doc("general").onSnapshot(d => {
-                        if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
-                    });
-                    unsubs.push(subConfig);
-                } catch(error) { console.error("Listeners Error:", error); }
+                            const subConfig = getCol("config").doc("general").onSnapshot(d => {
+                                if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
+                            });
+                            unsubs.push(subConfig);
+                        } catch(error) { console.error("Listeners Error:", error); }
+                    }
+                });
 
-                return () => unsubs.forEach(u => u());
+                return () => unsubscribeAuth();
             }, []);
 
             useEffect(() => {
@@ -418,6 +439,7 @@
 
                             const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
                             
+                            // Lector 100% estricto para los 43 PDVs (Filas 6 a 48, índice de JS 5 a 47)
                             list = jData.filter((row, index) => {
                                 const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
                                 const isNumericId = /^\d+$/.test(iVal);
@@ -438,7 +460,7 @@
                                 };
                             });
                             
-                            await db.collection("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
+                            await getCol("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
                             alert(`¡Sincronizado TEMM a Nivel Nacional exitosamente! (${list.length} Tiendas guardadas | Fecha BBDD: ${diaAct})`);
                             
                         } else if (type === "inv") {
@@ -455,7 +477,7 @@
                                 q: parseInt(Number(row["Z"])) || 0
                             }));
                             
-                            await db.collection("operacion_v2").doc("inv").set({ list: list });
+                            await getCol("operacion_v2").doc("inv").set({ list: list });
                             alert("¡Sincronizado Inventario a Nivel Nacional exitosamente!");
                         }
                     } catch (error) { alert("Error procesando Excel. Verifica el formato del archivo."); console.error(error); }
@@ -487,13 +509,13 @@
                         if (fotoB64) data.foto = fotoB64;
 
                         if (editRostId) {
-                            await db.collection("roster").doc(editRostId).update(data);
+                            await getCol("roster").doc(editRostId).update(data);
                             alert("Perfil actualizado correctamente.");
                         } else {
                             data.idpdv = (userId || "").toUpperCase();
                             data.estatus = 'ACTIVO';
                             data.fecha = firebase.firestore.FieldValue.serverTimestamp();
-                            await db.collection("roster").add(data);
+                            await getCol("roster").add(data);
                             alert("Perfil creado con éxito.");
                         }
                         
@@ -543,7 +565,7 @@
 
             const toggleRosterStatus = async (id, current) => {
                 if(!db) return;
-                try { await db.collection("roster").doc(id).update({ estatus: current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO' }); } 
+                try { await getCol("roster").doc(id).update({ estatus: current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO' }); } 
                 catch(e) { alert("Error al cambiar estatus"); }
             };
 
@@ -557,7 +579,7 @@
                     img.onload = async () => {
                         const can = document.createElement('canvas'); const w = 200; const h = img.height * (200/img.width);
                         can.width = w; can.height = h; can.getContext('2d').drawImage(img, 0, 0, w, h);
-                        try { await db.collection("promotor_mes").add({ nombre: name.toUpperCase(), foto: can.toDataURL('image/jpeg', 0.5), votos: [] }); alert("Agregado."); } catch(err) { alert("Error."); }
+                        try { await getCol("promotor_mes").add({ nombre: name.toUpperCase(), foto: can.toDataURL('image/jpeg', 0.5), votos: [] }); alert("Agregado."); } catch(err) { alert("Error."); }
                     }; img.src = evt.target.result;
                 }; reader.readAsDataURL(file);
             };
@@ -568,25 +590,25 @@
                 candidates.forEach(c => { if(c.votos && c.votos.includes(logId)) ya = true; });
                 if(ya) return alert("Solo puedes emitir 1 voto por sucursal.");
                 try {
-                    const cRef = db.collection("promotor_mes").doc(cId); const cDoc = await cRef.get();
+                    const cRef = getCol("promotor_mes").doc(cId); const cDoc = await cRef.get();
                     if(cDoc.exists) { await cRef.update({ votos: [...(cDoc.data().votos || []), logId] }); alert("Voto registrado con éxito."); }
                 } catch (e) { alert("Error."); }
             };
 
             const submitSug = async (e) => {
                 e.preventDefault(); if(!sugText.trim() || !db) return;
-                try { await db.collection("quejas").add({ idpdv: userId.toUpperCase(), texto: sugText, fecha: firebase.firestore.FieldValue.serverTimestamp() }); setSugText(""); alert("Enviado."); } catch(e) { alert("Error."); }
+                try { await getCol("quejas").add({ idpdv: userId.toUpperCase(), texto: sugText, fecha: firebase.firestore.FieldValue.serverTimestamp() }); setSugText(""); alert("Enviado."); } catch(e) { alert("Error."); }
             };
 
             const submitVac = async (e) => {
                 e.preventDefault(); if(!db) return;
-                try { await db.collection("vacaciones").add({ idpdv: userId.toUpperCase(), nombre: vacName.toUpperCase(), usuarioFw: vacUser.toUpperCase(), fechaDeseada: vacDate, diasSolicitados: vacDays, estatus: 'Pendiente', fecha: firebase.firestore.FieldValue.serverTimestamp() }); setVacName(""); setVacUser(""); setVacDate(""); setVacDays(1); alert("Enviada."); } catch(e) { alert("Error."); }
+                try { await getCol("vacaciones").add({ idpdv: userId.toUpperCase(), nombre: vacName.toUpperCase(), usuarioFw: vacUser.toUpperCase(), fechaDeseada: vacDate, diasSolicitados: vacDays, estatus: 'Pendiente', fecha: firebase.firestore.FieldValue.serverTimestamp() }); setVacName(""); setVacUser(""); setVacDate(""); setVacDays(1); alert("Enviada."); } catch(e) { alert("Error."); }
             };
 
             const submitComunicado = async (e) => {
                 e.preventDefault(); if(!db) return;
                 if(!comTexto.trim() && !comImgBase64 && !comVideoUrl) return alert("Vacío.");
-                try { await db.collection("comunicados").add({ texto: comTexto, imgBase64: comImgBase64, videoUrl: comVideoUrl, likes: [], fecha: firebase.firestore.FieldValue.serverTimestamp() }); setComTexto(""); setComImgBase64(""); setComVideoUrl(""); alert("Publicado!"); } catch (err) { alert("Error."); }
+                try { await getCol("comunicados").add({ texto: comTexto, imgBase64: comImgBase64, videoUrl: comVideoUrl, likes: [], fecha: firebase.firestore.FieldValue.serverTimestamp() }); setComTexto(""); setComImgBase64(""); setComVideoUrl(""); alert("Publicado!"); } catch (err) { alert("Error."); }
             };
 
             const toggleLike = async (comId) => {
@@ -596,7 +618,7 @@
                 }
                 const logId = userId.trim().toUpperCase();
                 try {
-                    const cRef = db.collection("comunicados").doc(comId);
+                    const cRef = getCol("comunicados").doc(comId);
                     const cDoc = await cRef.get();
                     if(cDoc.exists) {
                         const currentLikes = cDoc.data().likes || [];
@@ -618,7 +640,7 @@
             const submitEncuesta = async (e) => {
                 e.preventDefault(); if(!db) return;
                 try {
-                    await db.collection("encuestas").add({
+                    await getCol("encuestas").add({
                         idpdv: userId.toUpperCase(),
                         respuestas: encRespuestas,
                         motivacionExtra: encMotivacion,
@@ -633,7 +655,7 @@
             const toggleEncuestaAdmin = async () => {
                 if(!db) return;
                 try {
-                    await db.collection("config").doc("general").set({ encuestaActiva: !encuestaActiva }, { merge: true });
+                    await getCol("config").doc("general").set({ encuestaActiva: !encuestaActiva }, { merge: true });
                 } catch (error) { console.warn(error); }
             };
 
@@ -661,7 +683,11 @@
 
             const deleteDoc = async (col, docId) => {
                 if(userRole !== "ADMIN" || !db) return;
-                if(window.confirm("¿Seguro de borrar este registro?")) { try { await db.collection(col).doc(docId).delete(); } catch(e) { alert("Error al borrar"); } }
+                if(window.confirm("¿Seguro de borrar este registro?")) { 
+                    try { 
+                        await getCol(col).doc(docId).delete(); 
+                    } catch(e) { alert("Error al borrar: " + e.message); } 
+                }
             };
 
             const getYouTubeEmbedUrl = (url) => {
@@ -885,9 +911,9 @@
             useEffect(() => {
                 if(quizState === 'RESULT' && passed && db) {
                     const name = colaboradorName.trim().toUpperCase();
-                    db.collection("ranking").where("name", "==", name).get().then(s => {
+                    getCol("ranking").where("name", "==", name).get().then(s => {
                         if (!s.empty) { s.docs[0].ref.update({ score: (s.docs[0].data().score || 0) + pts, badges: Array.from(new Set([...(s.docs[0].data().badges || []), curType])) }); } 
-                        else { db.collection("ranking").add({ name: name, score: pts, badges: [curType] }); }
+                        else { getCol("ranking").add({ name: name, score: pts, badges: [curType] }); }
                     });
                 }
             }, [quizState]);
@@ -1228,7 +1254,7 @@
                                                 <h2 className="font-black text-lg italic uppercase">REPOSITORIO</h2>
                                                 <p className="text-[9px] font-bold text-gray-400 mt-1">Accede y descarga los manuales, comunicados y documentos oficiales de CAPYM.</p>
                                             </div>
-                                            {userRole === "ADMIN" && <button onClick={async ()=>{const cat = prompt("Categoría:"); const tit = prompt("Nombre:"); const lnk = prompt("Link:"); if(cat && tit && lnk && db) await db.collection("recurso").add({ cat: cat.toUpperCase(), tit, lnk }); }} className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md active:scale-90">+ ADD</button>}
+                                            {userRole === "ADMIN" && <button onClick={async ()=>{const cat = prompt("Categoría:"); const tit = prompt("Nombre:"); const lnk = prompt("Link:"); if(cat && tit && lnk && db) await getCol("recurso").add({ cat: cat.toUpperCase(), tit, lnk }); }} className="bg-movistar-blue p-3 rounded-xl font-black text-[9px] shadow-md active:scale-90">+ ADD</button>}
                                         </div>
                                         {["NUEVO INGRESO", "COMISIONES", "ESPECIALES", "VARIOS"].map(cat => (
                                             <div key={cat} className="space-y-2">
@@ -1644,12 +1670,10 @@
                                         </div>
 
                                         <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                            {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                                <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-3 rounded-xl font-black text-[10px] text-movistar-blue mb-4 outline-none border border-blue-100">
-                                                    <option value="ELEKTRA">CADENA: ELEKTRA</option>
-                                                    <option value="COPPEL_SUBURBIA">CADENA: COPPEL / SUBURBIA</option>
-                                                </select>
-                                            )}
+                                            <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-4 rounded-xl font-black text-xs text-movistar-dark mb-4 outline-none border border-blue-100 shadow-sm cursor-pointer">
+                                                <option value="ELEKTRA">🏢 CADENA: ELEKTRA</option>
+                                                <option value="COPPEL_SUBURBIA">🏢 CADENA: COPPEL / SUBURBIA</option>
+                                            </select>
 
                                             <div className="bg-gray-50 p-4 rounded-2xl border mb-6">
                                                 <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">🎯 Metas Semanales</h3>
@@ -1745,7 +1769,10 @@
 
                                             <div className="bg-movistar-green text-white p-6 rounded-2xl text-center shadow-lg relative overflow-hidden">
                                                 <div className="relative z-10">
-                                                    <p className="text-[10px] font-bold uppercase mb-1">Pago Estimado (Según % Alcance)</p>
+                                                    <p className="text-[10px] font-bold uppercase mb-1">
+                                                        Pago Estimado <br/>
+                                                        <span className="text-[8px] opacity-80">(Alcance Total: {alcanceTotal < 80 ? '<80%' : alcanceTotal < 95 ? 'T1' : alcanceTotal < 100 ? 'T2' : 'T3'} | Alcance TEMM: {alcanceTemm < 80 ? '<80%' : alcanceTemm < 95 ? 'T1' : alcanceTemm < 100 ? 'T2' : 'T3'})</span>
+                                                    </p>
                                                     <p className="text-5xl font-black">${calculatePayout()}</p>
                                                 </div>
                                                 <div className="absolute -right-4 -top-4 opacity-10 text-8xl">💰</div>
