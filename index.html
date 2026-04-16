@@ -291,6 +291,72 @@
                 
                 if (!db || !auth) return;
 
+                let unsubs = [];
+
+                const loadData = () => {
+                    if (unsubs.length > 0) return;
+                    try {
+                        const subOp = getCol("operacion_v2").onSnapshot(s => {
+                            let tm = []; let iv = [];
+                            s.forEach(d => {
+                                const obj = d.data();
+                                if (d.id === "temm") {
+                                    tm = Array.isArray(obj.list) ? obj.list : [];
+                                    setActualizadoAl(obj.actualizado_al || "Desconocido");
+                                }
+                                if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
+                            });
+                            setDataTEMM(tm); setDataINV(iv);
+                        }, e => console.warn("DB Error op:", e));
+                        unsubs.push(subOp);
+
+                        const subRank = getCol("ranking").orderBy("score", "desc").onSnapshot(s => {
+                            setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
+                        }, e => console.warn("DB Error rank:", e));
+                        unsubs.push(subRank);
+
+                        const subRec = getCol("recurso").onSnapshot(s => {
+                            setResources(s.docs.map(d => ({...d.data(), id: d.id})));
+                        }, e => console.warn("DB Error rec:", e));
+                        unsubs.push(subRec);
+
+                        const subCand = getCol("promotor_mes").onSnapshot(s => {
+                            setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
+                        }, e => console.warn("DB Error cand:", e));
+                        unsubs.push(subCand);
+
+                        const subQuej = getCol("quejas").orderBy("fecha", "desc").onSnapshot(s => {
+                            setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
+                        }, e => console.warn("DB Error quej:", e));
+                        unsubs.push(subQuej);
+
+                        const subVac = getCol("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
+                            setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
+                        }, e => console.warn("DB Error vac:", e));
+                        unsubs.push(subVac);
+
+                        const subRost = getCol("roster").orderBy("fecha", "desc").onSnapshot(s => {
+                            setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
+                        }, e => console.warn("DB Error rost:", e));
+                        unsubs.push(subRost);
+
+                        const subCom = getCol("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
+                            setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
+                        }, e => console.warn("DB Error com:", e));
+                        unsubs.push(subCom);
+
+                        const subEnc = getCol("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
+                            setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
+                        }, e => console.warn("DB Error enc:", e));
+                        unsubs.push(subEnc);
+
+                        const subConfig = getCol("config").doc("general").onSnapshot(d => {
+                            if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
+                        }, e => console.warn("DB Error conf:", e));
+                        unsubs.push(subConfig);
+                    } catch(error) { console.error("Listeners Error:", error); }
+                };
+
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -300,77 +366,23 @@
                         }
                     } catch (e) {
                         console.error("Auth Error", e);
+                        // Fallback maestro: Si falla la autenticación de Firebase, forzamos la carga
+                        // de datos para que la aplicación no se quede en blanco.
+                        loadData();
                     }
                 };
                 initAuth();
 
                 const unsubscribeAuth = auth.onAuthStateChanged(user => {
                     if (user) {
-                        const unsubs = [];
-                        try {
-                            const subOp = getCol("operacion_v2").onSnapshot(s => {
-                                let tm = []; let iv = [];
-                                s.forEach(d => {
-                                    const obj = d.data();
-                                    if (d.id === "temm") {
-                                        tm = Array.isArray(obj.list) ? obj.list : [];
-                                        setActualizadoAl(obj.actualizado_al || "Desconocido");
-                                    }
-                                    if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
-                                });
-                                setDataTEMM(tm); setDataINV(iv);
-                            });
-                            unsubs.push(subOp);
-
-                            const subRank = getCol("ranking").orderBy("score", "desc").onSnapshot(s => {
-                                setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subRank);
-
-                            const subRec = getCol("recurso").onSnapshot(s => {
-                                setResources(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subRec);
-
-                            const subCand = getCol("promotor_mes").onSnapshot(s => {
-                                setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subCand);
-
-                            const subQuej = getCol("quejas").orderBy("fecha", "desc").onSnapshot(s => {
-                                setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subQuej);
-
-                            const subVac = getCol("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
-                                setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subVac);
-
-                            const subRost = getCol("roster").orderBy("fecha", "desc").onSnapshot(s => {
-                                setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subRost);
-
-                            const subCom = getCol("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
-                                setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subCom);
-
-                            const subEnc = getCol("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
-                                setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
-                            });
-                            unsubs.push(subEnc);
-
-                            const subConfig = getCol("config").doc("general").onSnapshot(d => {
-                                if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
-                            });
-                            unsubs.push(subConfig);
-                        } catch(error) { console.error("Listeners Error:", error); }
+                        loadData();
                     }
                 });
 
-                return () => unsubscribeAuth();
+                return () => {
+                    unsubscribeAuth();
+                    unsubs.forEach(u => u());
+                };
             }, []);
 
             useEffect(() => {
