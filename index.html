@@ -259,6 +259,7 @@
             const [rostFw, setRostFw] = useState("");
             const [rostDate, setRostDate] = useState("");
             const [rostRole, setRostRole] = useState("PROMOTOR");
+            const [rostTelefono, setRostTelefono] = useState("");
             const [rostCumple, setRostCumple] = useState("");
             const fileInputRef = useRef(null);
 
@@ -487,8 +488,8 @@
 
             const handleRosterSubmit = async (e) => {
                 e.preventDefault();
-                if(!rostName || !rostFw || !rostDate || !rostCumple) { 
-                    alert("Por favor llena todos los campos obligatorios: Nombre, FW, Ingreso y Cumpleaños."); 
+                if(!rostName || !rostFw || !rostDate || !rostCumple || !rostTelefono) { 
+                    alert("Por favor llena todos los campos obligatorios: Nombre, FW, Teléfono, Ingreso y Cumpleaños."); 
                     return; 
                 }
                 const file = fileInputRef.current?.files[0];
@@ -502,6 +503,7 @@
                         const data = {
                             nombre: (rostName || "").toUpperCase(), 
                             fw: (rostFw || "").toUpperCase(),
+                            telefono: (rostTelefono || "").toUpperCase(),
                             cumpleanos: rostCumple || "",
                             rol: rostRole || "PROMOTOR", 
                             ingreso: rostDate || ""
@@ -520,7 +522,7 @@
                         }
                         
                         setRostName(""); setRostFw(""); setRostDate(""); setRostRole("PROMOTOR");
-                        setRostCumple(""); setEditRostId(null);
+                        setRostTelefono(""); setRostCumple(""); setEditRostId(null);
                         if(fileInputRef.current) fileInputRef.current.value = "";
                     } catch(err) { 
                         alert("Error al guardar perfil en la base de datos: " + err.message); 
@@ -558,7 +560,7 @@
 
             const handleEditRoster = (r) => {
                 setEditRostId(r.id); setRostName(r.nombre); setRostFw(r.fw);
-                setRostRole(r.rol || "PROMOTOR"); 
+                setRostRole(r.rol || "PROMOTOR"); setRostTelefono(r.telefono || "");
                 setRostCumple(r.cumpleanos || ""); setRostDate(r.ingreso || "");
                 window.scrollTo(0,0);
             };
@@ -1305,6 +1307,7 @@
                                                     <option value="SUPERVISOR">ROL: SUPERVISOR</option>
                                                     <option value="ENTRENADOR">ROL: ENTRENADOR</option>
                                                 </select>
+                                                <input type="tel" placeholder="NÚMERO TELEFÓNICO (10 DÍGITOS)" value={rostTelefono} onChange={e=>setRostTelefono(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
                                                 
                                                 <div className="grid grid-cols-2 gap-2 mb-4">
                                                     <div>
@@ -1325,7 +1328,7 @@
                                                         {editRostId ? "GUARDAR CAMBIOS" : "CREAR PERFIL"}
                                                     </button>
                                                     {editRostId && (
-                                                        <button type="button" onClick={() => { setEditRostId(null); setRostName(""); setRostFw(""); setRostRole("PROMOTOR"); setRostCumple(""); setRostDate(""); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="bg-gray-200 text-gray-600 py-4 px-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
+                                                        <button type="button" onClick={() => { setEditRostId(null); setRostName(""); setRostFw(""); setRostRole("PROMOTOR"); setRostTelefono(""); setRostCumple(""); setRostDate(""); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="bg-gray-200 text-gray-600 py-4 px-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
                                                             CANCELAR
                                                         </button>
                                                     )}
@@ -1347,7 +1350,7 @@
                                                                     {r.estatus || 'ACTIVO'}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw}</p>
+                                                            <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw} <br/>TEL: {r.telefono || 'N/A'}</p>
                                                             <p className="text-[8px] font-bold text-gray-400 mt-1">Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)} años` : 'N/A'} | Antigüedad: {r.ingreso ? Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000) : 0} días</p>
                                                         </div>
                                                     </div>
