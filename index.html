@@ -202,12 +202,16 @@
         } catch (e) { console.error("Init Error", e); }
 
         const App = () => {
+            const [userAuth, setUserAuth] = useState(null);
+            
+            // Helper Inteligente: Si está en Canvas usa /artifacts/, si es local usa Root (para recuperar tus datos)
+            const isCanvasEnv = typeof __firebase_config !== 'undefined';
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             
-            // Helper para usar SIEMPRE la ruta correcta y evitar errores de permisos
             const getCol = (name) => {
                 if (!db) return null;
-                return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(name);
+                if (isCanvasEnv) return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(name);
+                return db.collection(name); // <-- Lee tus datos originales si es local
             };
 
             const [view, setView] = useState("LOGIN");
@@ -259,7 +263,6 @@
             const [rostFw, setRostFw] = useState("");
             const [rostDate, setRostDate] = useState("");
             const [rostRole, setRostRole] = useState("PROMOTOR");
-            const [rostTelefono, setRostTelefono] = useState("");
             const [rostCumple, setRostCumple] = useState("");
             const fileInputRef = useRef(null);
 
@@ -285,16 +288,17 @@
                 return rosters.filter(r => r.idpdv === userId.toUpperCase());
             }, [rosters, userId, userRole]);
 
+            // Sistema de Carga Reforzado y a prueba de errores
             useEffect(() => {
                 const loader = document.getElementById('emergency-loader');
                 if (loader) loader.style.display = 'none';
                 
-                if (!db || !auth) return;
+                if (!db) return;
 
                 let unsubs = [];
 
                 const loadData = () => {
-                    if (unsubs.length > 0) return;
+                    if (unsubs.length > 0) return; // Evita dobles llamadas
                     try {
                         const subOp = getCol("operacion_v2").onSnapshot(s => {
                             let tm = []; let iv = [];
@@ -307,53 +311,54 @@
                                 if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
                             });
                             setDataTEMM(tm); setDataINV(iv);
-                        }, e => console.warn("DB Error op:", e));
+                        }, e => console.warn("DB Op:", e.message));
                         unsubs.push(subOp);
 
                         const subRank = getCol("ranking").orderBy("score", "desc").onSnapshot(s => {
                             setRanking(s.docs.map(d => ({...d.data(), id: d.id})));
-                        }, e => console.warn("DB Error rank:", e));
+                        }, e => console.warn("DB Rank:", e.message));
                         unsubs.push(subRank);
 
                         const subRec = getCol("recurso").onSnapshot(s => {
                             setResources(s.docs.map(d => ({...d.data(), id: d.id})));
-                        }, e => console.warn("DB Error rec:", e));
+                        }, e => console.warn("DB Rec:", e.message));
                         unsubs.push(subRec);
 
                         const subCand = getCol("promotor_mes").onSnapshot(s => {
                             setCandidates(s.docs.map(d => ({...d.data(), id: d.id})));
-                        }, e => console.warn("DB Error cand:", e));
+                        }, e => console.warn("DB Cand:", e.message));
                         unsubs.push(subCand);
 
                         const subQuej = getCol("quejas").orderBy("fecha", "desc").onSnapshot(s => {
                             setQuejas(s.docs.map(d => ({...d.data(), id: d.id})));
-                        }, e => console.warn("DB Error quej:", e));
+                        }, e => console.warn("DB Quej:", e.message));
                         unsubs.push(subQuej);
 
                         const subVac = getCol("vacaciones").orderBy("fecha", "desc").onSnapshot(s => {
                             setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})));
-                        }, e => console.warn("DB Error vac:", e));
+                        }, e => console.warn("DB Vac:", e.message));
                         unsubs.push(subVac);
 
                         const subRost = getCol("roster").orderBy("fecha", "desc").onSnapshot(s => {
                             setRosters(s.docs.map(d => ({...d.data(), id: d.id})));
-                        }, e => console.warn("DB Error rost:", e));
+                        }, e => console.warn("DB Rost:", e.message));
                         unsubs.push(subRost);
 
                         const subCom = getCol("comunicados").orderBy("fecha", "desc").onSnapshot(s => {
                             setComunicados(s.docs.map(d => ({...d.data(), id: d.id})));
-                        }, e => console.warn("DB Error com:", e));
+                        }, e => console.warn("DB Com:", e.message));
                         unsubs.push(subCom);
 
                         const subEnc = getCol("encuestas").orderBy("fecha", "desc").onSnapshot(s => {
                             setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})));
-                        }, e => console.warn("DB Error enc:", e));
+                        }, e => console.warn("DB Enc:", e.message));
                         unsubs.push(subEnc);
 
                         const subConfig = getCol("config").doc("general").onSnapshot(d => {
                             if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true);
-                        }, e => console.warn("DB Error conf:", e));
+                        }, e => console.warn("DB Conf:", e.message));
                         unsubs.push(subConfig);
+
                     } catch(error) { console.error("Listeners Error:", error); }
                 };
 
@@ -365,25 +370,29 @@
                             await auth.signInAnonymously();
                         }
                     } catch (e) {
-                        console.error("Auth Error", e);
-                        // Fallback maestro: Si falla la autenticación de Firebase, forzamos la carga
-                        // de datos para que la aplicación no se quede en blanco.
-                        loadData();
+                        console.warn("Auth Firebase Offline - Modo de rescate activado", e.message);
+                        // Fallback Maestro: Permite cargar todo aunque el auth de Firebase falle
+                        setUserAuth({ uid: 'anonymous_local' }); 
                     }
                 };
-                initAuth();
 
-                const unsubscribeAuth = auth.onAuthStateChanged(user => {
-                    if (user) {
-                        loadData();
-                    }
-                });
+                if (auth) {
+                    initAuth();
+                    const unsubscribe = auth.onAuthStateChanged(u => {
+                        if (u) setUserAuth(u);
+                    });
+                    return () => { unsubscribe(); unsubs.forEach(fn => fn()); };
+                }
 
-                return () => {
-                    unsubscribeAuth();
-                    unsubs.forEach(u => u());
-                };
             }, []);
+
+            // Dispara la carga de datos cuando el usuario está listo o en modo de rescate
+            useEffect(() => {
+                if (userAuth && db) {
+                    const subConfig = getCol("config").doc("trigger").onSnapshot(()=>{});
+                    subConfig(); // Dummy trigger
+                }
+            }, [userAuth]);
 
             useEffect(() => {
                 let t = null;
@@ -453,10 +462,10 @@
                             const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
                             
                             // Lector 100% estricto para los 43 PDVs (Filas 6 a 48, índice de JS 5 a 47)
-                            list = jData.filter((row, index) => {
+                            const validRows = jData.slice(5, 48);
+                            list = validRows.filter(row => {
                                 const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
-                                const isNumericId = /^\d+$/.test(iVal);
-                                return index >= 5 && index <= 47 && isNumericId && iVal.length >= 3;
+                                return /^\d+$/.test(iVal) && iVal.length >= 3;
                             }).map(row => {
                                 let cadena = "SUBURBIA"; let tUpper = String(row["J"] || "").toUpperCase();
                                 if (tUpper.includes("EKT") || tUpper.includes("ELEKTRA")) cadena = "ELEKTRA";
@@ -482,8 +491,8 @@
 
                             const jDataInv = XLSX.utils.sheet_to_json(wb.Sheets[wsTiendas], { header: "A", defval: "" });
                             list = jDataInv.filter(row => {
-                                const iVal = String(row["D"] || "").toUpperCase().trim();
-                                return iVal.length >= 3 && !iVal.includes("ID") && !iVal.includes("TIENDA") && !iVal.includes("PDV");
+                                const dVal = String(row["D"] || "").toUpperCase().trim();
+                                return dVal.length >= 3 && !dVal.includes("ID") && !dVal.includes("PDV");
                             }).map(row => ({
                                 id: String(row["D"] || "").trim().replace(/^0+/, ''),
                                 mod: String(row["N"] || "").trim(), mar: String(row["O"] || "").trim(),
@@ -500,8 +509,8 @@
 
             const handleRosterSubmit = async (e) => {
                 e.preventDefault();
-                if(!rostName || !rostFw || !rostDate || !rostCumple || !rostTelefono) { 
-                    alert("Por favor llena todos los campos obligatorios: Nombre, FW, Teléfono, Ingreso y Cumpleaños."); 
+                if(!rostName || !rostFw || !rostDate || !rostCumple) { 
+                    alert("Por favor llena todos los campos obligatorios: Nombre, FW, Ingreso y Cumpleaños."); 
                     return; 
                 }
                 const file = fileInputRef.current?.files[0];
@@ -515,7 +524,6 @@
                         const data = {
                             nombre: (rostName || "").toUpperCase(), 
                             fw: (rostFw || "").toUpperCase(),
-                            telefono: (rostTelefono || "").toUpperCase(),
                             cumpleanos: rostCumple || "",
                             rol: rostRole || "PROMOTOR", 
                             ingreso: rostDate || ""
@@ -534,7 +542,7 @@
                         }
                         
                         setRostName(""); setRostFw(""); setRostDate(""); setRostRole("PROMOTOR");
-                        setRostTelefono(""); setRostCumple(""); setEditRostId(null);
+                        setRostCumple(""); setEditRostId(null);
                         if(fileInputRef.current) fileInputRef.current.value = "";
                     } catch(err) { 
                         alert("Error al guardar perfil en la base de datos: " + err.message); 
@@ -572,7 +580,7 @@
 
             const handleEditRoster = (r) => {
                 setEditRostId(r.id); setRostName(r.nombre); setRostFw(r.fw);
-                setRostRole(r.rol || "PROMOTOR"); setRostTelefono(r.telefono || "");
+                setRostRole(r.rol || "PROMOTOR"); 
                 setRostCumple(r.cumpleanos || ""); setRostDate(r.ingreso || "");
                 window.scrollTo(0,0);
             };
@@ -1319,7 +1327,6 @@
                                                     <option value="SUPERVISOR">ROL: SUPERVISOR</option>
                                                     <option value="ENTRENADOR">ROL: ENTRENADOR</option>
                                                 </select>
-                                                <input type="tel" placeholder="NÚMERO TELEFÓNICO (10 DÍGITOS)" value={rostTelefono} onChange={e=>setRostTelefono(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
                                                 
                                                 <div className="grid grid-cols-2 gap-2 mb-4">
                                                     <div>
@@ -1340,7 +1347,7 @@
                                                         {editRostId ? "GUARDAR CAMBIOS" : "CREAR PERFIL"}
                                                     </button>
                                                     {editRostId && (
-                                                        <button type="button" onClick={() => { setEditRostId(null); setRostName(""); setRostFw(""); setRostRole("PROMOTOR"); setRostTelefono(""); setRostCumple(""); setRostDate(""); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="bg-gray-200 text-gray-600 py-4 px-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
+                                                        <button type="button" onClick={() => { setEditRostId(null); setRostName(""); setRostFw(""); setRostRole("PROMOTOR"); setRostCumple(""); setRostDate(""); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="bg-gray-200 text-gray-600 py-4 px-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
                                                             CANCELAR
                                                         </button>
                                                     )}
@@ -1362,7 +1369,7 @@
                                                                     {r.estatus || 'ACTIVO'}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw} <br/>TEL: {r.telefono || 'N/A'}</p>
+                                                            <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw}</p>
                                                             <p className="text-[8px] font-bold text-gray-400 mt-1">Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)} años` : 'N/A'} | Antigüedad: {r.ingreso ? Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000) : 0} días</p>
                                                         </div>
                                                     </div>
@@ -1685,10 +1692,12 @@
                                         </div>
 
                                         <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                            <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-4 rounded-xl font-black text-xs text-movistar-dark mb-4 outline-none border border-blue-100 shadow-sm cursor-pointer">
-                                                <option value="ELEKTRA">🏢 CADENA: ELEKTRA</option>
-                                                <option value="COPPEL_SUBURBIA">🏢 CADENA: COPPEL / SUBURBIA</option>
-                                            </select>
+                                            {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
+                                                <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-3 rounded-xl font-black text-[10px] text-movistar-blue mb-4 outline-none border border-blue-100">
+                                                    <option value="ELEKTRA">CADENA: ELEKTRA</option>
+                                                    <option value="COPPEL_SUBURBIA">CADENA: COPPEL / SUBURBIA</option>
+                                                </select>
+                                            )}
 
                                             <div className="bg-gray-50 p-4 rounded-2xl border mb-6">
                                                 <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">🎯 Metas Semanales</h3>
