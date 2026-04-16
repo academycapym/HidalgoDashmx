@@ -595,7 +595,7 @@
             };
 
             const toggleRosterStatus = async (id, current) => {
-                if(!db) return;
+                if(userRole !== "ADMIN" || !db) return;
                 try { await getDbPath("roster").doc(id).update({ estatus: current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO' }); } 
                 catch(e) { alert("Error al cambiar estatus"); }
             };
@@ -1382,13 +1382,19 @@
                                                             <p className="text-[8px] font-bold text-gray-400 mt-1">Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)} años` : 'N/A'} | Antigüedad: {r.ingreso ? Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000) : 0} días</p>
                                                         </div>
                                                     </div>
-                                                    {userRole === "PROMOTOR" && (
+                                                    {(userRole === "PROMOTOR" || userRole === "ADMIN") && (
                                                         <div className="flex gap-2 pt-3 border-t">
-                                                            <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">✏️ Editar</button>
-                                                            <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">
-                                                                {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Inactivar'}
-                                                            </button>
-                                                            <button onClick={() => deleteDoc("roster", r.id)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">🗑️ Borrar</button>
+                                                            {userRole === "PROMOTOR" && (
+                                                                <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">✏️ Editar</button>
+                                                            )}
+                                                            {userRole === "ADMIN" && (
+                                                                <>
+                                                                    <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">
+                                                                        {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Inactivar'}
+                                                                    </button>
+                                                                    <button onClick={() => deleteDoc("roster", r.id)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">🗑️ Borrar</button>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
