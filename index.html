@@ -214,8 +214,6 @@
 
         const App = () => {
             const [userAuth, setUserAuth] = useState(null);
-            
-            // 🔥 GPS INTELIGENTE: Diferencia entre Canvas y Vercel para guardar los datos
             const isCanvasEnv = typeof __firebase_config !== 'undefined';
             
             const getDbPath = (name) => {
@@ -224,7 +222,6 @@
                     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                     return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(name);
                 }
-                // Si estamos en Vercel (fuera de Canvas), usamos la ruta original
                 return db.collection(name);
             };
 
@@ -253,10 +250,14 @@
             const [encuestas, setEncuestas] = useState([]);
             const [encuestaActiva, setEncuestaActiva] = useState(true);
 
+            const [expandedInvStores, setExpandedInvStores] = useState({});
+            const [expandedRank, setExpandedRank] = useState(null);
+
             const [supFilter, setSupFilter] = useState("TODOS");
             const [cadFilter, setCadFilter] = useState("TODAS");
             const [invMarcaFiltro, setInvMarcaFiltro] = useState("TODAS");
             const [invModeloFiltro, setInvModeloFiltro] = useState("TODOS");
+            const [supFilterRoster, setSupFilterRoster] = useState("TODOS");
 
             const [quizState, setQuizState] = useState('MENU');
             const [colaboradorName, setColaboradorName] = useState("");
@@ -270,6 +271,10 @@
             const [vacUser, setVacUser] = useState("");
             const [vacDate, setVacDate] = useState("");
             const [vacDays, setVacDays] = useState(1);
+
+            const [sugName, setSugName] = useState("");
+            const [sugFw, setSugFw] = useState("");
+            const [sugSup, setSugSup] = useState("");
             const [sugText, setSugText] = useState("");
             
             const [editRostId, setEditRostId] = useState(null);
@@ -277,6 +282,7 @@
             const [rostFw, setRostFw] = useState("");
             const [rostDate, setRostDate] = useState("");
             const [rostRole, setRostRole] = useState("PROMOTOR");
+            const [rostSup, setRostSup] = useState("");
             const [rostCumple, setRostCumple] = useState("");
             const fileInputRef = useRef(null);
 
@@ -297,10 +303,23 @@
             const [encRespuestas, setEncRespuestas] = useState(Array(19).fill(5));
             const [encMotivacion, setEncMotivacion] = useState("a");
 
+            const allSupervisorsList = useMemo(() => {
+                return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.sup))].filter(Boolean).sort();
+            }, [dataTEMM]);
+
             const myRosters = useMemo(() => {
-                if(userRole === "ADMIN" || userRole === "SUPERVISOR") return rosters;
-                return rosters.filter(r => r.idpdv === userId.toUpperCase());
-            }, [rosters, userId, userRole]);
+                let r = rosters;
+                if(userRole === "PROMOTOR") {
+                    r = rosters.filter(r => r.idpdv === userId.toUpperCase());
+                } else if (userRole === "SUPERVISOR") {
+                    r = rosters.filter(x => x.supervisor && x.supervisor.toUpperCase().includes(userCluster));
+                } else {
+                    if (supFilterRoster !== "TODOS") {
+                        r = rosters.filter(x => x.supervisor === supFilterRoster);
+                    }
+                }
+                return r;
+            }, [rosters, userId, userRole, supFilterRoster, userCluster]);
 
             useEffect(() => {
                 const loader = document.getElementById('emergency-loader');
@@ -403,12 +422,70 @@
                 return () => unsubs.forEach(u => u());
             }, [userAuth]);
 
+            const finishQuiz = async (finalAnswers, finalTimer) => {
+                const finalScore = finalAnswers.filter(Boolean).length;
+                const finalPassed = finalScore >= Math.ceil(questions.length * 0.8);
+                const finalPts = (finalScore * 5) + (finalPassed ? finalTimer : 0);
+                
+                setQuizState('RESULT');
+                
+                if (userRole === "PROMOTOR") {
+                    const selectedProfile = rosters.find(r => r.nombre === colaboradorName.trim().toUpperCase());
+                    if (selectedProfile && db) {
+                        const currentAttempts = selectedProfile.examAttempts || {};
+                        const courseAtt = currentAttempts[curType] || { count: 0, blockedUntil: 0 };
+
+                        if (finalPassed) {
+                            currentAttempts[curType] = { count: 0, blockedUntil: 0 };
+                            await getDbPath("roster").doc(selectedProfile.id).update({ examAttempts: currentAttempts });
+                            
+                            const name = colaboradorName.trim().toUpperCase();
+                            const s = await getDbPath("ranking").where("name", "==", name).get();
+                            if (!s.empty) { 
+                                const doc = s.docs[0];
+                                const data = doc.data();
+                                const newScores = { ...(data.courseScores || {}), [curType]: finalPts };
+                                await doc.ref.update({ 
+                                    score: (data.score || 0) + finalPts, 
+                                    badges: Array.from(new Set([...(data.badges || []), curType])),
+                                    courseScores: newScores
+                                }); 
+                            } 
+                            else { 
+                                await getDbPath("ranking").add({ name: name, score: finalPts, badges: [curType], courseScores: { [curType]: finalPts } }); 
+                            }
+                        } else {
+                            courseAtt.count += 1;
+                            if (courseAtt.count >= 2) {
+                                courseAtt.blockedUntil = Date.now() + (24 * 60 * 60 * 1000);
+                                courseAtt.count = 0; 
+                            }
+                            currentAttempts[curType] = courseAtt;
+                            await getDbPath("roster").doc(selectedProfile.id).update({ examAttempts: currentAttempts });
+                        }
+                    }
+                }
+            };
+
             useEffect(() => {
-                let t = null;
-                if (quizState === 'PLAY' && timer > 0) t = setInterval(() => setTimer(v => v - 1), 1000);
-                else if (quizState === 'PLAY' && timer === 0) setQuizState('RESULT');
-                return () => clearInterval(t);
+                if (quizState !== 'PLAY') return;
+                if (timer > 0) {
+                    const t = setTimeout(() => setTimer(timer - 1), 1000);
+                    return () => clearTimeout(t);
+                } else {
+                    finishQuiz(answers, 0);
+                }
             }, [quizState, timer]);
+
+            const handleAns = (isC) => {
+                const newAns = [...answers, isC];
+                setAnswers(newAns);
+                if (curQ + 1 < questions.length) {
+                    setCurQ(v => v + 1);
+                } else {
+                    finishQuiz(newAns, timer);
+                }
+            };
 
             const minVacDate = useMemo(() => {
                 const d = new Date(); d.setDate(d.getDate() + 15);
@@ -442,6 +519,10 @@
                 }
             };
 
+            const toggleInv = (id) => {
+                setExpandedInvStores(prev => ({...prev, [id]: !prev[id]}));
+            };
+
             const uploadFile = async (type, e) => {
                 if (!db) return alert("Sin red");
                 const file = e.target.files[0]; if (!file) return;
@@ -470,7 +551,6 @@
 
                             const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
                             
-                            // Lector 100% estricto para los 43 PDVs (Filas 6 a 48, índice de JS 5 a 47)
                             const validRows = jData.slice(5, 48);
                             list = validRows.filter(row => {
                                 const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
@@ -522,8 +602,13 @@
                     alert("Por favor llena todos los campos obligatorios: Nombre, FW, Ingreso y Cumpleaños."); 
                     return; 
                 }
-                const file = fileInputRef.current?.files[0];
 
+                if (!editRostId && rosters.some(r => r.nombre.toUpperCase() === rostName.toUpperCase())) {
+                    alert("⚠️ Error: Ya existe un colaborador con este mismo nombre en la base de datos.");
+                    return;
+                }
+
+                const file = fileInputRef.current?.files[0];
                 if (!file && !editRostId) {
                     alert("Debes subir una foto de perfil."); return;
                 }
@@ -535,7 +620,8 @@
                             fw: (rostFw || "").toUpperCase(),
                             cumpleanos: rostCumple || "",
                             rol: rostRole || "PROMOTOR", 
-                            ingreso: rostDate || ""
+                            ingreso: rostDate || "",
+                            supervisor: rostSup || ""
                         };
                         if (fotoB64) data.foto = fotoB64;
 
@@ -551,7 +637,7 @@
                         }
                         
                         setRostName(""); setRostFw(""); setRostDate(""); setRostRole("PROMOTOR");
-                        setRostCumple(""); setEditRostId(null);
+                        setRostSup(""); setRostCumple(""); setEditRostId(null);
                         if(fileInputRef.current) fileInputRef.current.value = "";
                     } catch(err) { 
                         alert("Error al guardar perfil en la base de datos: " + err.message); 
@@ -589,7 +675,7 @@
 
             const handleEditRoster = (r) => {
                 setEditRostId(r.id); setRostName(r.nombre); setRostFw(r.fw);
-                setRostRole(r.rol || "PROMOTOR"); 
+                setRostRole(r.rol || "PROMOTOR"); setRostSup(r.supervisor || "");
                 setRostCumple(r.cumpleanos || ""); setRostDate(r.ingreso || "");
                 window.scrollTo(0,0);
             };
@@ -627,8 +713,18 @@
             };
 
             const submitSug = async (e) => {
-                e.preventDefault(); if(!sugText.trim() || !db) return;
-                try { await getDbPath("quejas").add({ idpdv: userId.toUpperCase(), texto: sugText, fecha: firebase.firestore.FieldValue.serverTimestamp() }); setSugText(""); alert("Enviado."); } catch(e) { alert("Error."); }
+                e.preventDefault(); if(!sugText.trim() || !sugName || !sugFw || !sugSup || !db) return;
+                try { 
+                    await getDbPath("quejas").add({ 
+                        idpdv: userId.toUpperCase(), 
+                        nombre: sugName.toUpperCase(),
+                        fw: sugFw.toUpperCase(),
+                        supervisor: sugSup,
+                        texto: sugText, 
+                        fecha: firebase.firestore.FieldValue.serverTimestamp() 
+                    }); 
+                    setSugText(""); setSugName(""); setSugFw(""); setSugSup(""); alert("Buzón enviado con éxito."); 
+                } catch(e) { alert("Error."); }
             };
 
             const submitVac = async (e) => {
@@ -789,6 +885,26 @@
                 return [...new Set(base.map(i => i.mod.toUpperCase()))].filter(Boolean).sort();
             }, [dataINV, invStoreIdsAllowed, invMarcaFiltro]);
 
+            const inventarioStats = useMemo(() => {
+                if (!filteredInventory || filteredInventory.length === 0) return { topMarca: 'N/A', topModelo: 'N/A', maxMarca: 0, maxModelo: 0 };
+                const marcas = {};
+                const modelos = {};
+                filteredInventory.forEach(item => {
+                    const q = Number(item.q) || 0;
+                    if(item.mar) marcas[item.mar] = (marcas[item.mar] || 0) + q;
+                    if(item.mod) modelos[item.mod] = (modelos[item.mod] || 0) + q;
+                });
+                let topMarca = 'N/A', maxMarca = 0;
+                for (const [m, q] of Object.entries(marcas)) {
+                    if (q > maxMarca) { topMarca = m; maxMarca = q; }
+                }
+                let topModelo = 'N/A', maxModelo = 0;
+                for (const [m, q] of Object.entries(modelos)) {
+                    if (q > maxModelo) { topModelo = m; maxModelo = q; }
+                }
+                return { topMarca, topModelo, maxMarca, maxModelo };
+            }, [filteredInventory]);
+
             const sumTotal = (Number(cP1)||0) + (Number(cP2)||0) + (Number(cP3)||0) + (Number(cNP1)||0) + (Number(cNP2)||0) + (Number(cNP3)||0);
             const sumTemm = (Number(cT1)||0) + (Number(cT2)||0) + (Number(cT3)||0);
             const sumPorta = (Number(cP1)||0) + (Number(cP2)||0) + (Number(cP3)||0);
@@ -818,6 +934,28 @@
 
             const startQuiz = (type) => {
                 if (!colaboradorName.trim()) return alert("Selecciona/ingresa tu nombre.");
+                
+                const selectedProfile = rosters.find(r => r.nombre === colaboradorName.trim().toUpperCase());
+                if (userRole === "PROMOTOR") {
+                    if (!selectedProfile) return alert("Perfil no encontrado.");
+                    if (!selectedProfile.foto || !selectedProfile.foto.startsWith("data:image")) {
+                        return alert("⚠️ ACCESO DENEGADO: Debes subir tu foto de perfil obligatoriamente antes de hacer un examen. Ve a Colaboradores -> Mi Perfil y edita tu usuario.");
+                    }
+                    if (!selectedProfile.supervisor) {
+                        return alert("⚠️ ACCESO DENEGADO: Debes actualizar tu perfil y seleccionar a tu Supervisor oficial para poder continuar.");
+                    }
+
+                    // Validación de Bloqueo de 24 hrs
+                    const attempts = selectedProfile.examAttempts?.[type] || { count: 0, blockedUntil: 0 };
+                    if (attempts.blockedUntil > Date.now()) {
+                        const remaining = Math.ceil((attempts.blockedUntil - Date.now()) / (1000 * 60 * 60));
+                        return alert(`❌ EXAMEN BLOQUEADO: Reprobaste 2 veces. Podrás intentarlo de nuevo en ${remaining} horas.`);
+                    }
+
+                    const confirmStart = window.confirm("⚠️ ATENCIÓN: Tienes un máximo de 2 intentos para aprobar este módulo. Si repruebas 2 veces, el sistema te bloqueará el examen por 24 horas exactas. ¿Deseas iniciar tu intento ahora?");
+                    if (!confirmStart) return;
+                }
+
                 let qType = type;
                 if (type === 'COMISIONES') {
                     let myCadena = "ELEKTRA"; 
@@ -843,76 +981,48 @@
                 setQuestions(shuf); setCurQ(0); setAnswers([]); setTimer(180); setQuizState('PLAY');
             };
 
-            const handleAns = (isC) => {
-                setAnswers([...answers, isC]);
-                if (curQ + 1 < questions.length) setCurQ(v => v + 1); else setQuizState('RESULT');
-            };
-
-            const score = answers.filter(Boolean).length;
-            const passed = score >= Math.ceil(questions.length * 0.8);
-            const pts = (score * 5) + (passed ? timer : 0);
-
             const downloadCert = (name, modCode, date) => {
                 try {
                     const userRank = ranking.find(r => r.name === name);
                     const badgesText = Array.from(new Set([...(userRank?.badges || []), modCode])).map(b => b==='BASICO'?'PORTABILIDAD BÁSICA':b==='EXPERTO'?'PORTA AVANZADA':b==='VENTAS'?'VENTA CONSULTIVA':b==='SUELDO_FIELDWY'?'SUELDO/FIELDWY':b).join(", ");
                     const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
                     
-                    // Diseño Premium tipo Diploma
-                    doc.setFillColor(252, 250, 245); // Fondo pergamino
+                    doc.setFillColor(252, 250, 245); 
                     doc.rect(0, 0, 297, 210, 'F');
-                    
-                    // Borde exterior oscuro
                     doc.setDrawColor(11, 39, 57); 
                     doc.setLineWidth(3);
                     doc.rect(12, 12, 273, 186, 'D');
-
-                    // Borde interior dorado
                     doc.setDrawColor(197, 160, 89);
                     doc.setLineWidth(1.5);
                     doc.rect(16, 16, 265, 178, 'D');
-
-                    // Línea decorativa
                     doc.setDrawColor(11, 39, 57);
                     doc.setLineWidth(0.5);
                     doc.rect(18, 18, 261, 174, 'D');
-
-                    // Títulos (Fuente Serif: Times)
                     doc.setFont("times", "bold");
                     doc.setFontSize(34);
                     doc.setTextColor(11, 39, 57); 
                     doc.text("CERTIFICADO DE ACREDITACIÓN", 148.5, 45, { align: 'center' });
-                    
                     doc.setFontSize(16);
                     doc.setFont("times", "italic");
                     doc.text("HidalgoDash y CAPYM otorgan el presente reconocimiento a:", 148.5, 70, { align: 'center' });
-                    
-                    // Nombre
                     doc.setFontSize(40);
                     doc.setFont("times", "bolditalic");
-                    doc.setTextColor(197, 160, 89); // Dorado
+                    doc.setTextColor(197, 160, 89); 
                     doc.text(name.toUpperCase(), 148.5, 95, { align: 'center' });
-                    
                     doc.setDrawColor(200, 200, 200);
                     doc.line(60, 100, 237, 100);
-                    
-                    // Cuerpo
                     doc.setFontSize(16);
                     doc.setTextColor(11, 39, 57);
                     doc.setFont("times", "normal");
                     doc.text("Por haber concluido satisfactoriamente la certificación oficial en el módulo de:", 148.5, 120, { align: 'center' });
-                    
                     doc.setFontSize(24);
                     doc.setFont("times", "bold");
-                    doc.setTextColor(1, 157, 244); // Azul Movistar
+                    doc.setTextColor(1, 157, 244); 
                     doc.text(modCode, 148.5, 138, { align: 'center' });
-                    
                     doc.setFontSize(11);
                     doc.setTextColor(100, 100, 100);
                     doc.setFont("times", "italic");
                     doc.text(`Emitido el día: ${date}`, 148.5, 150, { align: 'center' });
-                    
-                    // Sello simulado
                     doc.setFillColor(197, 160, 89);
                     doc.circle(45, 165, 15, 'F');
                     doc.setFillColor(11, 39, 57);
@@ -921,12 +1031,9 @@
                     doc.setFontSize(8);
                     doc.setFont("times", "bold");
                     doc.text("CAPYM", 45, 166, { align: 'center' });
-
-                    // Firma Única
                     doc.setDrawColor(11, 39, 57);
                     doc.setLineWidth(0.5);
                     doc.line(105, 180, 192, 180);
-                    
                     doc.setFontSize(12);
                     doc.setFont("times", "bold");
                     doc.setTextColor(11, 39, 57);
@@ -934,20 +1041,9 @@
                     doc.setFontSize(10);
                     doc.setFont("times", "normal");
                     doc.text("GTE REGIONAL DE HIDALGO", 148.5, 192, { align: 'center' });
-                    
                     doc.save(`Certificado_${name.replace(/\s/g, '_')}.pdf`);
                 } catch(e) { alert("Descarga bloqueada por el navegador."); }
             };
-
-            useEffect(() => {
-                if(quizState === 'RESULT' && passed && db) {
-                    const name = colaboradorName.trim().toUpperCase();
-                    getDbPath("ranking").where("name", "==", name).get().then(s => {
-                        if (!s.empty) { s.docs[0].ref.update({ score: (s.docs[0].data().score || 0) + pts, badges: Array.from(new Set([...(s.docs[0].data().badges || []), curType])) }); } 
-                        else { getDbPath("ranking").add({ name: name, score: pts, badges: [curType] }); }
-                    });
-                }
-            }, [quizState]);
 
             const encStats = useMemo(() => {
                 if(encuestas.length === 0) return { idx: 0, tops: [], bots: [], qMot: {a:0, b:0, c:0, d:0}, total: 0 };
@@ -1105,21 +1201,26 @@
                                                     </div>
                                                     
                                                     <div className="border-t pt-3 mt-2">
-                                                        <div className="flex justify-between items-center mb-2">
-                                                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-wide">Inventario Físico</span>
+                                                        <div className="flex justify-between items-center mb-2 cursor-pointer select-none active:opacity-60 transition-opacity" onClick={() => toggleInv(d.id)}>
+                                                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-wide flex items-center gap-1">
+                                                                Inventario Físico <span className="text-[10px] text-movistar-blue">{expandedInvStores[d.id] ? '▲' : '▼'}</span>
+                                                            </span>
                                                             <span className="text-[9px] font-black text-movistar-blue bg-blue-50 px-2 py-0.5 rounded">{totalStoreInv} PZS TOTALES</span>
                                                         </div>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {storeInv.length > 0 ? 
-                                                                storeInv.map((i,idx) => (
-                                                                    <div key={idx} className={`border rounded px-1.5 py-1 min-w-[60px] shadow-sm ${i.q === 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                                                                        <p className="text-[6px] font-bold opacity-50 uppercase leading-none mb-0.5">{i.mar} {i.mod}</p>
-                                                                        <p className={`text-[9px] font-black uppercase ${i.q === 0 ? 'text-movistar-red' : 'text-movistar-blue'}`}>{i.q} PZS</p>
-                                                                    </div>
-                                                                )) 
-                                                                : <span className="text-[8px] font-bold text-gray-300">SIN INVENTARIO ASIGNADO</span>
-                                                            }
-                                                        </div>
+                                                        
+                                                        {expandedInvStores[d.id] && (
+                                                            <div className="flex flex-wrap gap-2 animate-pop pt-1">
+                                                                {storeInv.length > 0 ? 
+                                                                    storeInv.map((i,idx) => (
+                                                                        <div key={idx} className={`border rounded px-1.5 py-1 min-w-[60px] shadow-sm ${i.q === 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                                                                            <p className="text-[6px] font-bold opacity-50 uppercase leading-none mb-0.5">{i.mar} {i.mod}</p>
+                                                                            <p className={`text-[9px] font-black uppercase ${i.q === 0 ? 'text-movistar-red' : 'text-movistar-blue'}`}>{i.q} PZS</p>
+                                                                        </div>
+                                                                    )) 
+                                                                    : <span className="text-[8px] font-bold text-gray-300">SIN INVENTARIO ASIGNADO</span>
+                                                                }
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -1137,6 +1238,21 @@
                                         <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
                                             <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Filtros</h2>
                                             
+                                            {userRole === "ADMIN" && (
+                                                <div className="flex gap-2 mb-3 animate-pop">
+                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={supFilter} onChange={e => setSupFilter(e.target.value)}>
+                                                        <option value="TODOS">SUPERVISORES</option>
+                                                        {[...new Set((Array.isArray(dataTEMM)?dataTEMM:[]).map(d => d?.sup))].filter(Boolean).sort().map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={cadFilter} onChange={e => setCadFilter(e.target.value)}>
+                                                        <option value="TODAS">CADENAS</option>
+                                                        <option value="COPPEL">COPPEL</option>
+                                                        <option value="ELEKTRA">ELEKTRA</option>
+                                                        <option value="SUBURBIA">SUBURBIA</option>
+                                                    </select>
+                                                </div>
+                                            )}
+
                                             <div className="space-y-3">
                                                 <div>
                                                     <label className="text-[9px] font-black text-gray-400 ml-2 uppercase">Marca</label>
@@ -1156,7 +1272,20 @@
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-2 mt-6">
+                                            <div className="grid grid-cols-2 gap-2 mt-6 mb-2">
+                                                <div className="bg-movistar-green text-white p-3 rounded-2xl text-center flex flex-col justify-center">
+                                                    <p className="text-[7px] font-bold uppercase mb-1 opacity-80">Marca Dominante</p>
+                                                    <p className="text-sm font-black leading-tight truncate" title={inventarioStats.topMarca}>{inventarioStats.topMarca}</p>
+                                                    <p className="text-[7px] font-bold opacity-80">{inventarioStats.maxMarca} pzs en piso</p>
+                                                </div>
+                                                <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white p-3 rounded-2xl text-center flex flex-col justify-center">
+                                                    <p className="text-[7px] font-bold uppercase mb-1 opacity-80">Modelo Principal</p>
+                                                    <p className="text-sm font-black leading-tight truncate" title={inventarioStats.topModelo}>{inventarioStats.topModelo}</p>
+                                                    <p className="text-[7px] font-bold opacity-80">{inventarioStats.maxModelo} pzs disponibles</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-2">
                                                 <div className="bg-movistar-blue text-white p-4 rounded-2xl text-center">
                                                     <p className="text-[8px] font-bold uppercase mb-1 opacity-80">Total Piezas</p>
                                                     <p className="text-3xl font-black">{filteredInventory.reduce((acc, cur) => acc + (cur.q || 0), 0)}</p>
@@ -1312,189 +1441,258 @@
                             </div>
                         )}
 
-                        {activeTab === 'EQUIPO' && (
-                            <div className="space-y-6 animate-pop">
-                                <div className="flex bg-gray-200 p-1 rounded-2xl">
-                                    <button onClick={()=>setSubTabEquipo("PERFIL")} className={`subtab-btn ${subTabEquipo==="PERFIL"?'subtab-active':'subtab-inactive'}`}>MI PERFIL</button>
-                                    <button onClick={()=>setSubTabEquipo("PROMOTOR_MES")} className={`subtab-btn ${subTabEquipo==="PROMOTOR_MES"?'subtab-active':'subtab-inactive'}`}>PROMOTOR MES</button>
-                                    <button onClick={()=>setSubTabEquipo("RANKING")} className={`subtab-btn ${subTabEquipo==="RANKING"?'subtab-active':'subtab-inactive'}`}>TOP RANK</button>
-                                </div>
+                        {activeTab === 'EQUIPO' && (() => {
+                            const avgAge = myRosters.length ? myRosters.reduce((acc, cur) => acc + (calculateAge(cur.cumpleanos) || 0), 0) / myRosters.filter(x=>calculateAge(x.cumpleanos)).length : 0;
+                            const avgAnt = myRosters.length ? myRosters.reduce((acc, cur) => {
+                                if (!cur.ingreso) return acc;
+                                const days = Math.floor((Date.now() - new Date(cur.ingreso).getTime())/86400000);
+                                return acc + (days > 0 ? days : 0);
+                            }, 0) / myRosters.filter(x=>x.ingreso).length : 0;
 
-                                {subTabEquipo === "PERFIL" && (
-                                    <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                            <h2 className="font-black text-base italic uppercase">Mi Roster</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Crea, edita o inactiva tu perfil y el de tus compañeros para acceder a Exámenes y encuestas.</p>
-                                        </div>
-                                        {userRole === "PROMOTOR" && (
-                                            <form onSubmit={handleRosterSubmit} className="bg-white p-6 rounded-[2rem] shadow-lg border">
-                                                <h3 className="font-black text-xs text-movistar-dark uppercase mb-4">{editRostId ? "✏️ Editar Usuario" : "➕ Alta de Usuario"}</h3>
-                                                <input type="text" placeholder="Nombre Completo" value={rostName} onChange={e=>setRostName(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
-                                                <input type="text" placeholder="Usuario FW" value={rostFw} onChange={e=>setRostFw(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
-                                                <select value={rostRole} onChange={e=>setRostRole(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase text-movistar-dark">
-                                                    <option value="PROMOTOR">ROL: PROMOTOR</option>
-                                                    <option value="SUPERVISOR">ROL: SUPERVISOR</option>
-                                                    <option value="ENTRENADOR">ROL: ENTRENADOR</option>
-                                                </select>
-                                                
-                                                <div className="grid grid-cols-2 gap-2 mb-4">
-                                                    <div>
-                                                        <label className="text-[9px] font-black text-gray-400 ml-2">Fecha de Ingreso</label>
-                                                        <input type="date" value={rostDate} onChange={e=>setRostDate(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[9px] font-black text-gray-400 ml-2">Nacimiento (Edad)</label>
-                                                        <input type="date" value={rostCumple} onChange={e=>setRostCumple(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
-                                                    </div>
-                                                </div>
-
-                                                <label className="text-[9px] font-black text-gray-400 ml-2">{editRostId ? 'Cambiar Foto (Opcional)' : 'Subir Foto de Perfil'}</label>
-                                                <input type="file" accept="image/*" ref={fileInputRef} className="w-full bg-gray-50 p-3 rounded-xl text-[10px] mb-4 outline-none" />
-                                                
-                                                <div className="flex gap-2">
-                                                    <button type="submit" className="flex-1 bg-movistar-blue text-white py-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
-                                                        {editRostId ? "GUARDAR CAMBIOS" : "CREAR PERFIL"}
-                                                    </button>
-                                                    {editRostId && (
-                                                        <button type="button" onClick={() => { setEditRostId(null); setRostName(""); setRostFw(""); setRostRole("PROMOTOR"); setRostCumple(""); setRostDate(""); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="bg-gray-200 text-gray-600 py-4 px-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
-                                                            CANCELAR
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </form>
-                                        )}
-                                        <div className="space-y-4 mt-6">
-                                            {myRosters.map(r => (
-                                                <div key={r.id} className={`bg-white p-5 rounded-[2rem] shadow-md border-t-4 flex flex-col gap-3 ${r.estatus === 'INACTIVO' ? 'border-gray-400 opacity-70' : 'border-movistar-green'}`}>
-                                                    <div className="flex gap-4 items-center">
-                                                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100 flex-shrink-0 relative">
-                                                            <img src={r.foto} className="w-full h-full object-cover" />
-                                                            {r.estatus === 'INACTIVO' && <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white text-[8px] font-black">BAJA</div>}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div className="flex justify-between items-start">
-                                                                <h4 className="font-black text-xs uppercase text-movistar-dark">{r.nombre}</h4>
-                                                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${r.estatus === 'INACTIVO' ? 'bg-gray-200 text-gray-500' : 'bg-green-100 text-movistar-green'}`}>
-                                                                    {r.estatus || 'ACTIVO'}
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | FW: {r.fw}</p>
-                                                            <p className="text-[8px] font-bold text-gray-400 mt-1">Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)} años` : 'N/A'} | Antigüedad: {r.ingreso ? Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000) : 0} días</p>
-                                                        </div>
-                                                    </div>
-                                                    {(userRole === "PROMOTOR" || userRole === "ADMIN") && (
-                                                        <div className="flex gap-2 pt-3 border-t">
-                                                            {userRole === "PROMOTOR" && (
-                                                                <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">✏️ Editar</button>
-                                                            )}
-                                                            {userRole === "ADMIN" && (
-                                                                <>
-                                                                    <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">
-                                                                        {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Inactivar'}
-                                                                    </button>
-                                                                    <button onClick={() => deleteDoc("roster", r.id)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">🗑️ Borrar</button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
+                            return (
+                                <div className="space-y-6 animate-pop">
+                                    <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                        <button onClick={()=>setSubTabEquipo("PERFIL")} className={`subtab-btn ${subTabEquipo==="PERFIL"?'subtab-active':'subtab-inactive'}`}>MI PERFIL</button>
+                                        <button onClick={()=>setSubTabEquipo("PROMOTOR_MES")} className={`subtab-btn ${subTabEquipo==="PROMOTOR_MES"?'subtab-active':'subtab-inactive'}`}>PROMOTOR MES</button>
+                                        <button onClick={()=>setSubTabEquipo("RANKING")} className={`subtab-btn ${subTabEquipo==="RANKING"?'subtab-active':'subtab-inactive'}`}>TOP RANK</button>
                                     </div>
-                                )}
 
-                                {subTabEquipo === "PROMOTOR_MES" && (() => {
-                                    const hoy = new Date().getDate();
-                                    const puedeVotar = hoy <= 20;
-
-                                    return (
+                                    {subTabEquipo === "PERFIL" && (
                                         <div className="space-y-4">
-                                            <div className="bg-gradient-to-r from-blue-500 to-movistar-blue p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden flex justify-between">
-                                                <div className="relative z-10 w-full pr-8">
-                                                    <h3 className="font-black text-lg italic uppercase mb-2">¡Reconoce al Mejor!</h3>
-                                                    <p className="text-[10px] font-bold leading-relaxed opacity-90">
-                                                        Cada mes reiniciamos esta dinámica para premiar el esfuerzo de nuestros compañeros. <br/>
-                                                        <strong>Recuerda: Tienes hasta el día 20 del mes para emitir tu único voto.</strong>
-                                                    </p>
-                                                </div>
-                                                <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center pr-6">
-                                                    {userRole === "ADMIN" && candidates.length < 4 && 
-                                                        <label className="bg-movistar-dark text-white p-3 rounded-xl font-black text-[9px] cursor-pointer active:scale-90 shadow-md z-20">
-                                                            + FOTO<input type="file" accept="image/*" className="hidden" onChange={addCandidate}/>
-                                                        </label>
-                                                    }
-                                                </div>
-                                                <div className="absolute -right-4 -bottom-4 opacity-20 text-7xl pointer-events-none">🏆</div>
+                                            <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                                <h2 className="font-black text-base italic uppercase">Mi Roster</h2>
+                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Crea, edita o inactiva tu perfil y el de tus compañeros para acceder a Exámenes y encuestas.</p>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4">
-                                                {candidates.map(c => (
-                                                    <div key={c.id} className="bg-white p-4 rounded-[2rem] shadow-lg border flex flex-col items-center relative">
-                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("promotor_mes", c.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-8 h-8 flex items-center justify-center font-black shadow-sm z-10 active:scale-90">X</button>}
-                                                        <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-movistar-blue"><img src={c.foto} className="w-full h-full object-cover"/></div>
-                                                        <h4 className="font-black text-[11px] text-center uppercase mb-2 h-8">{c.nombre}</h4>
-                                                        <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-3"><span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span></div>
-                                                        {userRole === "PROMOTOR" && (
-                                                            puedeVotar ? (
-                                                                <button onClick={()=>voteCandidate(c.id)} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">VOTAR ⭐</button>
-                                                            ) : (
-                                                                <button disabled className="w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-black text-[10px] cursor-not-allowed">CERRADO 🔒</button>
-                                                            )
+                                            {userRole === "ADMIN" && (
+                                                <div className="bg-white p-5 rounded-[2rem] border shadow-sm flex gap-2">
+                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={supFilterRoster} onChange={e => setSupFilterRoster(e.target.value)}>
+                                                        <option value="TODOS">SUPERVISORES (TODOS)</option>
+                                                        {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                </div>
+                                            )}
+
+                                            {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
+                                                <div className="grid grid-cols-2 gap-2 mb-4 animate-pop">
+                                                    <div className="bg-white border p-3 rounded-2xl text-center shadow-sm">
+                                                        <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Promedio Edad</p>
+                                                        <p className="text-xl font-black text-movistar-dark">{isNaN(avgAge) ? 0 : Math.round(avgAge)} <span className="text-xs font-bold">años</span></p>
+                                                    </div>
+                                                    <div className="bg-white border p-3 rounded-2xl text-center shadow-sm">
+                                                        <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Antigüedad Promedio</p>
+                                                        <p className="text-xl font-black text-movistar-dark">{isNaN(avgAnt) ? 0 : Math.round(avgAnt)} <span className="text-xs font-bold">días</span></p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {userRole === "PROMOTOR" && (
+                                                <form onSubmit={handleRosterSubmit} className="bg-white p-6 rounded-[2rem] shadow-lg border">
+                                                    <h3 className="font-black text-xs text-movistar-dark uppercase mb-4">{editRostId ? "✏️ Editar Usuario" : "➕ Alta de Usuario"}</h3>
+                                                    <input type="text" placeholder="Nombre Completo" value={rostName} onChange={e=>setRostName(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                    <input type="text" placeholder="Usuario FW" value={rostFw} onChange={e=>setRostFw(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                    
+                                                    <div className="grid grid-cols-2 gap-2 mb-2">
+                                                        <select value={rostRole} onChange={e=>setRostRole(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-dark">
+                                                            <option value="PROMOTOR">ROL: PROMOTOR</option>
+                                                            <option value="SUPERVISOR">ROL: SUPERVISOR</option>
+                                                            <option value="ENTRENADOR">ROL: ENTRENADOR</option>
+                                                        </select>
+                                                        <select value={rostSup} onChange={e=>setRostSup(e.target.value)} required className="w-full bg-blue-50 border border-blue-100 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-blue">
+                                                            <option value="">TU SUPERVISOR</option>
+                                                            {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-2 gap-2 mb-4">
+                                                        <div>
+                                                            <label className="text-[9px] font-black text-gray-400 ml-2">Fecha de Ingreso</label>
+                                                            <input type="date" value={rostDate} onChange={e=>setRostDate(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[9px] font-black text-gray-400 ml-2">Nacimiento (Edad)</label>
+                                                            <input type="date" value={rostCumple} onChange={e=>setRostCumple(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                        </div>
+                                                    </div>
+
+                                                    <label className="text-[9px] font-black text-gray-400 ml-2">{editRostId ? 'Cambiar Foto (Opcional)' : 'Subir Foto de Perfil'}</label>
+                                                    <input type="file" accept="image/*" ref={fileInputRef} className="w-full bg-gray-50 p-3 rounded-xl text-[10px] mb-4 outline-none" />
+                                                    
+                                                    <div className="flex gap-2">
+                                                        <button type="submit" className="flex-1 bg-movistar-blue text-white py-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
+                                                            {editRostId ? "GUARDAR CAMBIOS" : "CREAR PERFIL"}
+                                                        </button>
+                                                        {editRostId && (
+                                                            <button type="button" onClick={() => { setEditRostId(null); setRostName(""); setRostFw(""); setRostRole("PROMOTOR"); setRostSup(""); setRostCumple(""); setRostDate(""); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="bg-gray-200 text-gray-600 py-4 px-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
+                                                                CANCELAR
+                                                            </button>
                                                         )}
                                                     </div>
-                                                ))}
+                                                </form>
+                                            )}
+                                            <div className="space-y-4 mt-6">
+                                                {myRosters.map(r => {
+                                                    const isComplete = r.foto && r.foto.startsWith("data:image") && r.supervisor;
+                                                    return (
+                                                        <div key={r.id} className={`bg-white p-5 rounded-[2rem] shadow-md border-t-4 flex flex-col gap-3 ${r.estatus === 'INACTIVO' ? 'border-gray-400 opacity-70' : 'border-movistar-green'}`}>
+                                                            <div className="flex gap-4 items-center">
+                                                                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100 flex-shrink-0 relative bg-gray-50 flex items-center justify-center">
+                                                                    {r.foto && r.foto.startsWith("data:image") ? <img src={r.foto} className="w-full h-full object-cover" /> : <span className="text-3xl text-gray-300">👤</span>}
+                                                                    {r.estatus === 'INACTIVO' && <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white text-[8px] font-black">BAJA</div>}
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <div className="flex justify-between items-start">
+                                                                        <h4 className="font-black text-xs uppercase text-movistar-dark">{r.nombre}</h4>
+                                                                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${r.estatus === 'INACTIVO' ? 'bg-gray-200 text-gray-500' : 'bg-green-100 text-movistar-green'}`}>
+                                                                            {r.estatus || 'ACTIVO'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | SUP: {r.supervisor || 'NO ASIGNADO'}</p>
+                                                                    <p className="text-[8px] font-bold text-gray-400 mt-1">Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)} años` : 'N/A'} | Antigüedad: {r.ingreso ? Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000) : 0} días</p>
+                                                                </div>
+                                                            </div>
+                                                            {userRole === "PROMOTOR" && !isComplete && (
+                                                                <div className="bg-red-50 text-red-500 border border-red-200 p-2 rounded-lg text-center text-[9px] font-black uppercase">
+                                                                    ⚠️ PERFIL INCOMPLETO: Clic en Editar y agrega tu Supervisor y/o Foto para poder hacer exámenes.
+                                                                </div>
+                                                            )}
+                                                            {(userRole === "PROMOTOR" || userRole === "ADMIN") && (
+                                                                <div className="flex gap-2 pt-3 border-t">
+                                                                    {userRole === "PROMOTOR" && (
+                                                                        <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">✏️ Editar</button>
+                                                                    )}
+                                                                    {userRole === "ADMIN" && (
+                                                                        <>
+                                                                            <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">
+                                                                                {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Inactivar'}
+                                                                            </button>
+                                                                            <button onClick={() => deleteDoc("roster", r.id)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">🗑️ Borrar</button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
                                         </div>
-                                    );
-                                })()}
+                                    )}
 
-                                {subTabEquipo === "RANKING" && (
-                                    <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                            <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Descubre quiénes lideran la tabla de aprendizaje y certificaciones a nivel nacional.</p>
-                                        </div>
-                                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-left">
-                                                    <thead className="bg-gray-50 border-b">
-                                                        <tr className="text-[9px] font-black text-gray-400">
-                                                            <th className="p-4 text-center">#</th><th className="p-4">PROMOTOR Y CURSOS</th><th className="p-4 text-right">SCORE</th>{userRole === "ADMIN" && <th className="p-4 text-center"></th>}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {Array.isArray(ranking) && ranking.map((u, i) => {
-                                                            const rMatch = rosters.find(ro => ro.nombre.toUpperCase() === u.name.toUpperCase());
-                                                            const photoUrl = rMatch ? rMatch.foto : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
-                                                            return (
-                                                                <tr key={u.id} className="border-b hover:bg-blue-50 transition-colors">
-                                                                    <td className="p-3 text-center font-black text-movistar-dark">#{i+1}</td>
-                                                                    <td className="p-3">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-50">
-                                                                                <img src={photoUrl} alt={u.name} className="w-full h-full object-cover" />
-                                                                            </div>
-                                                                            <div>
-                                                                                <div className="font-black text-[10px] uppercase text-movistar-dark">{u.name}</div>
-                                                                                <div className="text-[7px] text-gray-400 mt-1 font-bold uppercase leading-tight">
-                                                                                    {u.badges?.map(b => b==='BASICO'?'Porta Básica':b==='EXPERTO'?'Porta Avanzada':b==='VENTAS'?'Venta Consultiva':b==='SUELDO_FIELDWY'?'Sueldo/Fieldwy':b.includes('COMISIONES')?'Comisiones':b).join(" • ")}
+                                    {subTabEquipo === "PROMOTOR_MES" && (() => {
+                                        const hoy = new Date().getDate();
+                                        const puedeVotar = hoy <= 20;
+
+                                        return (
+                                            <div className="space-y-4">
+                                                <div className="bg-gradient-to-r from-blue-500 to-movistar-blue p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden flex justify-between">
+                                                    <div className="relative z-10 w-full pr-8">
+                                                        <h3 className="font-black text-lg italic uppercase mb-2">¡Reconoce al Mejor!</h3>
+                                                        <p className="text-[10px] font-bold leading-relaxed opacity-90">
+                                                            Cada mes reiniciamos esta dinámica para premiar el esfuerzo de nuestros compañeros. <br/>
+                                                            <strong>Recuerda: Tienes hasta el día 20 del mes para emitir tu único voto.</strong>
+                                                        </p>
+                                                    </div>
+                                                    <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center pr-6">
+                                                        {userRole === "ADMIN" && candidates.length < 4 && 
+                                                            <label className="bg-movistar-dark text-white p-3 rounded-xl font-black text-[9px] cursor-pointer active:scale-90 shadow-md z-20">
+                                                                + FOTO<input type="file" accept="image/*" className="hidden" onChange={addCandidate}/>
+                                                            </label>
+                                                        }
+                                                    </div>
+                                                    <div className="absolute -right-4 -bottom-4 opacity-20 text-7xl pointer-events-none">🏆</div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {candidates.map(c => (
+                                                        <div key={c.id} className="bg-white p-4 rounded-[2rem] shadow-lg border flex flex-col items-center relative">
+                                                            {userRole === "ADMIN" && <button onClick={() => deleteDoc("promotor_mes", c.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-8 h-8 flex items-center justify-center font-black shadow-sm z-10 active:scale-90">X</button>}
+                                                            <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-movistar-blue"><img src={c.foto} className="w-full h-full object-cover"/></div>
+                                                            <h4 className="font-black text-[11px] text-center uppercase mb-2 h-8">{c.nombre}</h4>
+                                                            <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-3"><span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span></div>
+                                                            {userRole === "PROMOTOR" && (
+                                                                puedeVotar ? (
+                                                                    <button onClick={()=>voteCandidate(c.id)} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">VOTAR ⭐</button>
+                                                                ) : (
+                                                                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-black text-[10px] cursor-not-allowed">CERRADO 🔒</button>
+                                                                )
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {subTabEquipo === "RANKING" && (
+                                        <div className="space-y-4">
+                                            <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                                <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
+                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Descubre quiénes lideran la tabla de aprendizaje y certificaciones a nivel nacional. Selecciona a un promotor para ver sus calificaciones.</p>
+                                            </div>
+                                            <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left">
+                                                        <thead className="bg-gray-50 border-b">
+                                                            <tr className="text-[9px] font-black text-gray-400">
+                                                                <th className="p-4 text-center">#</th><th className="p-4">PROMOTOR Y CURSOS</th><th className="p-4 text-right">SCORE</th>{userRole === "ADMIN" && <th className="p-4 text-center"></th>}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {Array.isArray(ranking) && ranking.map((u, i) => {
+                                                                const rMatch = rosters.find(ro => ro.nombre.toUpperCase() === u.name.toUpperCase());
+                                                                const photoUrl = rMatch && rMatch.foto && rMatch.foto.startsWith("data:image") ? rMatch.foto : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+                                                                const isExpanded = expandedRank === u.id;
+                                                                
+                                                                return (
+                                                                    <React.Fragment key={u.id}>
+                                                                        <tr onClick={() => setExpandedRank(isExpanded ? null : u.id)} className={`border-b transition-colors cursor-pointer select-none ${isExpanded ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                                                                            <td className="p-3 text-center font-black text-movistar-dark">#{i+1}</td>
+                                                                            <td className="p-3">
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-white">
+                                                                                        <img src={photoUrl} alt={u.name} className="w-full h-full object-cover" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <div className="font-black text-[10px] uppercase text-movistar-dark">{u.name}</div>
+                                                                                        <div className="text-[8px] text-movistar-blue mt-0.5 font-bold uppercase leading-tight">
+                                                                                            {u.badges?.length || 0} CURSO(S) COMPLETADO(S) <span className="text-gray-400 ml-1">{isExpanded ? '▲' : '▼'}</span>
+                                                                                        </div>
+                                                                                    </div>
                                                                                 </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="p-3 text-right font-black text-movistar-blue text-lg">{u.score}</td>
-                                                                    {userRole === "ADMIN" && <td className="p-2 text-center"><button onClick={() => deleteDoc("ranking", u.id)} className="bg-red-50 text-red-500 rounded-full w-6 h-6 font-black text-[10px] flex items-center justify-center mx-auto active:scale-90">X</button></td>}
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
+                                                                            </td>
+                                                                            <td className="p-3 text-right font-black text-movistar-blue text-lg">{u.score}</td>
+                                                                            {userRole === "ADMIN" && <td className="p-2 text-center"><button onClick={(e) => { e.stopPropagation(); deleteDoc("ranking", u.id); }} className="bg-red-50 text-red-500 rounded-full w-6 h-6 font-black text-[10px] flex items-center justify-center mx-auto active:scale-90">X</button></td>}
+                                                                        </tr>
+                                                                        {isExpanded && (
+                                                                            <tr className="bg-gray-50 border-b animate-pop">
+                                                                                <td colSpan={userRole === "ADMIN" ? "4" : "3"} className="px-6 py-4">
+                                                                                    <p className="text-[9px] font-black text-gray-400 mb-2 uppercase">Detalle de Calificaciones:</p>
+                                                                                    <div className="space-y-2">
+                                                                                        {u.badges?.map(b => (
+                                                                                            <div key={b} className="flex justify-between items-center bg-white border border-gray-200 p-3 rounded-xl shadow-sm">
+                                                                                                <span className="font-bold text-[10px] text-movistar-dark uppercase">
+                                                                                                    {b==='BASICO'?'Portabilidad Básica':b==='EXPERTO'?'Porta Avanzada':b==='VENTAS'?'Venta Consultiva':b==='SUELDO_FIELDWY'?'Sueldo y Fieldwy':b.includes('COMISIONES')?'Esquema de Comisiones':b}
+                                                                                                </span>
+                                                                                                <span className="bg-green-100 text-movistar-green px-2 py-1 rounded text-[10px] font-black">{u.courseScores?.[b] || 'Aprobado'} pts</span>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                        {(!u.badges || u.badges.length === 0) && <p className="text-xs text-gray-400 italic">No ha completado cursos.</p>}
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        )}
+                                                                    </React.Fragment>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {activeTab === 'PORTAL' && (
                             <div className="space-y-6 animate-pop">
@@ -1866,10 +2064,19 @@
 
                                         {userRole === "PROMOTOR" ? (
                                             <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                                <h2 className="text-lg font-black mb-2 uppercase text-movistar-dark">Buzón Operativo</h2>
-                                                <form onSubmit={submitSug} className="space-y-4 mt-4">
-                                                    <textarea required placeholder="Escribe aquí tu sugerencia o aclaración..." rows="5" value={sugText} onChange={e=>setSugText(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
-                                                    <button type="submit" className="w-full bg-movistar-dark text-white p-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">ENVIAR BUZÓN</button>
+                                                <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Buzón Operativo</h2>
+                                                <form onSubmit={submitSug} className="space-y-4">
+                                                    <input type="text" placeholder="Tu Nombre Completo" value={sugName} onChange={e=>setSugName(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                                    <input type="text" placeholder="Tu Usuario Fieldwy" value={sugFw} onChange={e=>setSugFw(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                                    
+                                                    <select value={sugSup} onChange={e=>setSugSup(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-dark">
+                                                        <option value="">SELECCIONA TU SUPERVISOR</option>
+                                                        {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                    
+                                                    <textarea required placeholder="Escribe aquí tu sugerencia, queja o reporte operativo..." rows="5" value={sugText} onChange={e=>setSugText(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
+                                                    
+                                                    <button type="submit" className="w-full bg-movistar-dark text-white p-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform uppercase">Enviar a buzón 📤</button>
                                                 </form>
                                             </div>
                                         ) : (
@@ -1877,8 +2084,14 @@
                                                 {quejas.map(q => (
                                                     <div key={q.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-red relative">
                                                         {userRole === "ADMIN" && <button onClick={() => deleteDoc("quejas", q.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-sm active:scale-90">X</button>}
-                                                        <div className="flex justify-between mb-2 w-11/12"><span className="text-[9px] font-black text-movistar-red">ID: {q.idpdv}</span><span className="text-[8px] font-bold text-gray-400">{q.fecha?.toDate().toLocaleDateString()}</span></div>
-                                                        <p className="text-xs font-bold text-gray-600 italic">"{q.texto}"</p>
+                                                        <div className="flex justify-between mb-2 w-11/12">
+                                                            <div>
+                                                                <span className="text-[10px] font-black text-movistar-dark uppercase block">{q.nombre} <span className="text-gray-400 font-bold text-[8px]">(FW: {q.fw})</span></span>
+                                                                <span className="text-[8px] font-black text-movistar-red">ID TIENDA: {q.idpdv} | SUP: {q.supervisor}</span>
+                                                            </div>
+                                                            <span className="text-[8px] font-bold text-gray-400">{q.fecha?.toDate().toLocaleDateString()}</span>
+                                                        </div>
+                                                        <p className="text-xs font-bold text-gray-600 italic bg-gray-50 p-3 rounded-lg mt-2">"{q.texto}"</p>
                                                     </div>
                                                 ))}
                                             </div>
