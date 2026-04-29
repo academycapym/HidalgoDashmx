@@ -369,6 +369,10 @@
                 return r;
             }, [rosters, userId, userRole, supFilterRoster]);
 
+            const getRosterMatch = (name) => {
+                return rosters.find(r => normalizeName(r.nombre) === normalizeName(name));
+            };
+
             const filteredRosters = useMemo(() => {
                 let f = myRosters;
                 if (searchRoster) f = f.filter(r => r.nombre.toUpperCase().includes(searchRoster.toUpperCase()));
@@ -412,6 +416,14 @@
             useEffect(() => {
                 if (!userAuth || !db) return;
                 const unsubs = [];
+                
+                const sortByScoreDesc = (a, b) => (b.score || 0) - (a.score || 0);
+                const sortByFechaDesc = (a, b) => {
+                    const timeA = a.fecha?.toMillis ? a.fecha.toMillis() : 0;
+                    const timeB = b.fecha?.toMillis ? b.fecha.toMillis() : 0;
+                    return timeB - timeA;
+                };
+
                 try {
                     unsubs.push(getDbPath("operacion_v2").onSnapshot(s => {
                         let tm = []; let iv = [];
@@ -422,15 +434,36 @@
                         });
                         setDataTEMM(tm); setDataINV(iv);
                     }));
-                    unsubs.push(getDbPath("ranking").orderBy("score", "desc").onSnapshot(s => setRanking(s.docs.map(d => ({...d.data(), id: d.id})))));
+                    unsubs.push(getDbPath("ranking").onSnapshot(s => {
+                        let docs = s.docs.map(d => ({...d.data(), id: d.id}));
+                        setRanking(docs.sort(sortByScoreDesc));
+                    }));
                     unsubs.push(getDbPath("recurso").onSnapshot(s => setResources(s.docs.map(d => ({...d.data(), id: d.id})))));
                     unsubs.push(getDbPath("promotor_mes").onSnapshot(s => setCandidates(s.docs.map(d => ({...d.data(), id: d.id})))));
-                    unsubs.push(getDbPath("quejas").orderBy("fecha", "desc").onSnapshot(s => setQuejas(s.docs.map(d => ({...d.data(), id: d.id})))));
-                    unsubs.push(getDbPath("vacaciones").orderBy("fecha", "desc").onSnapshot(s => setVacaciones(s.docs.map(d => ({...d.data(), id: d.id})))));
-                    unsubs.push(getDbPath("roster").orderBy("fecha", "desc").onSnapshot(s => setRosters(s.docs.map(d => ({...d.data(), id: d.id})))));
-                    unsubs.push(getDbPath("comunicados").orderBy("fecha", "desc").onSnapshot(s => setComunicados(s.docs.map(d => ({...d.data(), id: d.id})))));
-                    unsubs.push(getDbPath("encuestas").orderBy("fecha", "desc").onSnapshot(s => setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})))));
-                    unsubs.push(getDbPath("beneficios").orderBy("fecha", "desc").onSnapshot(s => setBeneficios(s.docs.map(d => ({...d.data(), id: d.id})))));
+                    unsubs.push(getDbPath("quejas").onSnapshot(s => {
+                        let docs = s.docs.map(d => ({...d.data(), id: d.id}));
+                        setQuejas(docs.sort(sortByFechaDesc));
+                    }));
+                    unsubs.push(getDbPath("vacaciones").onSnapshot(s => {
+                        let docs = s.docs.map(d => ({...d.data(), id: d.id}));
+                        setVacaciones(docs.sort(sortByFechaDesc));
+                    }));
+                    unsubs.push(getDbPath("roster").onSnapshot(s => {
+                        let docs = s.docs.map(d => ({...d.data(), id: d.id}));
+                        setRosters(docs.sort(sortByFechaDesc));
+                    }));
+                    unsubs.push(getDbPath("comunicados").onSnapshot(s => {
+                        let docs = s.docs.map(d => ({...d.data(), id: d.id}));
+                        setComunicados(docs.sort(sortByFechaDesc));
+                    }));
+                    unsubs.push(getDbPath("encuestas").onSnapshot(s => {
+                        let docs = s.docs.map(d => ({...d.data(), id: d.id}));
+                        setEncuestas(docs.sort(sortByFechaDesc));
+                    }));
+                    unsubs.push(getDbPath("beneficios").onSnapshot(s => {
+                        let docs = s.docs.map(d => ({...d.data(), id: d.id}));
+                        setBeneficios(docs.sort(sortByFechaDesc));
+                    }));
                     unsubs.push(getDbPath("config").doc("general").onSnapshot(d => { if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true); }));
                     
                     // CARPETA DIGITAL LISTENER
@@ -517,6 +550,24 @@
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataEstac), "Estacionalidad");
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataShare), "Share de Tienda");
                 XLSX.writeFile(wb, `Reporte_Carpetas_${getCurrentMonthStr()}.xlsx`);
+            };
+
+            const downloadEncuestasExcel = () => {
+                if (!encuestas || encuestas.length === 0) return alert("No hay datos de encuestas para exportar.");
+                const data = encuestas.map(e => {
+                    const row = {
+                        "IDPDV": e.idpdv,
+                        "Fecha": e.fecha?.toDate().toLocaleString('es-MX'),
+                        "Motivación Extra": e.motivacionExtra === 'a' ? 'Convención' : e.motivacionExtra === 'b' ? 'Descanso' : e.motivacionExtra === 'c' ? 'Visita Agencia' : 'Reconocimiento'
+                    };
+                    ENCUESTA_PREGUNTAS.forEach((p, idx) => {
+                        row[p] = e.respuestas[idx] || 0;
+                    });
+                    return row;
+                });
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Resultados Encuestas");
+                XLSX.writeFile(wb, `Reporte_Encuestas_${getCurrentMonthStr()}.xlsx`);
             };
 
             const updateBoleta = (sem, prod, field, value) => {
@@ -1428,11 +1479,11 @@
                                                         {expandedInvStores[d.id] && (
                                                             <div className="flex flex-wrap gap-2 animate-pop pt-1">
                                                                 {storeInv.length > 0 ? storeInv.map((i,idx) => (
-                                                                        <div key={idx} className={`border rounded px-1.5 py-1 min-w-[60px] shadow-sm relative overflow-hidden ${i.q === 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                                                                            <div className={`absolute top-0 right-0 w-1.5 h-1.5 rounded-bl-sm ${i.status === 'DESCATALOGADO' ? 'bg-yellow-400' : i.status === 'LINEA' ? 'bg-movistar-green' : 'bg-gray-300'}`}></div>
-                                                                            <p className="text-[6px] font-bold opacity-50 uppercase leading-none mb-0.5 pr-2">{i.mar} {i.mod}</p>
-                                                                            <p className={`text-[9px] font-black uppercase ${i.q === 0 ? 'text-movistar-red' : 'text-movistar-blue'}`}>{i.q} PZS</p>
-                                                                        </div>
+                                                                    <div key={idx} className={`border rounded px-1.5 py-1 min-w-[60px] shadow-sm relative overflow-hidden ${i.q === 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                                                                        <div className={`absolute top-0 right-0 w-1.5 h-1.5 rounded-bl-sm ${i.status === 'DESCATALOGADO' ? 'bg-yellow-400' : i.status === 'LINEA' ? 'bg-movistar-green' : 'bg-gray-300'}`}></div>
+                                                                        <p className="text-[6px] font-bold opacity-50 uppercase leading-none mb-0.5 pr-2">{i.mar} {i.mod}</p>
+                                                                        <p className={`text-[9px] font-black uppercase ${i.q === 0 ? 'text-movistar-red' : 'text-movistar-blue'}`}>{i.q} PZS</p>
+                                                                    </div>
                                                                 )) : <span className="text-[8px] font-bold text-gray-300">SIN INVENTARIO ASIGNADO</span>}
                                                             </div>
                                                         )}
