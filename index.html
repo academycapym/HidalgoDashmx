@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V29.3</title>
+    <title>HidalgoDash CAPYM V30.1</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -83,7 +83,7 @@
     <div id="root">
         <div id="emergency-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V29.3...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V30.1...</p>
         </div>
     </div>
 
@@ -225,7 +225,7 @@
             const [userCluster, setUserCluster] = useState("");
             const [pass, setPass] = useState("");
             
-            const [activeTab, setActiveTab] = useState("CARPETA"); // V29.3 DEFAULT TAB
+            const [activeTab, setActiveTab] = useState("CARPETA"); // V30.1 DEFAULT TAB
             const [subTabCarpeta, setSubTabCarpeta] = useState("BOLETA");
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
             const [subTabPortal, setSubTabPortal] = useState("COMUNICADOS");
@@ -330,6 +330,12 @@
                 return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.estatus || "SIN ESTATUS"))].filter(Boolean).sort();
             }, [dataTEMM]);
 
+            const getStoreName = (id) => {
+                if (!id || id === '0') return "SIN ASIGNAR";
+                const s = dataTEMM.find(d => d.id === id);
+                return s ? s.tienda : "PDV DESCONOCIDO";
+            };
+
             const encStats = useMemo(() => {
                 if (!encuestas.length) return { total: 0, idx: 0, tops: [], bots: [], qMot: {a:0, b:0, c:0, d:0} };
                 let qSums = Array(19).fill(0);
@@ -356,12 +362,12 @@
                 if(userRole === "PROMOTOR") {
                     r = rosters.filter(x => (x.idpdv || "").replace(/^0+/, '').toUpperCase() === (userId || "").replace(/^0+/, '').toUpperCase());
                 } else if (userRole === "SUPERVISOR") {
-                    r = rosters.filter(x => x.supervisor && x.supervisor.toUpperCase().includes(userCluster));
+                    r = rosters.filter(x => x.supervisor && x.supervisor.toUpperCase().includes(userId));
                 } else {
                     if (supFilterRoster !== "TODOS") r = rosters.filter(x => x.supervisor === supFilterRoster);
                 }
                 return r;
-            }, [rosters, userId, userRole, supFilterRoster, userCluster]);
+            }, [rosters, userId, userRole, supFilterRoster]);
 
             const filteredRosters = useMemo(() => {
                 let f = myRosters;
@@ -441,7 +447,7 @@
                 if (userRole === "PROMOTOR") {
                     setViewStoreId((userId || "").replace(/^0+/, '').toUpperCase());
                 } else if (dataTEMM.length > 0 && !viewStoreId && (userRole === "ADMIN" || userRole === "SUPERVISOR")) {
-                    const available = userRole === "SUPERVISOR" ? dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userCluster)) || ((d.lider || "").toUpperCase().includes(userCluster)) || ((d.plaza || "").toUpperCase().includes(userCluster)) || ((d.tienda || "").toUpperCase().includes(userCluster))) : dataTEMM;
+                    const available = userRole === "SUPERVISOR" ? dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userId))) : dataTEMM;
                     if(available.length > 0) setViewStoreId(available[0].id);
                 }
             }, [userRole, userId, dataTEMM]);
@@ -463,25 +469,72 @@
                 } catch(e) { alert("Error al guardar: " + e.message); }
             };
 
+            const downloadCarpetasExcel = () => {
+                if (!carpetas || carpetas.length === 0) return alert("No hay datos de carpetas para exportar este mes.");
+
+                const dataBoleta = [];
+                const dataEstac = [];
+                const dataShare = [];
+
+                carpetas.forEach(c => {
+                    const tienda = getStoreName(c.idpdv);
+                    
+                    // Export Boleta
+                    [1, 2, 3, 4].forEach(sem => {
+                        ['TEMM', 'PORTA', 'PP_VOZ', 'TOTAL'].forEach(prod => {
+                            const row = c.boleta?.[sem]?.[prod];
+                            if (row) {
+                                dataBoleta.push({
+                                    "IDPDV": c.idpdv, "Tienda": tienda, "Semana": sem, "Producto": prod,
+                                    "Altas": row.a, "Cuota": row.c, "Comisiona": row.ok ? 'SI' : 'NO',
+                                    "L": row.d0?.L || '', "M": row.d0?.M || '', "X": row.d0?.X || '', "J": row.d0?.J || '', "V": row.d0?.V || '', "S": row.d0?.S || '', "D": row.d0?.D || '',
+                                    "Comentario": row.com
+                                });
+                            }
+                        });
+                    });
+
+                    // Export Estacionalidad
+                    (c.estacionalidad || []).forEach((d, i) => {
+                        dataEstac.push({
+                            "IDPDV": c.idpdv, "Tienda": tienda, "Dia": i + 1,
+                            "Cuota_Total": d.cTot, "Altas_Total": d.aTot,
+                            "Cuota_Temm": d.cTem, "Altas_Temm": d.aTem
+                        });
+                    });
+
+                    // Export Share
+                    (c.share || []).forEach((d, i) => {
+                        dataShare.push({
+                            "IDPDV": c.idpdv, "Tienda": tienda, "Dia": i + 1,
+                            "Movistar": d.mov, "Telcel": d.tel, "Libre": d.lib, "AT&T": d.att
+                        });
+                    });
+                });
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataBoleta), "Boleta Semanal");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataEstac), "Estacionalidad");
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataShare), "Share de Tienda");
+                XLSX.writeFile(wb, `Reporte_Carpetas_${getCurrentMonthStr()}.xlsx`);
+            };
+
             const updateBoleta = (sem, prod, field, value) => {
                 const n = {...localCarpeta};
                 n.boleta[sem][prod][field] = value;
                 setLocalCarpeta(n);
             };
 
-            // V29.3: Text input numbers for D0 and auto calculation of 'a'
             const updateBoletaD0 = (sem, prod, dayKey, value) => {
                 const n = {...localCarpeta};
                 if (typeof n.boleta[sem][prod].d0 !== 'object' || n.boleta[sem][prod].d0 === null) {
                     n.boleta[sem][prod].d0 = { L: '', M: '', X: '', J: '', V: '', S: '', D: '' };
                 }
-                // Handle booleans from older versions gracefully
                 if(typeof n.boleta[sem][prod].d0[dayKey] === 'boolean') {
                     n.boleta[sem][prod].d0[dayKey] = n.boleta[sem][prod].d0[dayKey] ? '0' : '';
                 }
                 n.boleta[sem][prod].d0[dayKey] = value;
                 
-                // Recalculate Total Altas 'a'
                 const days = n.boleta[sem][prod].d0;
                 let sum = 0;
                 let anyFilled = false;
@@ -509,13 +562,6 @@
                 const n = {...localCarpeta};
                 n.share[dayIdx][field] = value;
                 setLocalCarpeta(n);
-            };
-
-            const getRosterMatch = (rankName) => {
-                const nRank = normalizeName(rankName);
-                let match = rosters.find(r => normalizeName(r.nombre) === nRank);
-                if (!match) match = rosters.find(r => normalizeName(r.nombre).includes(nRank) || nRank.includes(normalizeName(r.nombre)));
-                return match;
             };
 
             const startQuiz = (type) => {
@@ -581,10 +627,8 @@
             const handleLogin = (e) => {
                 e.preventDefault(); const u = userId.trim().toUpperCase();
                 if (u === "ADMIN" && pass === "2024") { setUserRole("ADMIN"); setView("APP"); } 
-                else if (u === "VIRGINIA" && pass === "Supervisor1") { setUserRole("SUPERVISOR"); setUserId("VIRGINIA"); setUserCluster("TULANCINGO"); setView("APP"); } 
-                else if (u === "DANIEL" && pass === "Supervisor1") { setUserRole("SUPERVISOR"); setUserId("DANIEL"); setUserCluster("TIZAYUCA"); setView("APP"); } 
-                else if (u === "JIOBANI" && pass === "Supervisor1") { setUserRole("SUPERVISOR"); setUserId("JIOBANI"); setUserCluster("TULA"); setView("APP"); } 
-                else if (pass === "Movistar1" && u.length >= 4) { setUserRole("PROMOTOR"); setView("APP"); } 
+                else if (pass === "Supervisor1" && u.length >= 3) { setUserRole("SUPERVISOR"); setUserId(u); setView("APP"); } 
+                else if (pass === "Movistar1" && u.length >= 3) { setUserRole("PROMOTOR"); setUserId(u); setView("APP"); } 
                 else { alert("ID o Contraseña incorrectos."); }
             };
 
@@ -644,17 +688,6 @@
                         }
                     } catch (error) { alert("Error procesando Excel."); console.error(error); }
                 }; reader.readAsBinaryString(file);
-            };
-
-            const downloadEncuestasExcel = () => {
-                const data = encuestas.map(e => {
-                    let row = { Fecha: e.fecha?.toDate().toLocaleString(), IDPDV: e.idpdv };
-                    (e.respuestas || []).forEach((r, i) => { row[`P${i+1}: ${ENCUESTA_PREGUNTAS[i]}`] = r; });
-                    row["Motivación Extra"] = e.motivacionExtra === 'a' ? 'Convención' : e.motivacionExtra === 'b' ? 'Descanso' : e.motivacionExtra === 'c' ? 'Visita Agencia' : 'Reconocimiento';
-                    return row;
-                });
-                const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Respuestas Encuestas"); XLSX.writeFile(wb, "Resultados_Encuestas_CAPYM.xlsx");
             };
 
             const handleRosterSubmit = async (e) => {
@@ -850,7 +883,7 @@
             const filteredData = useMemo(() => {
                 if (!Array.isArray(dataTEMM)) return []; let f = dataTEMM;
                 if (userRole === "PROMOTOR") { const cl = userId.trim().replace(/^0+/, ''); f = dataTEMM.filter(d => (d.id || "") === cl); } 
-                else if (userRole === "SUPERVISOR") { f = dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userCluster)) || ((d.lider || "").toUpperCase().includes(userCluster)) || ((d.plaza || "").toUpperCase().includes(userCluster)) || ((d.tienda || "").toUpperCase().includes(userCluster))); } 
+                else if (userRole === "SUPERVISOR") { f = dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userId))); } 
                 else {
                     if (supFilter !== "TODOS") f = f.filter(d => (d?.sup || "") === supFilter);
                     if (cadFilter !== "TODAS") f = f.filter(d => (d?.cad || "") === cadFilter);
@@ -858,7 +891,7 @@
                 }
                 if (searchStore) f = f.filter(d => d.id.includes(searchStore) || (d.tienda || "").toUpperCase().includes(searchStore.toUpperCase()));
                 return f;
-            }, [dataTEMM, userRole, userId, supFilter, cadFilter, estatusOpFilter, userCluster, searchStore]);
+            }, [dataTEMM, userRole, userId, supFilter, cadFilter, estatusOpFilter, searchStore]);
 
             const summary = useMemo(() => {
                 let a=0, c=0, s=0;
@@ -949,7 +982,7 @@
                     <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
                         <div className="text-center mb-10">
                             <h1 className="text-movistar-blue text-4xl font-black italic tracking-tighter uppercase leading-none">HIDALGODASH</h1>
-                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V29.3</p>
+                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V30.1</p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-5">
                             <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue uppercase" value={userId} onChange={e => setUserId(e.target.value)} required />
@@ -981,7 +1014,7 @@
                                 <div className="px-6 mt-6 space-y-4">
                                     <div className="bg-gray-50 p-4 rounded-2xl border text-center relative overflow-hidden">
                                         <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Tienda Asignada</p>
-                                        <p className="text-xs font-black text-movistar-blue uppercase">{selectedProfileModal.idpdv && selectedProfileModal.idpdv !== '0' ? `${dataTEMM.find(d=>d.id === selectedProfileModal.idpdv)?.tienda || 'TIENDA'} (ID: ${selectedProfileModal.idpdv})` : 'SIN ASIGNAR / MULTITIENDA'}</p>
+                                        <p className="text-xs font-black text-movistar-blue uppercase">{selectedProfileModal.idpdv && selectedProfileModal.idpdv !== '0' ? `${getStoreName(selectedProfileModal.idpdv)} (ID: ${selectedProfileModal.idpdv})` : 'SIN ASIGNAR / MULTITIENDA'}</p>
                                         <div className="absolute -right-2 -bottom-4 text-5xl opacity-10">🏪</div>
                                     </div>
                                     <div className="flex gap-2">
@@ -1011,12 +1044,12 @@
                     )}
 
                     <div className="bg-movistar-dark text-white p-5 flex justify-between items-center sticky top-0 z-50 shadow-md">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col w-3/4">
                             <h2 className="font-black italic text-lg leading-none uppercase tracking-tighter">HIDALGODASH</h2>
                             <span className="text-[8px] font-bold text-movistar-blue mt-1 uppercase tracking-widest">{userRole === "SUPERVISOR" ? `ZONA: ${userCluster}` : 'CAPYM NACIONAL'}</span>
                         </div>
-                        <div className="text-right text-[9px] font-black">
-                            {userRole === "ADMIN" ? "LÍDER" : userRole === "SUPERVISOR" ? `SUP: ${userId}` : `ID: ${userId}`}<br/>
+                        <div className="text-right text-[9px] font-black w-1/4">
+                            <div className="truncate w-full">{userRole === "ADMIN" ? "LÍDER" : userRole === "SUPERVISOR" ? `HOLA ${userId}` : `ID: ${userId} - ${getStoreName(userId)}`}</div>
                             <button onClick={() => location.reload()} className="text-movistar-red font-bold uppercase mt-1 active:scale-90">Salir</button>
                         </div>
                     </div>
@@ -1038,22 +1071,23 @@
                                     <button onClick={()=>setSubTabCarpeta("SHARE")} className={`subtab-btn ${subTabCarpeta==="SHARE"?'subtab-active':'subtab-inactive'}`}>SHARE DE TIENDA</button>
                                 </div>
 
-                                <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
-                                    <div className="relative z-10 w-full pr-8">
+                                <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden flex justify-between items-center">
+                                    <div className="relative z-10">
                                         <h2 className="font-black text-lg italic uppercase">Carpeta Digital</h2>
                                         <p className="text-[9px] font-bold text-gray-400 mt-1">Registros mensuales de {getCurrentMonthStr()}</p>
                                     </div>
-                                    <div className="absolute right-4 top-4 text-5xl opacity-20">📁</div>
+                                    <div className="text-4xl opacity-50 relative z-10">📁</div>
                                 </div>
 
                                 {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                    <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border flex items-center gap-2">
+                                    <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border flex flex-col gap-2">
                                         <select className="w-full bg-gray-50 p-4 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase" value={viewStoreId} onChange={e => setViewStoreId(e.target.value)}>
                                             <option value="">-- SELECCIONA TIENDA PARA AUDITAR --</option>
-                                            {dataTEMM.filter(d => userRole === "ADMIN" ? true : ((d.sup || "").toUpperCase().includes(userCluster)) || ((d.lider || "").toUpperCase().includes(userCluster))).map(d => (
+                                            {dataTEMM.filter(d => userRole === "ADMIN" ? true : ((d.sup || "").toUpperCase().includes(userId))).map(d => (
                                                 <option key={d.id} value={d.id}>{d.id} - {d.tienda}</option>
                                             ))}
                                         </select>
+                                        <button onClick={downloadCarpetasExcel} className="w-full bg-movistar-green text-white p-4 rounded-xl font-black text-[10px] active:scale-95 shadow-sm uppercase">📥 DESCARGAR REPORTE MENSUAL EXCEL</button>
                                     </div>
                                 )}
 
@@ -1062,10 +1096,10 @@
                                 ) : (
                                     <div className="bg-white p-4 rounded-[1.5rem] shadow-xl border">
                                         
-                                        <div className="flex justify-between items-center mb-4">
+                                        <div className="flex justify-between items-center mb-4 border-b pb-3">
                                             <div>
                                                 <p className="text-[10px] font-black text-movistar-blue uppercase tracking-widest">{subTabCarpeta}</p>
-                                                <p className="text-xs font-bold text-movistar-dark">IDPDV: {localCarpeta.idpdv}</p>
+                                                <p className="text-[10px] font-bold text-movistar-dark uppercase">IDPDV: {localCarpeta.idpdv} - {getStoreName(localCarpeta.idpdv)}</p>
                                             </div>
                                             <button onClick={saveCarpeta} className="bg-movistar-blue text-white px-4 py-2 rounded-xl font-black text-[9px] shadow-md active:scale-95">💾 GUARDAR</button>
                                         </div>
@@ -1237,7 +1271,7 @@
                                 {actualizadoAl !== "Desconocido" && (
                                     <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
                                         <div className="relative z-10">
-                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V29.3!</p>
+                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V30.1!</p>
                                             <p className="text-[10px] font-black opacity-100 mt-1 uppercase text-yellow-300">Actualizado al: {actualizadoAl}</p>
                                         </div>
                                         <div className="absolute right-2 opacity-30 text-5xl">📊</div>
@@ -1734,7 +1768,7 @@
                                                             <div className="flex-1">
                                                                 <h4 className="font-black text-xs uppercase text-movistar-dark">{r.nombre}</h4>
                                                                 <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol} | SUP: {r.supervisor}</p>
-                                                                <p className="text-[8px] font-bold text-gray-400 mt-1">ID TIENDA: {r.idpdv || '0'} | Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)}` : 'N/A'}</p>
+                                                                <p className="text-[8px] font-bold text-gray-400 mt-1">TIENDA: {r.idpdv || '0'} - {getStoreName(r.idpdv)} | Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)}` : 'N/A'}</p>
                                                             </div>
                                                         </div>
                                                         {(userRole === "PROMOTOR" || userRole === "SUPERVISOR" || userRole === "ADMIN") && (
