@@ -550,18 +550,20 @@
                             // Extraer filas desde la 6 a la 48
                             const validRows = jData.slice(5, 48);
                             list = validRows.filter(row => {
-                                const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
+                                // CORRECCIÓN: El ID está en la columna H
+                                const iVal = String(row["H"] || "").trim().replace(/^0+/, '');
                                 return /^\d+$/.test(iVal) && iVal.length >= 3;
                             }).map(row => {
-                                let cadena = "SUBURBIA"; let tUpper = String(row["J"] || "").toUpperCase();
+                                // CORRECCIÓN: La Cadena está en la columna K
+                                let cadena = "SUBURBIA"; let tUpper = String(row["K"] || "").toUpperCase();
                                 if (tUpper.includes("EKT") || tUpper.includes("ELEKTRA")) cadena = "ELEKTRA";
                                 else if (tUpper.includes("COPPEL")) cadena = "COPPEL";
                                 return {
-                                    id: String(row["I"] || "").trim().replace(/^0+/, ''),
-                                    tienda: String(row["J"]).trim(),
-                                    plaza: String(row["K"] || "").trim().toUpperCase(),
+                                    id: String(row["H"] || "").trim().replace(/^0+/, ''),
+                                    tienda: String(row["I"] || "").trim(), // Tienda en Col I
+                                    plaza: String(row["J"] || "").trim().toUpperCase(), // Plaza en Col J
                                     lider: String(row["A"] || "").trim(),
-                                    sup: String(row["B"]).trim(), 
+                                    sup: String(row["B"] || "").trim(), 
                                     cad: cadena,
                                     altas: Math.round(Number(row["Q"]) || 0), 
                                     cuota: Math.round(Number(row["R"]) || 0),
