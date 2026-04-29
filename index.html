@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V29</title>
+    <title>HidalgoDash CAPYM V29.3</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -70,13 +70,20 @@
         .bar-chart { display: flex; align-items: flex-end; height: 100px; gap: 8px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
         .bar-col { flex: 1; background: #019DF4; border-radius: 4px 4px 0 0; position: relative; transition: 0.5s; }
         .bar-label { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 8px; font-weight: 900; color: #86888C; }
+        
+        /* Estilos Compactos para Carpeta Digital */
+        .tabla-carpeta th, .tabla-carpeta td { border: 1px solid #e5e7eb; padding: 4px; text-align: center; font-size: 8px; }
+        .tabla-carpeta th { background-color: #0B2739; color: white; font-weight: 900; text-transform: uppercase; }
+        .tabla-carpeta input { width: 100%; font-size: 8px; text-align: center; font-weight: 800; background: transparent; border: none; outline: none; padding: 2px; }
+        .tabla-carpeta input:focus { background: #e0f2fe; }
+        .tabla-carpeta select { font-size: 8px; text-align: center; font-weight: 800; background: transparent; border: none; outline: none; width: 100%; cursor: pointer;}
     </style>
 </head>
 <body>
     <div id="root">
         <div id="emergency-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V29...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V29.3...</p>
         </div>
     </div>
 
@@ -184,6 +191,21 @@
             return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
         };
 
+        const getCurrentMonthStr = () => new Date().toISOString().slice(0, 7);
+        const getEmptyCarpeta = (idpdv, mes) => ({
+            idpdv, mes,
+            boleta: [1,2,3,4].reduce((acc, sem) => {
+                acc[sem] = {
+                    TEMM: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
+                    PORTA: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
+                    PP_VOZ: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
+                    TOTAL: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false}
+                }; return acc;
+            }, {}),
+            estacionalidad: Array.from({length: 31}).map(()=>({ cTot:'', aTot:'', cTem:'', aTem:'' })),
+            share: Array.from({length: 31}).map(()=>({ mov:'', tel:'', lib:'', att:'' }))
+        });
+
         const App = () => {
             const [userAuth, setUserAuth] = useState(null);
             const isCanvasEnv = typeof __firebase_config !== 'undefined';
@@ -203,7 +225,8 @@
             const [userCluster, setUserCluster] = useState("");
             const [pass, setPass] = useState("");
             
-            const [activeTab, setActiveTab] = useState("OPERACION");
+            const [activeTab, setActiveTab] = useState("CARPETA"); // V29.3 DEFAULT TAB
+            const [subTabCarpeta, setSubTabCarpeta] = useState("BOLETA");
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
             const [subTabPortal, setSubTabPortal] = useState("COMUNICADOS");
             const [subTabEquipo, setSubTabEquipo] = useState("PERFIL");
@@ -223,6 +246,11 @@
             const [beneficios, setBeneficios] = useState([]);
             const [encuestaActiva, setEncuestaActiva] = useState(true);
 
+            // Carpetas Digitales State
+            const [carpetas, setCarpetas] = useState([]);
+            const [viewStoreId, setViewStoreId] = useState("");
+            const [localCarpeta, setLocalCarpeta] = useState(null);
+
             // Search and filters
             const [searchStore, setSearchStore] = useState("");
             const [opProductFilter, setOpProductFilter] = useState("TEMM");
@@ -241,7 +269,7 @@
             const [estatusOpFilter, setEstatusOpFilter] = useState("TODOS");
             const [invMarcaFiltro, setInvMarcaFiltro] = useState("TODAS");
             const [invModeloFiltro, setInvModeloFiltro] = useState("TODOS");
-            const [invStatusFiltro, setInvStatusFiltro] = useState("TODOS"); // NEW V29 Inventory Status Filter
+            const [invStatusFiltro, setInvStatusFiltro] = useState("TODOS"); 
             const [supFilterRoster, setSupFilterRoster] = useState("TODOS");
             const [rostFilterInfo, setRostFilterInfo] = useState("TODOS");
             const [rostFilterCourse, setRostFilterCourse] = useState("TODOS");
@@ -264,7 +292,6 @@
             const [sugSup, setSugSup] = useState("");
             const [sugText, setSugText] = useState("");
             
-            // Beneficios States
             const [benTitle, setBenTitle] = useState("");
             const [benDesc, setBenDesc] = useState("");
             const [benImgBase64, setBenImgBase64] = useState("");
@@ -399,9 +426,90 @@
                     unsubs.push(getDbPath("encuestas").orderBy("fecha", "desc").onSnapshot(s => setEncuestas(s.docs.map(d => ({...d.data(), id: d.id})))));
                     unsubs.push(getDbPath("beneficios").orderBy("fecha", "desc").onSnapshot(s => setBeneficios(s.docs.map(d => ({...d.data(), id: d.id})))));
                     unsubs.push(getDbPath("config").doc("general").onSnapshot(d => { if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true); }));
+                    
+                    // CARPETA DIGITAL LISTENER
+                    unsubs.push(getDbPath("carpeta_digital").where("mes", "==", getCurrentMonthStr()).onSnapshot(s => {
+                        setCarpetas(s.docs.map(d => ({...d.data(), id: d.id})));
+                    }));
+
                 } catch(error) { console.error("Listeners", error); }
                 return () => unsubs.forEach(u => u());
             }, [userAuth]);
+
+            // MANEJO DE ESTADO LOCAL PARA CARPETA
+            useEffect(() => {
+                if (userRole === "PROMOTOR") {
+                    setViewStoreId((userId || "").replace(/^0+/, '').toUpperCase());
+                } else if (dataTEMM.length > 0 && !viewStoreId && (userRole === "ADMIN" || userRole === "SUPERVISOR")) {
+                    const available = userRole === "SUPERVISOR" ? dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userCluster)) || ((d.lider || "").toUpperCase().includes(userCluster)) || ((d.plaza || "").toUpperCase().includes(userCluster)) || ((d.tienda || "").toUpperCase().includes(userCluster))) : dataTEMM;
+                    if(available.length > 0) setViewStoreId(available[0].id);
+                }
+            }, [userRole, userId, dataTEMM]);
+
+            useEffect(() => {
+                if (!viewStoreId) return;
+                const cMonth = getCurrentMonthStr();
+                const exist = carpetas.find(c => c.id === `${viewStoreId}_${cMonth}`);
+                if (exist) setLocalCarpeta(JSON.parse(JSON.stringify(exist)));
+                else setLocalCarpeta(getEmptyCarpeta(viewStoreId, cMonth));
+            }, [viewStoreId, carpetas]);
+
+            const saveCarpeta = async () => {
+                if(!db || !localCarpeta) return;
+                try {
+                    const docId = `${localCarpeta.idpdv}_${localCarpeta.mes}`;
+                    await getDbPath("carpeta_digital").doc(docId).set(localCarpeta);
+                    alert("¡Avances guardados correctamente!");
+                } catch(e) { alert("Error al guardar: " + e.message); }
+            };
+
+            const updateBoleta = (sem, prod, field, value) => {
+                const n = {...localCarpeta};
+                n.boleta[sem][prod][field] = value;
+                setLocalCarpeta(n);
+            };
+
+            // V29.3: Text input numbers for D0 and auto calculation of 'a'
+            const updateBoletaD0 = (sem, prod, dayKey, value) => {
+                const n = {...localCarpeta};
+                if (typeof n.boleta[sem][prod].d0 !== 'object' || n.boleta[sem][prod].d0 === null) {
+                    n.boleta[sem][prod].d0 = { L: '', M: '', X: '', J: '', V: '', S: '', D: '' };
+                }
+                // Handle booleans from older versions gracefully
+                if(typeof n.boleta[sem][prod].d0[dayKey] === 'boolean') {
+                    n.boleta[sem][prod].d0[dayKey] = n.boleta[sem][prod].d0[dayKey] ? '0' : '';
+                }
+                n.boleta[sem][prod].d0[dayKey] = value;
+                
+                // Recalculate Total Altas 'a'
+                const days = n.boleta[sem][prod].d0;
+                let sum = 0;
+                let anyFilled = false;
+                ['L','M','X','J','V','S','D'].forEach(d => {
+                    let dVal = days[d];
+                    if(typeof dVal === 'boolean') dVal = dVal ? '0' : '';
+                    if(dVal !== '' && dVal !== null && dVal !== undefined) {
+                        anyFilled = true;
+                        const num = Number(dVal);
+                        sum += isNaN(num) ? 0 : num;
+                    }
+                });
+                
+                n.boleta[sem][prod].a = anyFilled ? String(sum) : '';
+                setLocalCarpeta(n);
+            };
+
+            const updateEstac = (dayIdx, field, value) => {
+                const n = {...localCarpeta};
+                n.estacionalidad[dayIdx][field] = value;
+                setLocalCarpeta(n);
+            };
+
+            const updateShare = (dayIdx, field, value) => {
+                const n = {...localCarpeta};
+                n.share[dayIdx][field] = value;
+                setLocalCarpeta(n);
+            };
 
             const getRosterMatch = (rankName) => {
                 const nRank = normalizeName(rankName);
@@ -528,7 +636,7 @@
                                 id: String(row["D"] || "").trim().replace(/^0+/, ''), 
                                 mod: String(row["N"] || "").trim(), 
                                 mar: String(row["O"] || "").trim(), 
-                                status: String(row["P"] || "").trim().toUpperCase(), // V29 Status
+                                status: String(row["P"] || "").trim().toUpperCase(),
                                 q: parseInt(Number(row["Z"])) || 0 
                             }));
                             await getDbPath("operacion_v2").doc("inv").set({ list: list });
@@ -773,7 +881,7 @@
                 let res = dataINV.filter(i => invStoreIdsAllowed.includes(i.id || ""));
                 if (invMarcaFiltro !== "TODAS") res = res.filter(i => (i.mar || "").toUpperCase() === invMarcaFiltro);
                 if (invModeloFiltro !== "TODOS") res = res.filter(i => (i.mod || "").toUpperCase() === invModeloFiltro);
-                if (invStatusFiltro !== "TODOS") res = res.filter(i => (i.status || "").toUpperCase() === invStatusFiltro); // V29 Filter Status
+                if (invStatusFiltro !== "TODOS") res = res.filter(i => (i.status || "").toUpperCase() === invStatusFiltro);
                 return res;
             }, [dataINV, invStoreIdsAllowed, invMarcaFiltro, invModeloFiltro, invStatusFiltro]);
 
@@ -841,7 +949,7 @@
                     <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
                         <div className="text-center mb-10">
                             <h1 className="text-movistar-blue text-4xl font-black italic tracking-tighter uppercase leading-none">HIDALGODASH</h1>
-                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V29</p>
+                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V29.3</p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-5">
                             <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue uppercase" value={userId} onChange={e => setUserId(e.target.value)} required />
@@ -914,26 +1022,229 @@
                     </div>
 
                     <div className="bg-white flex sticky top-[68px] z-40 border-b shadow-sm overflow-x-auto hide-scrollbar">
+                        <button className={`tab-btn ${activeTab==='CARPETA'?'tab-active':''}`} onClick={()=>setActiveTab('CARPETA')}>Carpeta</button>
                         <button className={`tab-btn ${activeTab==='OPERACION'?'tab-active':''}`} onClick={()=>setActiveTab('OPERACION')}>Operación</button>
                         <button className={`tab-btn ${activeTab==='ACADEMIA'?'tab-active':''}`} onClick={()=>setActiveTab('ACADEMIA')}>Academia</button>
-                        <button className={`tab-btn ${activeTab==='EQUIPO'?'tab-active':''}`} onClick={()=>setActiveTab('EQUIPO')}>Colaboradores</button>
+                        <button className={`tab-btn ${activeTab==='EQUIPO'?'tab-active':''}`} onClick={()=>setActiveTab('EQUIPO')}>Equipo</button>
                         <button className={`tab-btn ${activeTab==='PORTAL'?'tab-active':''}`} onClick={()=>setActiveTab('PORTAL')}>Portal</button>
                     </div>
 
                     <div className="p-4 flex-grow overflow-y-auto pb-10">
+                        {activeTab === 'CARPETA' && (
+                            <div className="space-y-4 animate-pop">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl flex-wrap justify-center items-center">
+                                    <button onClick={()=>setSubTabCarpeta("BOLETA")} className={`subtab-btn ${subTabCarpeta==="BOLETA"?'subtab-active':'subtab-inactive'}`}>BOLETA SEMANAL</button>
+                                    <button onClick={()=>setSubTabCarpeta("ESTACIONALIDAD")} className={`subtab-btn ${subTabCarpeta==="ESTACIONALIDAD"?'subtab-active':'subtab-inactive'}`}>ESTACIONALIDAD</button>
+                                    <button onClick={()=>setSubTabCarpeta("SHARE")} className={`subtab-btn ${subTabCarpeta==="SHARE"?'subtab-active':'subtab-inactive'}`}>SHARE DE TIENDA</button>
+                                </div>
+
+                                <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
+                                    <div className="relative z-10 w-full pr-8">
+                                        <h2 className="font-black text-lg italic uppercase">Carpeta Digital</h2>
+                                        <p className="text-[9px] font-bold text-gray-400 mt-1">Registros mensuales de {getCurrentMonthStr()}</p>
+                                    </div>
+                                    <div className="absolute right-4 top-4 text-5xl opacity-20">📁</div>
+                                </div>
+
+                                {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
+                                    <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border flex items-center gap-2">
+                                        <select className="w-full bg-gray-50 p-4 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase" value={viewStoreId} onChange={e => setViewStoreId(e.target.value)}>
+                                            <option value="">-- SELECCIONA TIENDA PARA AUDITAR --</option>
+                                            {dataTEMM.filter(d => userRole === "ADMIN" ? true : ((d.sup || "").toUpperCase().includes(userCluster)) || ((d.lider || "").toUpperCase().includes(userCluster))).map(d => (
+                                                <option key={d.id} value={d.id}>{d.id} - {d.tienda}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {!localCarpeta ? (
+                                    <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">Cargando formato...</div>
+                                ) : (
+                                    <div className="bg-white p-4 rounded-[1.5rem] shadow-xl border">
+                                        
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div>
+                                                <p className="text-[10px] font-black text-movistar-blue uppercase tracking-widest">{subTabCarpeta}</p>
+                                                <p className="text-xs font-bold text-movistar-dark">IDPDV: {localCarpeta.idpdv}</p>
+                                            </div>
+                                            <button onClick={saveCarpeta} className="bg-movistar-blue text-white px-4 py-2 rounded-xl font-black text-[9px] shadow-md active:scale-95">💾 GUARDAR</button>
+                                        </div>
+
+                                        {subTabCarpeta === "BOLETA" && (
+                                            <div className="space-y-4">
+                                                {[1,2,3,4].map(sem => (
+                                                    <div key={sem} className="border rounded-xl overflow-hidden">
+                                                        <div className="bg-gray-100 p-2 border-b"><p className="text-[9px] font-black text-movistar-dark uppercase">SEMANA {sem}</p></div>
+                                                        <div className="overflow-x-auto">
+                                                            <table className="w-full tabla-carpeta min-w-[600px]">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>PRODUCTO</th><th>ALTAS</th><th>CUOTA</th><th>ALCANCE</th><th>COMISIONA</th><th>VENTAS DIARIAS (L, M, X, J, V, S, D)</th><th>COMENTARIO</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {['TEMM', 'PORTA', 'PP_VOZ', 'TOTAL'].map(prod => {
+                                                                        const row = localCarpeta.boleta[sem]?.[prod] || {a:'', c:'', d0:{}, com:'', ok:false};
+                                                                        const a = Number(row.a) || 0; const c = Number(row.c) || 0;
+                                                                        const alcance = c > 0 ? ((a / c) * 100).toFixed(0) + '%' : '0%';
+                                                                        return (
+                                                                            <tr key={prod}>
+                                                                                <td className="font-bold bg-gray-50">{prod.replace('_', ' ')}</td>
+                                                                                <td><input type="number" value={row.a} disabled className="bg-gray-100 cursor-not-allowed text-movistar-dark" /></td>
+                                                                                <td><input type="number" value={row.c} onChange={e => updateBoleta(sem, prod, 'c', e.target.value)} disabled={userRole === "PROMOTOR"} /></td>
+                                                                                <td className="font-bold text-movistar-blue bg-gray-50">{alcance}</td>
+                                                                                <td className={row.ok ? 'bg-green-100' : 'bg-red-100'}>
+                                                                                    <select value={row.ok ? 'SI' : 'NO'} onChange={e => updateBoleta(sem, prod, 'ok', e.target.value === 'SI')} disabled={userRole === "PROMOTOR"} className={row.ok ? 'text-movistar-green' : 'text-movistar-red'}>
+                                                                                        <option value="NO">NO</option><option value="SI">SI</option>
+                                                                                    </select>
+                                                                                </td>
+                                                                                <td className="w-40">
+                                                                                    <div className="flex gap-1 justify-center">
+                                                                                        {['L','M','X','J','V','S','D'].map(day => {
+                                                                                            const val = typeof row.d0 === 'object' && row.d0 !== null ? (typeof row.d0[day] === 'boolean' ? '' : row.d0[day]) : '';
+                                                                                            return (
+                                                                                                <div key={day} className="flex flex-col items-center">
+                                                                                                    <span className="text-[6px] font-black text-gray-500">{day}</span>
+                                                                                                    <input type="number" className={`w-5 h-5 text-[8px] text-center border rounded-sm outline-none ${userRole === 'PROMOTOR' ? 'bg-white focus:border-movistar-blue' : 'bg-gray-50'}`} value={val || ''} onChange={e => updateBoletaD0(sem, prod, day, e.target.value)} disabled={userRole !== "PROMOTOR"} />
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td><input type="text" value={row.com} onChange={e => updateBoleta(sem, prod, 'com', e.target.value)} disabled={userRole === "PROMOTOR"} /></td>
+                                                                            </tr>
+                                                                        )
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {subTabCarpeta === "ESTACIONALIDAD" && (() => {
+                                            const today = new Date().getDate();
+                                            let acCuotaTot = 0, acAltaTot = 0, acCuotaTemm = 0, acAltaTemm = 0;
+                                            return (
+                                                <div className="overflow-x-auto border rounded-xl">
+                                                    <table className="w-full tabla-carpeta min-w-[600px]">
+                                                        <thead>
+                                                            <tr>
+                                                                <th rowSpan="2">DÍA</th><th colSpan="5">TOTALES</th><th colSpan="5" className="bg-movistar-blue">TEMM</th>
+                                                            </tr>
+                                                            <tr>
+                                                                <th>CUOTA</th><th>ALTAS</th><th>ACUM C.</th><th>ACUM V.</th><th>GAP</th>
+                                                                <th className="bg-movistar-blue">CUOTA</th><th className="bg-movistar-blue">ALTAS</th><th className="bg-movistar-blue">ACUM C.</th><th className="bg-movistar-blue">ACUM V.</th><th className="bg-movistar-blue">GAP</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {localCarpeta.estacionalidad.map((d, i) => {
+                                                                const dayNum = i + 1;
+                                                                acCuotaTot += Number(d.cTot) || 0; acAltaTot += Number(d.aTot) || 0;
+                                                                acCuotaTemm += Number(d.cTem) || 0; acAltaTemm += Number(d.aTem) || 0;
+                                                                
+                                                                const gapTot = acAltaTot - acCuotaTot;
+                                                                const gapTemm = acAltaTemm - acCuotaTemm;
+
+                                                                const isEmptyPastDayTot = dayNum < today && (Number(d.aTot) || 0) === 0;
+                                                                const isEmptyPastDayTemm = dayNum < today && (Number(d.aTem) || 0) === 0;
+
+                                                                return (
+                                                                    <tr key={i}>
+                                                                        <td className="font-bold bg-gray-50">{dayNum}</td>
+                                                                        <td><input type="number" value={d.cTot} onChange={e => updateEstac(i, 'cTot', e.target.value)} /></td>
+                                                                        <td className={isEmptyPastDayTot ? 'bg-red-100' : ''}><input type="number" value={d.aTot} onChange={e => updateEstac(i, 'aTot', e.target.value)} /></td>
+                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{acCuotaTot}</td>
+                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{acAltaTot}</td>
+                                                                        <td className={`font-black ${gapTot >= 0 ? 'bg-green-50 text-movistar-green' : 'bg-red-50 text-movistar-red'}`}>{gapTot > 0 ? '+'+gapTot : gapTot}</td>
+
+                                                                        <td><input type="number" value={d.cTem} onChange={e => updateEstac(i, 'cTem', e.target.value)} /></td>
+                                                                        <td className={isEmptyPastDayTemm ? 'bg-red-100' : ''}><input type="number" value={d.aTem} onChange={e => updateEstac(i, 'aTem', e.target.value)} /></td>
+                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{acCuotaTemm}</td>
+                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{acAltaTemm}</td>
+                                                                        <td className={`font-black ${gapTemm >= 0 ? 'bg-green-50 text-movistar-green' : 'bg-red-50 text-movistar-red'}`}>{gapTemm > 0 ? '+'+gapTemm : gapTemm}</td>
+                                                                    </tr>
+                                                                )
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {subTabCarpeta === "SHARE" && (() => {
+                                            let acMov = 0, acTel = 0, acLib = 0, acAtt = 0, acTot = 0;
+                                            return (
+                                                <div className="overflow-x-auto border rounded-xl">
+                                                    <table className="w-full tabla-carpeta min-w-[600px]">
+                                                        <thead>
+                                                            <tr>
+                                                                <th rowSpan="2">DÍA</th>
+                                                                <th colSpan="2" className="bg-movistar-green">MOVISTAR</th>
+                                                                <th colSpan="2" className="bg-blue-600">TELCEL</th>
+                                                                <th colSpan="2" className="bg-gray-500">LIBRE</th>
+                                                                <th colSpan="2" className="bg-black">AT&T</th>
+                                                                <th colSpan="4">TOTALES Y SHARE</th>
+                                                            </tr>
+                                                            <tr>
+                                                                <th className="bg-movistar-green">DÍA</th><th className="bg-movistar-green">ACU</th>
+                                                                <th className="bg-blue-600">DÍA</th><th className="bg-blue-600">ACU</th>
+                                                                <th className="bg-gray-500">DÍA</th><th className="bg-gray-500">ACU</th>
+                                                                <th className="bg-black">DÍA</th><th className="bg-black">ACU</th>
+                                                                <th>TOT. DÍA</th><th>TOT. ACU</th><th>% DÍA</th><th>% ACU</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {localCarpeta.share.map((d, i) => {
+                                                                const dayNum = i + 1;
+                                                                const vMov = Number(d.mov)||0; const vTel = Number(d.tel)||0; const vLib = Number(d.lib)||0; const vAtt = Number(d.att)||0;
+                                                                const totDia = vMov + vTel + vLib + vAtt;
+                                                                
+                                                                acMov += vMov; acTel += vTel; acLib += vLib; acAtt += vAtt; acTot += totDia;
+                                                                
+                                                                const pDia = totDia > 0 ? ((vMov/totDia)*100).toFixed(0)+'%' : '0%';
+                                                                const pAcu = acTot > 0 ? ((acMov/acTot)*100).toFixed(0)+'%' : '0%';
+
+                                                                return (
+                                                                    <tr key={i}>
+                                                                        <td className="font-bold bg-gray-50">{dayNum}</td>
+                                                                        <td><input type="number" value={d.mov} onChange={e => updateShare(i, 'mov', e.target.value)} /></td><td className="bg-green-50 font-bold">{acMov}</td>
+                                                                        <td><input type="number" value={d.tel} onChange={e => updateShare(i, 'tel', e.target.value)} /></td><td className="bg-blue-50 font-bold">{acTel}</td>
+                                                                        <td><input type="number" value={d.lib} onChange={e => updateShare(i, 'lib', e.target.value)} /></td><td className="bg-gray-100 font-bold">{acLib}</td>
+                                                                        <td><input type="number" value={d.att} onChange={e => updateShare(i, 'att', e.target.value)} /></td><td className="bg-gray-200 font-bold">{acAtt}</td>
+                                                                        <td className="bg-yellow-50 font-bold text-movistar-dark">{totDia}</td>
+                                                                        <td className="bg-yellow-50 font-black text-movistar-dark">{acTot}</td>
+                                                                        <td className="bg-movistar-blue text-white font-bold">{pDia}</td>
+                                                                        <td className="bg-movistar-blue text-white font-black">{pAcu}</td>
+                                                                    </tr>
+                                                                )
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        <button onClick={saveCarpeta} className="w-full bg-movistar-blue text-white mt-4 py-4 rounded-xl font-black text-[10px] shadow-lg active:scale-95 transition-transform uppercase">GUARDAR AVANCES DE CARPETA 📤</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {activeTab === 'OPERACION' && (
                             <div className="space-y-4">
                                 {actualizadoAl !== "Desconocido" && (
                                     <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
                                         <div className="relative z-10">
-                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V29!</p>
+                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V29.3!</p>
                                             <p className="text-[10px] font-black opacity-100 mt-1 uppercase text-yellow-300">Actualizado al: {actualizadoAl}</p>
                                         </div>
                                         <div className="absolute right-2 opacity-30 text-5xl">📊</div>
                                     </div>
                                 )}
 
-                                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-2xl mb-4 flex items-center gap-3">
+                                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-2xl mb-4 flex items-center gap-3 shadow-sm">
                                     <span className="text-2xl">💡</span>
                                     <div>
                                         <p className="text-[9px] font-black text-yellow-600 uppercase mb-1">Frase del Día</p>
