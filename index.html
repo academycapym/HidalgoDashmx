@@ -535,22 +535,19 @@
                         let diaAct = "Desconocido";
 
                         if (type === "temm") {
-                            const wsBBDDName = wb.SheetNames.find(n => n.toUpperCase().includes("BBDD"));
-                            if (wsBBDDName) {
-                                const dataBBDD = XLSX.utils.sheet_to_json(wb.Sheets[wsBBDDName], { header: "A", raw: false });
-                                const strDates = dataBBDD.map(row => String(row["R"] || "").trim())
-                                    .filter(val => val.includes("-") && val.toUpperCase() !== "FECHA REGISTRO");
-                                if(strDates.length > 0) {
-                                    strDates.sort();
-                                    diaAct = strDates[strDates.length - 1]; 
-                                }
+                            const wsSegDiarioName = wb.SheetNames.find(n => n.toLowerCase().includes("seg diario"));
+                            if (!wsSegDiarioName) return alert("Pestaña 'Seg Diario' no encontrada en el archivo.");
+                            
+                            const wsSegDiario = wb.Sheets[wsSegDiarioName];
+
+                            // Obtener fecha directamente de la celda F3
+                            if (wsSegDiario['F3']) {
+                                diaAct = wsSegDiario['F3'].w || wsSegDiario['F3'].v;
                             }
 
-                            const wsSegDiario = wb.SheetNames.find(n => n.toLowerCase().includes("SEG DIARIO"));
-                            if (!wsSegDiario) return alert("Pestaña 'Seg Diario' no encontrada en el archivo.");
-
-                            const jData = XLSX.utils.sheet_to_json(wb.Sheets[wsSegDiario], { header: "A", defval: "" });
+                            const jData = XLSX.utils.sheet_to_json(wsSegDiario, { header: "A", defval: "" });
                             
+                            // Extraer filas desde la 6 a la 48
                             const validRows = jData.slice(5, 48);
                             list = validRows.filter(row => {
                                 const iVal = String(row["I"] || "").trim().replace(/^0+/, '');
@@ -567,12 +564,14 @@
                                     sup: String(row["B"]).trim(), 
                                     cad: cadena,
                                     altas: Math.round(Number(row["Q"]) || 0), 
-                                    cuota: Math.round(Number(row["R"]) || 0)
+                                    cuota: Math.round(Number(row["R"]) || 0),
+                                    alcance: Number(row["S"]) || 0,
+                                    gap: Math.round(Number(row["T"]) || 0)
                                 };
                             });
                             
                             await getDbPath("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
-                            alert(`¡Sincronizado TEMM a Nivel Nacional exitosamente! (${list.length} Tiendas guardadas | Fecha BBDD: ${diaAct})`);
+                            alert(`¡Sincronizado TEMM a Nivel Nacional exitosamente! (${list.length} Tiendas guardadas | Fecha: ${diaAct})`);
                             
                         } else if (type === "inv") {
                             const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tiendas") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario"));
@@ -1108,7 +1107,7 @@
                                     <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
                                         <div className="relative z-10">
                                             <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH EN OPERACIÓN!</p>
-                                            <p className="text-[9px] font-bold opacity-90 mt-1">Datos actualizados al día: {actualizadoAl}</p>
+                                            <p className="text-[10px] font-black opacity-100 mt-1 uppercase text-yellow-300">Actualizado al: {actualizadoAl}</p>
                                         </div>
                                         <div className="absolute right-2 opacity-30 text-5xl">📊</div>
                                     </div>
@@ -1197,7 +1196,10 @@
                                                         <div className="progress-bar-container bg-white border border-green-100 h-4">
                                                             <div className="progress-bar-fill bg-movistar-green" style={{width: `${Math.min(storeTEMMPerc, 100)}%`}}></div>
                                                         </div>
-                                                        <p className="text-[9px] font-black text-right mt-1 text-movistar-green">{storeTEMMPerc.toFixed(1)}% ALCANCE</p>
+                                                        <div className="flex justify-between items-center mt-1">
+                                                            <span className={`text-[9px] font-black uppercase ${d.gap < 0 ? 'text-movistar-red' : 'text-gray-400'}`}>GAP: {d.gap}</span>
+                                                            <p className="text-[9px] font-black text-right text-movistar-green">{storeTEMMPerc.toFixed(1)}% ALCANCE</p>
+                                                        </div>
                                                     </div>
                                                     
                                                     <div className="border-t pt-3 mt-2">
@@ -1217,7 +1219,7 @@
                                                                             <p className={`text-[9px] font-black uppercase ${i.q === 0 ? 'text-movistar-red' : 'text-movistar-blue'}`}>{i.q} PZS</p>
                                                                         </div>
                                                                     )) 
-                                                                    : <span className="text-[8px] font-bold text-gray-300">SIN INVENTARIO ASIGNADO</span>
+                                                                : <span className="text-[8px] font-bold text-gray-300">SIN INVENTARIO ASIGNADO</span>
                                                                 }
                                                             </div>
                                                         )}
