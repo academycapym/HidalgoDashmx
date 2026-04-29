@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V28</title>
+    <title>HidalgoDash CAPYM V29</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -76,12 +76,39 @@
     <div id="root">
         <div id="emergency-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V28...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V29...</p>
         </div>
     </div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
+
+        const MOTIVATIONAL_QUOTES = [
+            "El éxito es la suma de pequeños esfuerzos repetidos día tras día.",
+            "Tu actitud determina tu altitud. ¡A volar alto hoy!",
+            "Cada 'no' te acerca más a un 'sí'. ¡Sigue ofreciendo!",
+            "La oportunidad no llama a la puerta, tú la construyes al salir a vender.",
+            "Un vendedor exitoso es aquel que se levanta una vez más de las que cae.",
+            "No vendemos productos, ofrecemos soluciones que mejoran vidas.",
+            "El único límite a tus ventas de hoy es la imaginación que le pongas.",
+            "Haz que cada cliente sienta que es el único que importa.",
+            "La confianza es el secreto de toda venta exitosa. ¡Cree en ti!",
+            "El fracaso es solo la oportunidad de comenzar de nuevo de forma más inteligente.",
+            "Un cliente satisfecho es la mejor estrategia de negocios de todas.",
+            "El éxito en las ventas no es magia, es constancia, método y mucha actitud.",
+            "Vender es servir. Hoy es un buen día para ayudar a alguien.",
+            "Si no cuidas a tus clientes, tu competencia lo hará.",
+            "No busques clientes para tus productos, busca productos para tus clientes.",
+            "El entusiasmo es contagioso. ¡Que se note que te encanta lo que haces!",
+            "La preparación es la clave del éxito. Conoce tu oferta al 100%.",
+            "Tus resultados de hoy son producto de tus acciones de ayer.",
+            "Las grandes ventas no son suerte, son diseño y dedicación.",
+            "Cada objeción es una puerta disfrazada. Encuentra la llave.",
+            "Persistencia: el hábito más rentable del vendedor profesional.",
+            "La mejor venta es la que se cierra con una sonrisa de ambos lados.",
+            "Apunta a la luna. Si fallas, al menos estarás entre las estrellas.",
+            "Hoy tienes 24 horas para romper tus propios récords. ¡A darle con todo!"
+        ];
 
         const COMISIONES = {
             ELEKTRA: {
@@ -214,6 +241,7 @@
             const [estatusOpFilter, setEstatusOpFilter] = useState("TODOS");
             const [invMarcaFiltro, setInvMarcaFiltro] = useState("TODAS");
             const [invModeloFiltro, setInvModeloFiltro] = useState("TODOS");
+            const [invStatusFiltro, setInvStatusFiltro] = useState("TODOS"); // NEW V29 Inventory Status Filter
             const [supFilterRoster, setSupFilterRoster] = useState("TODOS");
             const [rostFilterInfo, setRostFilterInfo] = useState("TODOS");
             const [rostFilterCourse, setRostFilterCourse] = useState("TODOS");
@@ -496,7 +524,13 @@
                             list = jDataInv.filter(row => {
                                 const iVal = String(row["D"] || "").toUpperCase().trim();
                                 return iVal.length >= 3 && !iVal.includes("ID") && !iVal.includes("PDV");
-                            }).map(row => ({ id: String(row["D"] || "").trim().replace(/^0+/, ''), mod: String(row["N"] || "").trim(), mar: String(row["O"] || "").trim(), q: parseInt(Number(row["Z"])) || 0 }));
+                            }).map(row => ({ 
+                                id: String(row["D"] || "").trim().replace(/^0+/, ''), 
+                                mod: String(row["N"] || "").trim(), 
+                                mar: String(row["O"] || "").trim(), 
+                                status: String(row["P"] || "").trim().toUpperCase(), // V29 Status
+                                q: parseInt(Number(row["Z"])) || 0 
+                            }));
                             await getDbPath("operacion_v2").doc("inv").set({ list: list });
                             alert("Sincronizado Inventario exitosamente!");
                         }
@@ -733,13 +767,15 @@
             }, [filteredData, dataINV, opProductFilter]);
 
             const invStoreIdsAllowed = useMemo(() => filteredData.map(d => d.id || ""), [filteredData]);
+            
             const filteredInventory = useMemo(() => {
                 if(!Array.isArray(dataINV)) return [];
                 let res = dataINV.filter(i => invStoreIdsAllowed.includes(i.id || ""));
                 if (invMarcaFiltro !== "TODAS") res = res.filter(i => (i.mar || "").toUpperCase() === invMarcaFiltro);
                 if (invModeloFiltro !== "TODOS") res = res.filter(i => (i.mod || "").toUpperCase() === invModeloFiltro);
+                if (invStatusFiltro !== "TODOS") res = res.filter(i => (i.status || "").toUpperCase() === invStatusFiltro); // V29 Filter Status
                 return res;
-            }, [dataINV, invStoreIdsAllowed, invMarcaFiltro, invModeloFiltro]);
+            }, [dataINV, invStoreIdsAllowed, invMarcaFiltro, invModeloFiltro, invStatusFiltro]);
 
             const inventarioStats = useMemo(() => {
                 if (!filteredInventory || filteredInventory.length === 0) return { topMarca: 'N/A', topModelo: 'N/A', maxMarca: 0, maxModelo: 0 };
@@ -805,7 +841,7 @@
                     <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
                         <div className="text-center mb-10">
                             <h1 className="text-movistar-blue text-4xl font-black italic tracking-tighter uppercase leading-none">HIDALGODASH</h1>
-                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V28</p>
+                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V29</p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-5">
                             <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue uppercase" value={userId} onChange={e => setUserId(e.target.value)} required />
@@ -837,7 +873,7 @@
                                 <div className="px-6 mt-6 space-y-4">
                                     <div className="bg-gray-50 p-4 rounded-2xl border text-center relative overflow-hidden">
                                         <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Tienda Asignada</p>
-                                        <p className="text-xs font-black text-movistar-blue uppercase">{selectedProfileModal.idpdv && selectedProfileModal.idpdv !== '0' ? `${dataTEMM.find(d=>d.id === selectedProfileModal.idpdv)?.tienda || 'TIENDA'} (ID: ${selectedProfileModal.idpdv})` : 'SIN ASIGNAR'}</p>
+                                        <p className="text-xs font-black text-movistar-blue uppercase">{selectedProfileModal.idpdv && selectedProfileModal.idpdv !== '0' ? `${dataTEMM.find(d=>d.id === selectedProfileModal.idpdv)?.tienda || 'TIENDA'} (ID: ${selectedProfileModal.idpdv})` : 'SIN ASIGNAR / MULTITIENDA'}</p>
                                         <div className="absolute -right-2 -bottom-4 text-5xl opacity-10">🏪</div>
                                     </div>
                                     <div className="flex gap-2">
@@ -890,12 +926,20 @@
                                 {actualizadoAl !== "Desconocido" && (
                                     <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
                                         <div className="relative z-10">
-                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V28!</p>
+                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V29!</p>
                                             <p className="text-[10px] font-black opacity-100 mt-1 uppercase text-yellow-300">Actualizado al: {actualizadoAl}</p>
                                         </div>
                                         <div className="absolute right-2 opacity-30 text-5xl">📊</div>
                                     </div>
                                 )}
+
+                                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-2xl mb-4 flex items-center gap-3">
+                                    <span className="text-2xl">💡</span>
+                                    <div>
+                                        <p className="text-[9px] font-black text-yellow-600 uppercase mb-1">Frase del Día</p>
+                                        <p className="text-xs font-bold text-movistar-dark italic">"{MOTIVATIONAL_QUOTES[new Date().getDate() % 24]}"</p>
+                                    </div>
+                                </div>
 
                                 <div className="flex bg-gray-200 p-1 rounded-2xl mb-4">
                                     <button onClick={()=>setSubTabOp("GENERAL")} className={`subtab-btn ${subTabOp==="GENERAL"?'subtab-active':'subtab-inactive'}`}>TIENDAS</button>
@@ -1039,8 +1083,9 @@
                                                         {expandedInvStores[d.id] && (
                                                             <div className="flex flex-wrap gap-2 animate-pop pt-1">
                                                                 {storeInv.length > 0 ? storeInv.map((i,idx) => (
-                                                                        <div key={idx} className={`border rounded px-1.5 py-1 min-w-[60px] shadow-sm ${i.q === 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                                                                            <p className="text-[6px] font-bold opacity-50 uppercase leading-none mb-0.5">{i.mar} {i.mod}</p>
+                                                                        <div key={idx} className={`border rounded px-1.5 py-1 min-w-[60px] shadow-sm relative overflow-hidden ${i.q === 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                                                                            <div className={`absolute top-0 right-0 w-1.5 h-1.5 rounded-bl-sm ${i.status === 'DESCATALOGADO' ? 'bg-yellow-400' : i.status === 'LINEA' ? 'bg-movistar-green' : 'bg-gray-300'}`}></div>
+                                                                            <p className="text-[6px] font-bold opacity-50 uppercase leading-none mb-0.5 pr-2">{i.mar} {i.mod}</p>
                                                                             <p className={`text-[9px] font-black uppercase ${i.q === 0 ? 'text-movistar-red' : 'text-movistar-blue'}`}>{i.q} PZS</p>
                                                                         </div>
                                                                 )) : <span className="text-[8px] font-bold text-gray-300">SIN INVENTARIO ASIGNADO</span>}
@@ -1057,11 +1102,11 @@
                                     <div className="space-y-4">
                                         <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl mb-4">
                                             <h2 className="font-black text-lg italic uppercase">Control de Inventario</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Consulta rápida y filtrado del stock físico disponible por marca y modelo.</p>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Consulta rápida y filtrado del stock físico disponible por marca, modelo o estatus.</p>
                                         </div>
                                         <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
                                             <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Filtros</h2>
-                                            <div className="space-y-3 mb-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
                                                 <div>
                                                     <select className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none" value={invMarcaFiltro} onChange={e => {setInvMarcaFiltro(e.target.value); setInvModeloFiltro("TODOS");}}>
                                                         <option value="TODAS">Todas las marcas</option>
@@ -1072,6 +1117,13 @@
                                                     <select className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none" value={invModeloFiltro} onChange={e => setInvModeloFiltro(e.target.value)}>
                                                         <option value="TODOS">Todos los modelos</option>
                                                         {[...new Set(filteredInventory.map(i=>i.mod))].filter(Boolean).map(m => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <select className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none" value={invStatusFiltro} onChange={e => setInvStatusFiltro(e.target.value)}>
+                                                        <option value="TODOS">Todos los Estatus</option>
+                                                        <option value="LINEA">De Línea (Verde)</option>
+                                                        <option value="DESCATALOGADO">Descatalogado (Amarillo)</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -1120,8 +1172,12 @@
                                                         <div className="grid grid-cols-2 gap-1 mt-2">
                                                             {items.map((it, i) => (
                                                                 <div key={i} className={`text-[9px] p-2 rounded flex justify-between items-center ${it.q === 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
-                                                                    <span className="font-bold text-gray-500 uppercase truncate pr-1">{it.mar} {it.mod}</span>
-                                                                    <span className={`font-black ${it.q === 0 ? 'text-movistar-red' : 'text-movistar-dark'}`}>{it.q}</span>
+                                                                    <div className="flex items-center gap-1 overflow-hidden pr-1">
+                                                                        {it.status === 'DESCATALOGADO' && <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0"></span>}
+                                                                        {it.status === 'LINEA' && <span className="w-1.5 h-1.5 rounded-full bg-movistar-green flex-shrink-0"></span>}
+                                                                        <span className="font-bold text-gray-500 uppercase truncate">{it.mar} {it.mod}</span>
+                                                                    </div>
+                                                                    <span className={`font-black flex-shrink-0 ${it.q === 0 ? 'text-movistar-red' : 'text-movistar-dark'}`}>{it.q}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -1324,7 +1380,10 @@
 
                                                 <div className="grid grid-cols-2 gap-2 mb-2">
                                                     <select value={rostRole} onChange={e=>setRostRole(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-dark">
-                                                        <option value="PROMOTOR">ROL: PROMOTOR</option><option value="SUPERVISOR">ROL: SUPERVISOR</option><option value="ENTRENADOR">ROL: ENTRENADOR</option>
+                                                        <option value="PROMOTOR">ROL: PROMOTOR</option>
+                                                        <option value="SUPERVISOR">ROL: SUPERVISOR</option>
+                                                        <option value="ENTRENADOR">ROL: ENTRENADOR</option>
+                                                        <option value="MULTITIENDA">ROL: MULTITIENDA</option>
                                                     </select>
                                                     <select value={rostSup} onChange={e=>setRostSup(e.target.value)} required className="w-full bg-gray-50 border p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-blue">
                                                         <option value="">TU SUPERVISOR</option>
