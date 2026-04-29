@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V27</title>
+    <title>HidalgoDash CAPYM V28</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -76,7 +76,7 @@
     <div id="root">
         <div id="emergency-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V27...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V28...</p>
         </div>
     </div>
 
@@ -198,7 +198,7 @@
 
             // Search and filters
             const [searchStore, setSearchStore] = useState("");
-            const [opProductFilter, setOpProductFilter] = useState("TEMM"); // NEW V27 Filter
+            const [opProductFilter, setOpProductFilter] = useState("TEMM");
             const [searchRoster, setSearchRoster] = useState("");
             const [rosterTab, setRosterTab] = useState("ACTIVOS");
             const [selectedProfileModal, setSelectedProfileModal] = useState(null);
@@ -481,9 +481,7 @@
                                     sup: String(row["B"] || "").trim(), 
                                     estatus: String(row["G"] || "").trim().toUpperCase(),
                                     cad: cadena, 
-                                    // TEMM Backward compatibility (Q y R)
                                     altas: Math.round(Number(row["Q"]) || 0), cuota: Math.round(Number(row["R"]) || 0),
-                                    // Nuevas Métricas
                                     altas_total: Math.round(Number(row["M"]) || 0), cuota_total: Math.round(Number(row["N"]) || 0),
                                     altas_porta: Math.round(Number(row["U"]) || 0), cuota_porta: Math.round(Number(row["V"]) || 0),
                                     altas_voz: Math.round(Number(row["Y"]) || 0), cuota_voz: Math.round(Number(row["Z"]) || 0)
@@ -807,7 +805,7 @@
                     <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
                         <div className="text-center mb-10">
                             <h1 className="text-movistar-blue text-4xl font-black italic tracking-tighter uppercase leading-none">HIDALGODASH</h1>
-                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V27</p>
+                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V28</p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-5">
                             <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue uppercase" value={userId} onChange={e => setUserId(e.target.value)} required />
@@ -892,7 +890,7 @@
                                 {actualizadoAl !== "Desconocido" && (
                                     <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
                                         <div className="relative z-10">
-                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V27!</p>
+                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V28!</p>
                                             <p className="text-[10px] font-black opacity-100 mt-1 uppercase text-yellow-300">Actualizado al: {actualizadoAl}</p>
                                         </div>
                                         <div className="absolute right-2 opacity-30 text-5xl">📊</div>
@@ -1267,6 +1265,538 @@
                                                 ))}
                                             </div>
                                         ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'EQUIPO' && (
+                            <div className="space-y-6 animate-pop">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                    <button onClick={()=>setSubTabEquipo("PERFIL")} className={`subtab-btn ${subTabEquipo==="PERFIL"?'subtab-active':'subtab-inactive'}`}>MI ROSTER</button>
+                                    <button onClick={()=>setSubTabEquipo("PROMOTOR_MES")} className={`subtab-btn ${subTabEquipo==="PROMOTOR_MES"?'subtab-active':'subtab-inactive'}`}>PROMOTOR MES</button>
+                                    <button onClick={()=>setSubTabEquipo("RANKING")} className={`subtab-btn ${subTabEquipo==="RANKING"?'subtab-active':'subtab-inactive'}`}>TOP RANK</button>
+                                </div>
+
+                                {subTabEquipo === "PERFIL" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-base italic uppercase">Mi Roster</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Crea, edita o inactiva tu perfil y el de tus compañeros.</p>
+                                        </div>
+
+                                        <div className="bg-white p-4 rounded-[1.5rem] border shadow-sm flex items-center gap-2">
+                                            <input type="text" placeholder="🔍 BUSCAR POR NOMBRE..." value={searchRoster} onChange={e => setSearchRoster(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase"/>
+                                        </div>
+
+                                        {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
+                                            <div className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-2">
+                                                <div className="flex gap-2">
+                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={supFilterRoster} onChange={e => setSupFilterRoster(e.target.value)}>
+                                                        <option value="TODOS">SUPERVISORES (TODOS)</option>
+                                                        {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={rostFilterInfo} onChange={e => setRostFilterInfo(e.target.value)}>
+                                                        <option value="TODOS">ESTADO DE PERFIL</option>
+                                                        <option value="INCOMPLETOS">FALTA FOTO O SUP</option>
+                                                    </select>
+                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={rostFilterCourse} onChange={e => setRostFilterCourse(e.target.value)}>
+                                                        <option value="TODOS">CURSOS (TODOS)</option>
+                                                        <option value="BASICO">PORTA BÁSICA</option>
+                                                        <option value="VENTAS">VENTA CONSULTIVA</option>
+                                                        <option value="COMISIONES">ESQUEMA COMISIONES</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {(userRole === "PROMOTOR" || userRole === "SUPERVISOR" || userRole === "ADMIN") && (
+                                            <form onSubmit={handleRosterSubmit} className="bg-white p-6 rounded-[2rem] shadow-lg border">
+                                                <h3 className="font-black text-xs text-movistar-dark uppercase mb-4">{editRostId ? "✏️ Editar Usuario" : "➕ Alta de Usuario"}</h3>
+                                                <input type="text" placeholder="Nombre Completo" value={rostName} onChange={e=>setRostName(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                <input type="text" placeholder="Usuario FW" value={rostFw} onChange={e=>setRostFw(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                
+                                                {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
+                                                    <input type="text" placeholder="ID Tienda Asignada (Ej. 066345)" value={editIdPdv} onChange={e=>setEditIdPdv(e.target.value)} required className="w-full bg-blue-50 border border-blue-200 text-movistar-blue p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
+                                                )}
+
+                                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                                    <select value={rostRole} onChange={e=>setRostRole(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-dark">
+                                                        <option value="PROMOTOR">ROL: PROMOTOR</option><option value="SUPERVISOR">ROL: SUPERVISOR</option><option value="ENTRENADOR">ROL: ENTRENADOR</option>
+                                                    </select>
+                                                    <select value={rostSup} onChange={e=>setRostSup(e.target.value)} required className="w-full bg-gray-50 border p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-blue">
+                                                        <option value="">TU SUPERVISOR</option>
+                                                        {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 gap-2 mb-4">
+                                                    <div><label className="text-[9px] font-black text-gray-400 ml-2">Ingreso</label><input type="date" value={rostDate} onChange={e=>setRostDate(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/></div>
+                                                    <div><label className="text-[9px] font-black text-gray-400 ml-2">Nacimiento</label><input type="date" value={rostCumple} onChange={e=>setRostCumple(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/></div>
+                                                </div>
+
+                                                <label className="text-[9px] font-black text-gray-400 ml-2">{editRostId ? 'Cambiar Foto (Opcional)' : 'Subir Foto de Perfil'}</label>
+                                                <input type="file" accept="image/*" ref={fileInputRef} className="w-full bg-gray-50 p-3 rounded-xl text-[10px] mb-4 outline-none" />
+                                                
+                                                <div className="flex gap-2">
+                                                    <button type="submit" className="flex-1 bg-movistar-blue text-white py-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">{editRostId ? "GUARDAR" : "CREAR"}</button>
+                                                    {editRostId && <button type="button" onClick={() => { setEditRostId(null); setRostName(""); setRostFw(""); setRostRole("PROMOTOR"); setRostSup(""); setRostCumple(""); setRostDate(""); setEditIdPdv(""); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="bg-gray-200 text-gray-600 py-4 px-4 rounded-xl font-black text-[10px]">CANCELAR</button>}
+                                                </div>
+                                            </form>
+                                        )}
+
+                                        <div className="flex bg-white shadow-sm p-1 rounded-2xl border">
+                                            <button onClick={()=>setRosterTab("ACTIVOS")} className={`subtab-btn ${rosterTab==="ACTIVOS"?'bg-movistar-blue text-white':'text-gray-400 bg-transparent'}`}>ACTIVOS</button>
+                                            <button onClick={()=>setRosterTab("BAJAS")} className={`subtab-btn ${rosterTab==="BAJAS"?'bg-red-500 text-white':'text-gray-400 bg-transparent'}`}>BAJAS (INACTIVOS)</button>
+                                        </div>
+
+                                        <div className="space-y-4 mt-6">
+                                            {filteredRosters.map(r => {
+                                                const uRank = getRosterMatch(r.nombre);
+                                                return (
+                                                    <div key={r.id} className={`bg-white p-5 rounded-[2rem] shadow-md border-t-4 flex flex-col gap-3 ${r.estatus === 'INACTIVO' ? 'border-red-400 opacity-80' : 'border-movistar-green'}`}>
+                                                        <div className="flex gap-4 items-center">
+                                                            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100 flex-shrink-0 relative bg-gray-50 flex items-center justify-center">
+                                                                {r.foto && r.foto.startsWith("data:image") ? <img src={r.foto} className="w-full h-full object-cover" /> : <span className="text-3xl text-gray-300">👤</span>}
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <h4 className="font-black text-xs uppercase text-movistar-dark">{r.nombre}</h4>
+                                                                <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol} | SUP: {r.supervisor}</p>
+                                                                <p className="text-[8px] font-bold text-gray-400 mt-1">ID TIENDA: {r.idpdv || '0'} | Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)}` : 'N/A'}</p>
+                                                            </div>
+                                                        </div>
+                                                        {(userRole === "PROMOTOR" || userRole === "SUPERVISOR" || userRole === "ADMIN") && (
+                                                            <div className="flex gap-2 pt-3 border-t">
+                                                                <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95">✏️ Editar</button>
+                                                                {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
+                                                                    <>
+                                                                        <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95">
+                                                                            {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Baja'}
+                                                                        </button>
+                                                                        {userRole === "ADMIN" && <button onClick={() => handleDeleteRoster(r)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95">🗑️ Borrar</button>}
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                            {filteredRosters.length === 0 && <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">No se encontraron registros.</div>}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {subTabEquipo === "PROMOTOR_MES" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-gradient-to-r from-blue-500 to-movistar-blue p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
+                                            <div className="relative z-10 w-full pr-8">
+                                                <h3 className="font-black text-lg italic uppercase mb-2">¡Reconoce al Mejor!</h3>
+                                                <p className="text-[10px] font-bold opacity-90">Tienes hasta el día 20 para emitir tu único voto por sucursal.</p>
+                                            </div>
+                                            {userRole === "ADMIN" && candidates.length < 4 && <label className="absolute right-4 top-4 bg-movistar-dark text-white p-3 rounded-xl font-black text-[9px] cursor-pointer shadow-md z-20">+ FOTO<input type="file" accept="image/*" className="hidden" onChange={addCandidate}/></label>}
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {candidates.map(c => (
+                                                <div key={c.id} className="bg-white p-4 rounded-[2rem] shadow-lg border flex flex-col items-center relative">
+                                                    {userRole === "ADMIN" && <button onClick={() => deleteDoc("promotor_mes", c.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-8 h-8 flex items-center justify-center font-black shadow-sm z-10">X</button>}
+                                                    <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-movistar-blue"><img src={c.foto} className="w-full h-full object-cover"/></div>
+                                                    <h4 className="font-black text-[11px] text-center uppercase mb-2 h-8">{c.nombre}</h4>
+                                                    <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-3"><span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span></div>
+                                                    {userRole === "PROMOTOR" && (new Date().getDate() <= 20 ? <button onClick={()=>voteCandidate(c.id)} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px]">VOTAR ⭐</button> : <button disabled className="w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-black text-[10px]">CERRADO 🔒</button>)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {subTabEquipo === "RANKING" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Toca a un promotor para abrir su perfil completo.</p>
+                                        </div>
+                                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
+                                            <table className="w-full text-left">
+                                                <thead className="bg-gray-50 border-b">
+                                                    <tr className="text-[9px] font-black text-gray-400"><th className="p-4 text-center">#</th><th className="p-4">PROMOTOR</th><th className="p-4 text-right">SCORE</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    {Array.isArray(ranking) && ranking.map((u, i) => {
+                                                        const rMatch = getRosterMatch(u.name);
+                                                        const photoUrl = rMatch && rMatch.foto && rMatch.foto.startsWith("data:image") ? rMatch.foto : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+                                                        return (
+                                                            <tr key={u.id} onClick={() => { if(rMatch) setSelectedProfileModal(rMatch); }} className="border-b transition-colors cursor-pointer hover:bg-gray-50 active:bg-blue-50">
+                                                                <td className="p-3 text-center font-black text-movistar-dark">#{i+1}</td>
+                                                                <td className="p-3">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-white"><img src={photoUrl} className="w-full h-full object-cover" /></div>
+                                                                        <div>
+                                                                            <div className="font-black text-[10px] uppercase text-movistar-dark">{u.name}</div>
+                                                                            <div className="text-[8px] text-movistar-blue mt-0.5 font-bold uppercase">{u.badges?.length || 0} CURSO(S)</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-3 text-right font-black text-movistar-blue text-lg">{u.score}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'PORTAL' && (
+                            <div className="space-y-6 animate-pop">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl flex-wrap justify-center items-center">
+                                    <button onClick={()=>setSubTabPortal("COMUNICADOS")} className={`subtab-btn ${subTabPortal==="COMUNICADOS"?'subtab-active':'subtab-inactive'}`}>NOTICIAS</button>
+                                    <button onClick={()=>setSubTabPortal("ENCUESTA")} className={`subtab-btn ${subTabPortal==="ENCUESTA"?'subtab-active':'subtab-inactive'}`}>ENCUESTA</button>
+                                    <button onClick={()=>setSubTabPortal("BENEFICIOS")} className={`subtab-btn ${subTabPortal==="BENEFICIOS"?'subtab-active':'subtab-inactive'}`}>BENEFICIOS</button>
+                                    <button onClick={()=>setSubTabPortal("CALCULADORA")} className={`subtab-btn ${subTabPortal==="CALCULADORA"?'subtab-active':'subtab-inactive'}`}>SIMULADOR</button>
+                                    <button onClick={()=>setSubTabPortal("VACACIONES")} className={`subtab-btn ${subTabPortal==="VACACIONES"?'subtab-active':'subtab-inactive'}`}>VACACIONES</button>
+                                    <button onClick={()=>setSubTabPortal("QUEJAS")} className={`subtab-btn ${subTabPortal==="QUEJAS"?'subtab-active':'subtab-inactive'}`}>BUZÓN</button>
+                                </div>
+
+                                {subTabPortal === "COMUNICADOS" && (
+                                    <div className="space-y-5">
+                                        {userRole === "ADMIN" && (
+                                            <form onSubmit={submitComunicado} className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-3">
+                                                <textarea required placeholder="¿Qué quieres informar al equipo?" rows="3" value={comTexto} onChange={e=>setComTexto(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
+                                                <input type="url" placeholder="Link YouTube o Video (Opcional)" value={comVideoUrl} onChange={e=>setComVideoUrl(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none"/>
+                                                <div className="flex gap-2">
+                                                    <label className="flex-1 bg-blue-50 text-movistar-blue p-3 rounded-xl font-black text-[9px] text-center cursor-pointer">{comImgBase64 ? "IMAGEN CARGADA ✓" : "📷 SUBIR IMAGEN"}<input type="file" accept="image/*" className="hidden" onChange={handleImageUploadGen(setComImgBase64)}/></label>
+                                                </div>
+                                                <button type="submit" className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">PUBLICAR ANUNCIO</button>
+                                            </form>
+                                        )}
+                                        <div className="space-y-5">
+                                            {comunicados.map(com => {
+                                                const hasLiked = com.likes && com.likes.includes(userId.trim().toUpperCase());
+                                                return (
+                                                    <div key={com.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative">
+                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("comunicados", com.id)} className="absolute top-3 right-3 bg-red-100 text-red-500 rounded-full w-7 h-7 flex items-center justify-center font-black text-[10px] z-10">X</button>}
+                                                        <div className="p-5 pb-3">
+                                                            <div className="flex items-center gap-2 mb-3"><div className="w-8 h-8 rounded-full bg-movistar-blue text-white flex items-center justify-center font-black">C</div><div><p className="text-[10px] font-black text-movistar-dark leading-none">CAPYM NACIONAL</p><p className="text-[8px] font-bold text-gray-400">{com.fecha?.toDate().toLocaleString('es-MX')}</p></div></div>
+                                                            <p className="text-xs font-bold text-gray-700 whitespace-pre-wrap">{com.texto}</p>
+                                                        </div>
+                                                        {com.imgBase64 && <img src={com.imgBase64} className="w-full h-auto object-cover border-y" />}
+                                                        {com.videoUrl && getYouTubeEmbedUrl(com.videoUrl) && <div className="relative w-full aspect-video border-y bg-black"><iframe src={getYouTubeEmbedUrl(com.videoUrl)} className="absolute top-0 left-0 w-full h-full"></iframe></div>}
+                                                        
+                                                        <div className="border-t p-3 bg-gray-50 flex items-center justify-between">
+                                                            <button onClick={() => toggleLike(com.id)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
+                                                                <span className={`text-lg ${hasLiked ? '' : 'grayscale opacity-50'}`}>❤️</span> Me moviencanta ({com.likes ? com.likes.length : 0})
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {comunicados.length === 0 && <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">Aún no hay comunicados.</div>}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {subTabPortal === "ENCUESTA" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl flex justify-between items-center">
+                                            <div>
+                                                <h2 className="font-black text-lg italic uppercase">VOZ AL EQUIPO</h2>
+                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Resultados e Índice de Satisfacción.</p>
+                                            </div>
+                                            {userRole === "ADMIN" && <button onClick={toggleEncuestaAdmin} className={`px-3 py-2 rounded-xl font-black text-[8px] text-white ${encuestaActiva ? 'bg-movistar-red' : 'bg-movistar-green'}`}>{encuestaActiva ? 'APAGAR' : 'ENCENDER'}</button>}
+                                        </div>
+
+                                        {(userRole === "ADMIN" || userRole === "SUPERVISOR") ? (
+                                            <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
+                                                <h3 className="font-black text-xs text-movistar-dark uppercase mb-4 text-center">Dashboard de Satisfacción</h3>
+                                                <p className="text-center text-[10px] font-bold text-gray-400 mb-6">{encStats.total} Respuestas Totales</p>
+                                                
+                                                <div className="bg-blue-50 p-6 rounded-2xl text-center mb-6 border border-blue-100">
+                                                    <p className="text-[10px] font-black text-movistar-blue uppercase mb-1">Índice Global de Satisfacción</p>
+                                                    <p className="text-5xl font-black text-movistar-dark">{encStats.idx} <span className="text-lg text-gray-400">/ 5</span></p>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                                    <div>
+                                                        <h4 className="font-black text-[9px] text-movistar-green mb-3 uppercase text-center">🏆 Fortalezas</h4>
+                                                        <div className="space-y-2">
+                                                            {encStats.tops.map((t,i) => (
+                                                                <div key={i} className="bg-gray-50 p-2 rounded-lg text-center border">
+                                                                    <p className="text-[11px] font-black text-movistar-dark">{Number(t.avg).toFixed(1)}</p>
+                                                                    <p className="text-[7px] font-bold text-gray-500 uppercase mt-1">{t.text}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-black text-[9px] text-movistar-red mb-3 uppercase text-center">📉 Oportunidades</h4>
+                                                        <div className="space-y-2">
+                                                            {encStats.bots.map((t,i) => (
+                                                                <div key={i} className="bg-gray-50 p-2 rounded-lg text-center border">
+                                                                    <p className="text-[11px] font-black text-movistar-dark">{Number(t.avg).toFixed(1)}</p>
+                                                                    <p className="text-[7px] font-bold text-gray-500 uppercase mt-1">{t.text}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {userRole === "ADMIN" && (
+                                                    <div className="border-t pt-4">
+                                                        <button onClick={()=>setShowAllEncuestas(!showAllEncuestas)} className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-black text-[10px] uppercase shadow-sm active:scale-95 transition-transform mb-3">
+                                                            {showAllEncuestas ? "Ocultar Respuestas Individuales" : "Ver Todas las Respuestas Individuales"}
+                                                        </button>
+                                                        {showAllEncuestas && (
+                                                            <div className="animate-pop">
+                                                                <button onClick={downloadEncuestasExcel} className="w-full bg-movistar-green text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-sm active:scale-95 transition-transform mb-4">
+                                                                    📥 Descargar Reporte en Excel
+                                                                </button>
+                                                                <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                                                                    {encuestas.map((e, idx) => (
+                                                                        <div key={e.id} className="bg-gray-50 p-3 rounded-xl border text-[9px]">
+                                                                            <p className="font-black text-movistar-dark uppercase mb-1">Encuesta #{encuestas.length - idx} | ID: {e.idpdv}</p>
+                                                                            <p className="text-gray-400 font-bold mb-2">{e.fecha?.toDate().toLocaleString()}</p>
+                                                                            <p className="font-bold text-movistar-blue">Motivación: {e.motivacionExtra === 'a' ? 'Convención' : e.motivacionExtra === 'b' ? 'Descanso' : e.motivacionExtra === 'c' ? 'Visita Agencia' : 'Reconocimiento'}</p>
+                                                                        </div>
+                                                                    ))}
+                                                                    {encuestas.length === 0 && <p className="text-center text-xs font-bold text-gray-400">Sin encuestas registradas.</p>}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : encuestaActiva ? (
+                                            <form onSubmit={submitEncuesta} className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-6">
+                                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-6">
+                                                    <p className="text-[10px] font-bold text-movistar-dark">Evalúa tu experiencia en CAPYM. 1 (Muy malo) al 5 (Excelente).</p>
+                                                </div>
+                                                {ENCUESTA_PREGUNTAS.map((pregunta, index) => (
+                                                    <div key={index} className="border-b pb-4 border-gray-100">
+                                                        <label className="text-[10px] font-black text-movistar-dark uppercase block mb-3">{index + 1}. {pregunta}</label>
+                                                        <div className="flex gap-2">
+                                                            {[1, 2, 3, 4, 5].map(val => (
+                                                                <label key={val} className={`flex-1 text-center py-2 rounded-xl cursor-pointer border font-black transition-colors ${encRespuestas[index] === val ? 'bg-movistar-blue text-white border-movistar-blue' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                                                                    <input type="radio" name={`q_${index}`} value={val} checked={encRespuestas[index] === val} onChange={(e) => updateEncRespuesta(index, e.target.value)} className="hidden"/>{val}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <div className="pt-4">
+                                                    <label className="text-[10px] font-black text-movistar-dark uppercase block mb-4">¿Qué incentivo motivaría más al equipo?</label>
+                                                    <div className="space-y-3">
+                                                        <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-colors border ${encMotivacion === "a" ? 'bg-blue-50 border-movistar-blue' : 'bg-gray-50 border-gray-200'}`}><input type="radio" name="motivacion" value="a" checked={encMotivacion==="a"} onChange={e=>setEncMotivacion(e.target.value)} className="w-5 h-5 accent-movistar-blue"/><span className="text-[10px] font-black uppercase text-movistar-dark">a) Una convención para mejores promotores</span></label>
+                                                        <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-colors border ${encMotivacion === "b" ? 'bg-blue-50 border-movistar-blue' : 'bg-gray-50 border-gray-200'}`}><input type="radio" name="motivacion" value="b" checked={encMotivacion==="b"} onChange={e=>setEncMotivacion(e.target.value)} className="w-5 h-5 accent-movistar-blue"/><span className="text-[10px] font-black uppercase text-movistar-dark">b) Un día de descanso extra</span></label>
+                                                        <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-colors border ${encMotivacion === "c" ? 'bg-blue-50 border-movistar-blue' : 'bg-gray-50 border-gray-200'}`}><input type="radio" name="motivacion" value="c" checked={encMotivacion==="c"} onChange={e=>setEncMotivacion(e.target.value)} className="w-5 h-5 accent-movistar-blue"/><span className="text-[10px] font-black uppercase text-movistar-dark">c) Un día conociendo la agencia/oficinas</span></label>
+                                                        <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-colors border ${encMotivacion === "d" ? 'bg-blue-50 border-movistar-blue' : 'bg-gray-50 border-gray-200'}`}><input type="radio" name="motivacion" value="d" checked={encMotivacion==="d"} onChange={e=>setEncMotivacion(e.target.value)} className="w-5 h-5 accent-movistar-blue"/><span className="text-[10px] font-black uppercase text-movistar-dark">d) Un reconocimiento público o medalla</span></label>
+                                                    </div>
+                                                </div>
+                                                <button type="submit" className="w-full bg-movistar-blue text-white p-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg mt-4 active:scale-95 transition-transform">ENVIAR RESPUESTAS</button>
+                                            </form>
+                                        ) : (
+                                            <div className="bg-white p-10 rounded-[2rem] shadow-sm border text-center mt-4">
+                                                <div className="text-5xl mb-4">🔒</div><h3 className="font-black text-movistar-dark uppercase mb-2">Encuesta Cerrada</h3>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {subTabPortal === "BENEFICIOS" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white flex justify-between items-center shadow-xl">
+                                            <div>
+                                                <h2 className="font-black text-lg italic uppercase">BENEFICIOS CAPYM</h2>
+                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Descubre y solicita las nuevas convocatorias y bonos.</p>
+                                            </div>
+                                            <div className="text-4xl opacity-50">🎁</div>
+                                        </div>
+
+                                        {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
+                                            <form onSubmit={submitBeneficio} className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-3">
+                                                <h3 className="font-black text-[10px] text-movistar-blue uppercase">➕ Publicar Nuevo Beneficio</h3>
+                                                <input type="text" placeholder="Título (Ej. Bono Referidos 2025)" required value={benTitle} onChange={e=>setBenTitle(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                                <textarea required placeholder="Descripción de la convocatoria o beneficio..." rows="3" value={benDesc} onChange={e=>setBenDesc(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
+                                                <div className="flex gap-2">
+                                                    <label className="flex-1 bg-blue-50 text-movistar-blue p-3 rounded-xl font-black text-[9px] text-center cursor-pointer">{benImgBase64 ? "IMAGEN CARGADA ✓" : "📷 SUBIR FOTO/FLYER (Opcional)"}<input type="file" accept="image/*" className="hidden" onChange={handleImageUploadGen(setBenImgBase64)}/></label>
+                                                </div>
+                                                <button type="submit" className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">PUBLICAR BENEFICIO</button>
+                                            </form>
+                                        )}
+
+                                        <div className="space-y-4">
+                                            {beneficios.map(b => {
+                                                const hasSolicitado = b.solicitudes && b.solicitudes.includes(userId.trim().toUpperCase());
+                                                return (
+                                                    <div key={b.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative">
+                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("beneficios", b.id)} className="absolute top-3 right-3 bg-red-100 text-red-500 rounded-full w-7 h-7 flex items-center justify-center font-black text-[10px] z-10 active:scale-90">X</button>}
+                                                        {b.imgBase64 && <img src={b.imgBase64} className="w-full h-40 object-cover border-b" />}
+                                                        <div className="p-5">
+                                                            <h3 className="font-black text-movistar-dark text-sm uppercase leading-tight mb-2">{b.titulo}</h3>
+                                                            <p className="text-[10px] font-bold text-gray-500 mb-4 whitespace-pre-wrap">{b.descripcion}</p>
+                                                            
+                                                            {userRole === "PROMOTOR" ? (
+                                                                <button onClick={() => solicitarBeneficio(b.id)} disabled={hasSolicitado} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase transition-colors ${hasSolicitado ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-movistar-green text-white active:scale-95 shadow-md'}`}>
+                                                                    {hasSolicitado ? 'SOLICITUD ENVIADA ✓' : 'SOLICITAR / POSTULARME'}
+                                                                </button>
+                                                            ) : (
+                                                                <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                                                    <p className="font-black text-[9px] text-movistar-blue uppercase mb-1">IDPDVs que solicitaron:</p>
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {b.solicitudes && b.solicitudes.length > 0 ? b.solicitudes.map((sID, idx) => (
+                                                                            <span key={idx} className="bg-white text-movistar-dark px-2 py-1 rounded text-[8px] font-bold border shadow-sm">{sID}</span>
+                                                                        )) : <span className="text-[8px] font-bold text-gray-400">Nadie ha solicitado aún.</span>}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {beneficios.length === 0 && <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">Aún no hay beneficios publicados.</div>}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {subTabPortal === "VACACIONES" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Días Libres</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Gestiona y envía tus solicitudes de días de descanso al equipo administrativo.</p>
+                                        </div>
+
+                                        {userRole === "PROMOTOR" ? (
+                                            <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                                <form onSubmit={submitVac} className="space-y-4">
+                                                    <input type="text" placeholder="Nombre" required value={vacName} onChange={e=>setVacName(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                    <input type="text" placeholder="Usuario FW" required value={vacUser} onChange={e=>setVacUser(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
+                                                    <div><label className="text-[9px] font-black text-gray-400 ml-2">Inicio (Min 15 días)</label><input type="date" required min={minVacDate} value={vacDate} onChange={e=>setVacDate(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/></div>
+                                                    <div><label className="text-[9px] font-black text-gray-400 ml-2">Días a pedir</label><input type="number" min="1" max="14" required value={vacDays} onChange={e=>setVacDays(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/></div>
+                                                    <button type="submit" className="w-full bg-movistar-blue text-white p-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">ENVIAR SOLICITUD</button>
+                                                </form>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {vacaciones.map(v => (
+                                                    <div key={v.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-blue relative">
+                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("vacaciones", v.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-sm active:scale-90">X</button>}
+                                                        <div className="flex justify-between w-11/12"><span className="text-[9px] font-black text-movistar-blue">{v.idpdv}</span><span className="text-[8px] font-bold text-gray-400">{v.fecha?.toDate().toLocaleDateString()}</span></div>
+                                                        <h4 className="font-black text-xs uppercase my-1">{v.nombre}</h4>
+                                                        <p className="text-[10px] font-bold text-gray-500">Pide <span className="text-movistar-dark font-black">{v.diasSolicitados} días</span> desde <span className="text-movistar-dark font-black">{v.fechaDeseada}</span></p>
+                                                    </div>
+                                                ))}
+                                                {vacaciones.length === 0 && <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">Sin solicitudes pendientes.</div>}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {subTabPortal === "QUEJAS" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-gradient-to-r from-orange-400 to-red-500 p-6 rounded-[2rem] text-white shadow-lg relative overflow-hidden">
+                                            <div className="relative z-10">
+                                                <h3 className="font-black text-lg italic uppercase mb-2">¡Ayúdanos a mejorar!</h3>
+                                                <p className="text-[10px] font-bold leading-relaxed opacity-90">
+                                                    Si tienes alguna sugerencia, queja o reporte operativo <strong>te leeremos con gusto.</strong> Toda la información se trata con profesionalismo.
+                                                </p>
+                                            </div>
+                                            <div className="absolute -right-4 -bottom-4 opacity-20 text-7xl">💬</div>
+                                        </div>
+
+                                        {userRole === "PROMOTOR" ? (
+                                            <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                                <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Buzón Operativo</h2>
+                                                <form onSubmit={submitSug} className="space-y-4">
+                                                    <input type="text" placeholder="Tu Nombre Completo" value={sugName} onChange={e=>setSugName(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                                    <input type="text" placeholder="Tu Usuario Fieldwy" value={sugFw} onChange={e=>setSugFw(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                                    
+                                                    <select value={sugSup} onChange={e=>setSugSup(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-dark">
+                                                        <option value="">SELECCIONA TU SUPERVISOR</option>
+                                                        {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                    
+                                                    <textarea required placeholder="Escribe aquí tu sugerencia, queja o reporte..." rows="5" value={sugText} onChange={e=>setSugText(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
+                                                    
+                                                    <button type="submit" className="w-full bg-movistar-dark text-white p-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform uppercase">Enviar a buzón 📤</button>
+                                                </form>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {quejas.map(q => (
+                                                    <div key={q.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-red relative">
+                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("quejas", q.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-sm active:scale-90">X</button>}
+                                                        <div className="flex justify-between mb-2 w-11/12">
+                                                            <div>
+                                                                <span className="text-[10px] font-black text-movistar-dark uppercase block">{q.nombre} <span className="text-gray-400 font-bold text-[8px]">(FW: {q.fw})</span></span>
+                                                                <span className="text-[8px] font-black text-movistar-red">ID TIENDA: {q.idpdv} | SUP: {q.supervisor}</span>
+                                                            </div>
+                                                            <span className="text-[8px] font-bold text-gray-400">{q.fecha?.toDate().toLocaleDateString()}</span>
+                                                        </div>
+                                                        <p className="text-xs font-bold text-gray-600 italic bg-gray-50 p-3 rounded-lg mt-2">"{q.texto}"</p>
+                                                    </div>
+                                                ))}
+                                                {quejas.length === 0 && <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">Buzón vacío.</div>}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {subTabPortal === "CALCULADORA" && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Simulador de Comisiones</h2>
+                                        </div>
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                            <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-3 rounded-xl font-black text-[10px] text-movistar-blue mb-4 outline-none border border-blue-100">
+                                                <option value="ELEKTRA">CADENA: ELEKTRA</option><option value="COPPEL_SUBURBIA">CADENA: COPPEL / SUBURBIA</option>
+                                            </select>
+
+                                            <div className="bg-gray-50 p-4 rounded-2xl border mb-6">
+                                                <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">🎯 Metas Semanales</h3>
+                                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                                    <div><label className="text-[8px] font-black text-gray-500 uppercase">Cuota Total</label><input type="number" value={cuotaTotal} onChange={e=>setCuotaTotal(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-dark"/></div>
+                                                    <div><label className="text-[8px] font-black text-gray-500 uppercase">Cuota TEMM</label><input type="number" value={cuotaTemm} onChange={e=>setCuotaTemm(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-green"/></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mb-6">
+                                                <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">📈 Ventas Logradas</h3>
+                                                <div className="mb-3">
+                                                    <h4 className="font-black text-[8px] text-movistar-blue mb-1 uppercase">Altas Portabilidad</h4>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input type="number" placeholder="$100" value={cP1} onChange={e=>setCP1(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
+                                                        <input type="number" placeholder="$150" value={cP2} onChange={e=>setCP2(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
+                                                        <input type="number" placeholder="$200" value={cP3} onChange={e=>setCP3(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
+                                                    </div>
+                                                </div>
+                                                <div className="mb-3">
+                                                    <h4 className="font-black text-[8px] text-gray-500 mb-1 uppercase">Altas No Porta</h4>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input type="number" placeholder="$100" value={cNP1} onChange={e=>setCNP1(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
+                                                        <input type="number" placeholder="$150" value={cNP2} onChange={e=>setCNP2(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
+                                                        <input type="number" placeholder="$200" value={cNP3} onChange={e=>setCNP3(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
+                                                    </div>
+                                                </div>
+                                                <div className="mb-3">
+                                                    <h4 className="font-black text-[8px] text-movistar-green mb-1 uppercase">Equipos TEMM</h4>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input type="number" placeholder="$100" value={cT1} onChange={e=>setCT1(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
+                                                        <input type="number" placeholder="$150" value={cT2} onChange={e=>setCT2(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
+                                                        <input type="number" placeholder="$200" value={cT3} onChange={e=>setCT3(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-movistar-green text-white p-6 rounded-2xl text-center shadow-lg relative overflow-hidden">
+                                                <div className="relative z-10">
+                                                    <p className="text-[10px] font-bold uppercase mb-1">Pago Estimado</p>
+                                                    <p className="text-5xl font-black">${calculatePayout()}</p>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
