@@ -83,7 +83,7 @@
     <div id="root">
         <div id="emergency-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V22...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V23...</p>
         </div>
     </div>
 
@@ -251,15 +251,16 @@
             const [encuestaActiva, setEncuestaActiva] = useState(true);
 
             const [expandedInvStores, setExpandedInvStores] = useState({});
+            const [expandedStoreRosters, setExpandedStoreRosters] = useState({});
             const [expandedRank, setExpandedRank] = useState(null);
 
             const [supFilter, setSupFilter] = useState("TODOS");
             const [cadFilter, setCadFilter] = useState("TODAS");
+            const [estatusOpFilter, setEstatusOpFilter] = useState("TODOS");
             const [invMarcaFiltro, setInvMarcaFiltro] = useState("TODAS");
             const [invModeloFiltro, setInvModeloFiltro] = useState("TODOS");
             const [supFilterRoster, setSupFilterRoster] = useState("TODOS");
             
-            // Nuevos filtros para la vista de colaboradores
             const [rostFilterInfo, setRostFilterInfo] = useState("TODOS");
             const [rostFilterCourse, setRostFilterCourse] = useState("TODOS");
 
@@ -310,6 +311,10 @@
             const allSupervisorsList = useMemo(() => {
                 return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.sup))].filter(Boolean).sort();
             }, [dataTEMM]);
+            
+            const estatusUnicos = useMemo(() => {
+                return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.estatus || "SIN ESTATUS"))].filter(Boolean).sort();
+            }, [dataTEMM]);
 
             const myRosters = useMemo(() => {
                 let r = rosters;
@@ -325,7 +330,6 @@
                 return r;
             }, [rosters, userId, userRole, supFilterRoster, userCluster]);
 
-            // Aplicamos los nuevos filtros de información y cursos a la lista visible
             const filteredRosters = useMemo(() => {
                 let f = myRosters;
                 if (rostFilterInfo === "INCOMPLETOS") {
@@ -549,6 +553,10 @@
                 setExpandedInvStores(prev => ({...prev, [id]: !prev[id]}));
             };
 
+            const toggleRosters = (id) => {
+                setExpandedStoreRosters(prev => ({...prev, [id]: !prev[id]}));
+            };
+
             const uploadFile = async (type, e) => {
                 if (!db) return alert("Sin red");
                 const file = e.target.files[0]; if (!file) return;
@@ -586,6 +594,7 @@
                                     plaza: String(row["J"] || "").trim().toUpperCase(),
                                     lider: String(row["A"] || "").trim(),
                                     sup: String(row["B"] || "").trim(), 
+                                    estatus: String(row["G"] || "").trim().toUpperCase(),
                                     cad: cadena,
                                     altas: Math.round(Number(row["Q"]) || 0), 
                                     cuota: Math.round(Number(row["R"]) || 0),
@@ -652,7 +661,6 @@
                             const oldProfile = rosters.find(r => r.id === editRostId);
                             await getDbPath("roster").doc(editRostId).update(data);
                             
-                            // Unificación: Actualizar también en Ranking y Promotor del Mes si cambió el nombre
                             if (oldProfile && oldProfile.nombre !== data.nombre) {
                                 const rankSnap = await getDbPath("ranking").where("name", "==", oldProfile.nombre).get();
                                 rankSnap.forEach(doc => doc.ref.update({ name: data.nombre }));
@@ -718,14 +726,11 @@
                 if(userRole !== "ADMIN" || !db) return;
                 if(window.confirm(`¿Seguro de borrar a ${r.nombre}? Esto lo eliminará por completo del sistema, incluyendo Ranking y Promotor del Mes.`)) { 
                     try { 
-                        // 1. Borrar perfil de roster
                         await getDbPath("roster").doc(r.id).delete(); 
                         
-                        // 2. Borrar del ranking para que no aparezca "fantasma"
                         const snap1 = await getDbPath("ranking").where("name", "==", r.nombre).get();
                         snap1.forEach(d => d.ref.delete());
                         
-                        // 3. Borrar de promotor del mes
                         const snap2 = await getDbPath("promotor_mes").where("nombre", "==", r.nombre).get();
                         snap2.forEach(d => d.ref.delete());
                         
@@ -892,9 +897,10 @@
                 } else {
                     if (supFilter !== "TODOS") f = f.filter(d => d?.sup === supFilter);
                     if (cadFilter !== "TODAS") f = f.filter(d => d?.cad === cadFilter);
+                    if (estatusOpFilter !== "TODOS") f = f.filter(d => (d?.estatus || "SIN ESTATUS") === estatusOpFilter);
                 }
                 return f;
-            }, [dataTEMM, userRole, userId, supFilter, cadFilter, userCluster]);
+            }, [dataTEMM, userRole, userId, supFilter, cadFilter, estatusOpFilter, userCluster]);
 
             const summary = useMemo(() => {
                 let a=0, c=0, s=0;
@@ -986,7 +992,6 @@
                 return total.toFixed(2);
             };
 
-            // Nueva función para renderizar botones de examen con estado de bloqueo visual
             const renderExamBtn = (type, label, styleClass) => {
                 const selProf = rosters.find(r => r.nombre === colaboradorName.trim().toUpperCase());
                 let lockedText = "";
@@ -1013,60 +1018,12 @@
                 );
             };
 
-            const startQuiz = (type) => {
-                if (!colaboradorName.trim()) return alert("Selecciona/ingresa tu nombre.");
-                
-                const selectedProfile = rosters.find(r => r.nombre === colaboradorName.trim().toUpperCase());
-                if (userRole === "PROMOTOR") {
-                    if (!selectedProfile) return alert("Perfil no encontrado.");
-                    if (!selectedProfile.foto || !selectedProfile.foto.startsWith("data:image")) {
-                        return alert("⚠️ ACCESO DENEGADO: Debes subir tu foto de perfil obligatoriamente antes de hacer un examen. Ve a Colaboradores -> Mi Perfil y edita tu usuario.");
-                    }
-                    if (!selectedProfile.supervisor) {
-                        return alert("⚠️ ACCESO DENEGADO: Debes actualizar tu perfil y seleccionar a tu Supervisor oficial para poder continuar.");
-                    }
-
-                    const attempts = selectedProfile.examAttempts?.[type] || { count: 0, blockedUntil: 0 };
-                    if (attempts.blockedUntil > Date.now()) {
-                        const remaining = Math.ceil((attempts.blockedUntil - Date.now()) / (1000 * 60 * 60));
-                        return alert(`❌ EXAMEN BLOQUEADO: Reprobaste 2 veces. Podrás intentarlo de nuevo en ${remaining} horas.`);
-                    }
-
-                    const confirmStart = window.confirm("⚠️ ATENCIÓN: Tienes un máximo de 2 intentos para aprobar este módulo. Si repruebas 2 veces, el sistema te bloqueará el examen por 24 horas exactas. ¿Deseas iniciar tu intento ahora?");
-                    if (!confirmStart) return;
-                }
-
-                let qType = type;
-                if (type === 'COMISIONES') {
-                    let myCadena = "ELEKTRA"; 
-                    if (userRole === "PROMOTOR") {
-                        const myStore = dataTEMM.find(d => d.id === userId.trim().replace(/^0+/, ''));
-                        if (myStore && (myStore.cad === "COPPEL" || myStore.cad === "SUBURBIA")) {
-                            myCadena = "COPPEL";
-                        }
-                    }
-                    if (myCadena === "ELEKTRA") qType = 'COMISIONES_EKT';
-                    else if (myCadena === "COPPEL" || myCadena === "SUBURBIA") qType = 'COMISIONES_COP';
-                    else {
-                        const s = prompt("Digita 1 para ELEKTRA, 2 para COPPEL");
-                        if (s === "1") qType = 'COMISIONES_EKT'; else if (s === "2") qType = 'COMISIONES_COP'; else return;
-                    }
-                }
-                setCurType(qType);
-                const bank = EXAMS_DATA[qType] || EXAMS_DATA['BASICO'];
-                const shuf = [...bank].sort(() => 0.5 - Math.random()).slice(0,10).map(q => {
-                    const shOps = [...q.options].map((o, i) => ({ t: o, isC: i === q.ans })).sort(() => 0.5 - Math.random());
-                    return { ...q, options: shOps };
-                });
-                setQuestions(shuf); setCurQ(0); setAnswers([]); setTimer(180); setQuizState('PLAY');
-            };
-
             if (view === "LOGIN") return (
                 <div className="min-h-screen login-gradient flex items-center justify-center p-6 animate-pop">
                     <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
                         <div className="text-center mb-10">
                             <h1 className="text-movistar-blue text-4xl font-black italic tracking-tighter uppercase leading-none">HIDALGODASH</h1>
-                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V22</p>
+                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V23</p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-5">
                             <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue" value={userId} onChange={e => setUserId(e.target.value)} required />
@@ -1158,6 +1115,10 @@
                                                         <option value="ELEKTRA">ELEKTRA</option>
                                                         <option value="SUBURBIA">SUBURBIA</option>
                                                     </select>
+                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={estatusOpFilter} onChange={e => setEstatusOpFilter(e.target.value)}>
+                                                        <option value="TODOS">ESTATUS (TODOS)</option>
+                                                        {estatusUnicos.map(e => <option key={e} value={e}>{e}</option>)}
+                                                    </select>
                                                 </div>
                                                 <div className="flex gap-2 pt-1">
                                                     <label className="flex-1 bg-movistar-blue text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer active:scale-95 transition-transform">
@@ -1176,11 +1137,16 @@
                                             const storeTEMMPerc = d.cuota > 0 ? ((Number(d.altas) / Number(d.cuota)) * 100) : 0;
                                             const storeInv = Array.isArray(dataINV) ? dataINV.filter(i => i?.id === d?.id) : [];
                                             const totalStoreInv = storeInv.reduce((acc, cur) => acc + (Number(cur.q) || 0), 0);
+                                            const storeRosters = rosters.filter(r => r.idpdv === d.id);
                                             
                                             return (
                                                 <div key={d.id} className="bg-white p-5 rounded-[2rem] shadow-xl border-l-[10px] border-movistar-blue relative animate-pop">
                                                     <div className="flex justify-between mb-2 text-[10px] font-black text-movistar-blue uppercase">
-                                                        <span>{d.cad}</span><span className="text-gray-300">ID: {d.id}</span>
+                                                        <div className="flex gap-2 items-center">
+                                                            <span>{d.cad}</span>
+                                                            <span className={`px-2 py-0.5 rounded text-[7px] ${(d.estatus || '').includes('INACTIVO') || (d.estatus || '').includes('BAJA') ? 'bg-red-100 text-movistar-red' : 'bg-green-100 text-movistar-green'}`}>{d.estatus || 'ACTIVO'}</span>
+                                                        </div>
+                                                        <span className="text-gray-300">ID: {d.id}</span>
                                                     </div>
                                                     <h3 className="font-black text-xs mb-4 uppercase leading-tight text-movistar-dark">{d.tienda}</h3>
                                                     
@@ -1200,7 +1166,30 @@
                                                     </div>
                                                     
                                                     <div className="border-t pt-3 mt-2">
-                                                        <div className="flex justify-between items-center mb-2 cursor-pointer select-none active:opacity-60 transition-opacity" onClick={() => toggleInv(d.id)}>
+                                                        <div className="flex justify-between items-center mb-2 cursor-pointer select-none active:opacity-60 transition-opacity" onClick={() => toggleRosters(d.id)}>
+                                                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-wide flex items-center gap-1">
+                                                                Promotores Asignados <span className="text-[10px] text-movistar-blue">{expandedStoreRosters[d.id] ? '▲' : '▼'}</span>
+                                                            </span>
+                                                            <span className="text-[9px] font-black text-movistar-blue bg-blue-50 px-2 py-0.5 rounded">{storeRosters.length} PERFILES</span>
+                                                        </div>
+                                                        
+                                                        {expandedStoreRosters[d.id] && (
+                                                            <div className="flex flex-col gap-2 animate-pop pt-1 mb-3">
+                                                                {storeRosters.length > 0 ? storeRosters.map(r => (
+                                                                    <div key={r.id} className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                                                                         <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 border border-gray-300 flex-shrink-0">
+                                                                             {r.foto && r.foto.startsWith('data') ? <img src={r.foto} className="w-full h-full object-cover"/> : <span className="text-xl flex items-center justify-center h-full">👤</span>}
+                                                                         </div>
+                                                                         <div className="flex-1">
+                                                                             <p className="text-[9px] font-black text-movistar-dark uppercase leading-none">{r.nombre}</p>
+                                                                             <p className="text-[7px] font-bold text-movistar-blue uppercase mt-1">{r.rol} | {r.estatus}</p>
+                                                                         </div>
+                                                                    </div>
+                                                                )) : <span className="text-[8px] font-bold text-gray-400">SIN PROMOTORES ASIGNADOS</span>}
+                                                            </div>
+                                                        )}
+                                                        
+                                                        <div className="flex justify-between items-center mb-2 cursor-pointer select-none active:opacity-60 transition-opacity border-t pt-2" onClick={() => toggleInv(d.id)}>
                                                             <span className="text-[8px] font-black text-gray-400 uppercase tracking-wide flex items-center gap-1">
                                                                 Inventario Físico <span className="text-[10px] text-movistar-blue">{expandedInvStores[d.id] ? '▲' : '▼'}</span>
                                                             </span>
@@ -1435,695 +1424,6 @@
                                                 ))}
                                             </div>
                                         ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === 'EQUIPO' && (() => {
-                            const avgAge = filteredRosters.length ? filteredRosters.reduce((acc, cur) => acc + (calculateAge(cur.cumpleanos) || 0), 0) / filteredRosters.filter(x=>calculateAge(x.cumpleanos)).length : 0;
-                            const avgAnt = filteredRosters.length ? filteredRosters.reduce((acc, cur) => {
-                                if (!cur.ingreso) return acc;
-                                const days = Math.floor((Date.now() - new Date(cur.ingreso).getTime())/86400000);
-                                return acc + (days > 0 ? days : 0);
-                            }, 0) / filteredRosters.filter(x=>x.ingreso).length : 0;
-
-                            return (
-                                <div className="space-y-6 animate-pop">
-                                    <div className="flex bg-gray-200 p-1 rounded-2xl">
-                                        <button onClick={()=>setSubTabEquipo("PERFIL")} className={`subtab-btn ${subTabEquipo==="PERFIL"?'subtab-active':'subtab-inactive'}`}>MI PERFIL</button>
-                                        <button onClick={()=>setSubTabEquipo("PROMOTOR_MES")} className={`subtab-btn ${subTabEquipo==="PROMOTOR_MES"?'subtab-active':'subtab-inactive'}`}>PROMOTOR MES</button>
-                                        <button onClick={()=>setSubTabEquipo("RANKING")} className={`subtab-btn ${subTabEquipo==="RANKING"?'subtab-active':'subtab-inactive'}`}>TOP RANK</button>
-                                    </div>
-
-                                    {subTabEquipo === "PERFIL" && (
-                                        <div className="space-y-4">
-                                            <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                                <h2 className="font-black text-base italic uppercase">Mi Roster</h2>
-                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Crea, edita o inactiva tu perfil y el de tus compañeros para acceder a Exámenes y encuestas.</p>
-                                            </div>
-
-                                            {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                                <div className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-2">
-                                                    <div className="flex gap-2">
-                                                        <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={supFilterRoster} onChange={e => setSupFilterRoster(e.target.value)}>
-                                                            <option value="TODOS">SUPERVISORES (TODOS)</option>
-                                                            {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={rostFilterInfo} onChange={e => setRostFilterInfo(e.target.value)}>
-                                                            <option value="TODOS">ESTADO DE PERFIL</option>
-                                                            <option value="INCOMPLETOS">FALTA FOTO O SUP</option>
-                                                        </select>
-                                                        <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={rostFilterCourse} onChange={e => setRostFilterCourse(e.target.value)}>
-                                                            <option value="TODOS">CURSOS (TODOS)</option>
-                                                            <option value="BASICO">PORTA BÁSICA</option>
-                                                            <option value="EXPERTO">PORTA EXPERTA</option>
-                                                            <option value="VENTAS">VENTA CONSULTIVA</option>
-                                                            <option value="COMISIONES">ESQUEMA COMISIONES</option>
-                                                            <option value="NINGUNO">SIN CURSOS APROBADOS</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                                <div className="grid grid-cols-2 gap-2 mb-4 animate-pop">
-                                                    <div className="bg-white border p-3 rounded-2xl text-center shadow-sm">
-                                                        <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Promedio Edad</p>
-                                                        <p className="text-xl font-black text-movistar-dark">{isNaN(avgAge) ? 0 : Math.round(avgAge)} <span className="text-xs font-bold">años</span></p>
-                                                    </div>
-                                                    <div className="bg-white border p-3 rounded-2xl text-center shadow-sm">
-                                                        <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Antigüedad Promedio</p>
-                                                        <p className="text-xl font-black text-movistar-dark">{isNaN(avgAnt) ? 0 : Math.round(avgAnt)} <span className="text-xs font-bold">días</span></p>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {userRole === "PROMOTOR" && (
-                                                <form onSubmit={handleRosterSubmit} className="bg-white p-6 rounded-[2rem] shadow-lg border">
-                                                    <h3 className="font-black text-xs text-movistar-dark uppercase mb-4">{editRostId ? "✏️ Editar Usuario" : "➕ Alta de Usuario"}</h3>
-                                                    <input type="text" placeholder="Nombre Completo" value={rostName} onChange={e=>setRostName(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
-                                                    <input type="text" placeholder="Usuario FW" value={rostFw} onChange={e=>setRostFw(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs mb-2 outline-none uppercase"/>
-                                                    
-                                                    <div className="grid grid-cols-2 gap-2 mb-2">
-                                                        <select value={rostRole} onChange={e=>setRostRole(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-dark">
-                                                            <option value="PROMOTOR">ROL: PROMOTOR</option>
-                                                            <option value="SUPERVISOR">ROL: SUPERVISOR</option>
-                                                            <option value="ENTRENADOR">ROL: ENTRENADOR</option>
-                                                        </select>
-                                                        <select value={rostSup} onChange={e=>setRostSup(e.target.value)} required className="w-full bg-blue-50 border border-blue-100 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-blue">
-                                                            <option value="">TU SUPERVISOR</option>
-                                                            {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    
-                                                    <div className="grid grid-cols-2 gap-2 mb-4">
-                                                        <div>
-                                                            <label className="text-[9px] font-black text-gray-400 ml-2">Fecha de Ingreso</label>
-                                                            <input type="date" value={rostDate} onChange={e=>setRostDate(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-[9px] font-black text-gray-400 ml-2">Nacimiento (Edad)</label>
-                                                            <input type="date" value={rostCumple} onChange={e=>setRostCumple(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
-                                                        </div>
-                                                    </div>
-
-                                                    <label className="text-[9px] font-black text-gray-400 ml-2">{editRostId ? 'Cambiar Foto (Opcional)' : 'Subir Foto de Perfil'}</label>
-                                                    <input type="file" accept="image/*" ref={fileInputRef} className="w-full bg-gray-50 p-3 rounded-xl text-[10px] mb-4 outline-none" />
-                                                    
-                                                    <div className="flex gap-2">
-                                                        <button type="submit" className="flex-1 bg-movistar-blue text-white py-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
-                                                            {editRostId ? "GUARDAR CAMBIOS" : "CREAR PERFIL"}
-                                                        </button>
-                                                        {editRostId && (
-                                                            <button type="button" onClick={() => { setEditRostId(null); setRostName(""); setRostFw(""); setRostRole("PROMOTOR"); setRostSup(""); setRostCumple(""); setRostDate(""); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="bg-gray-200 text-gray-600 py-4 px-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">
-                                                                CANCELAR
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </form>
-                                            )}
-                                            <div className="space-y-4 mt-6">
-                                                {filteredRosters.map(r => {
-                                                    const isComplete = r.foto && r.foto.startsWith("data:image") && r.supervisor;
-                                                    const uRank = ranking.find(rk => rk.name === r.nombre);
-                                                    
-                                                    return (
-                                                        <div key={r.id} className={`bg-white p-5 rounded-[2rem] shadow-md border-t-4 flex flex-col gap-3 ${r.estatus === 'INACTIVO' ? 'border-gray-400 opacity-70' : 'border-movistar-green'}`}>
-                                                            <div className="flex gap-4 items-center">
-                                                                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100 flex-shrink-0 relative bg-gray-50 flex items-center justify-center">
-                                                                    {r.foto && r.foto.startsWith("data:image") ? <img src={r.foto} className="w-full h-full object-cover" /> : <span className="text-3xl text-gray-300">👤</span>}
-                                                                    {r.estatus === 'INACTIVO' && <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white text-[8px] font-black">BAJA</div>}
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <div className="flex justify-between items-start">
-                                                                        <h4 className="font-black text-xs uppercase text-movistar-dark">{r.nombre}</h4>
-                                                                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${r.estatus === 'INACTIVO' ? 'bg-gray-200 text-gray-500' : 'bg-green-100 text-movistar-green'}`}>
-                                                                            {r.estatus || 'ACTIVO'}
-                                                                        </span>
-                                                                    </div>
-                                                                    <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol || 'PROMOTOR'} | SUP: {r.supervisor || 'NO ASIGNADO'}</p>
-                                                                    <p className="text-[8px] font-bold text-gray-400 mt-1">Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)} años` : 'N/A'} | Antigüedad: {r.ingreso ? Math.floor((Date.now() - new Date(r.ingreso).getTime())/86400000) : 0} días</p>
-                                                                    <div className="flex flex-wrap gap-1 mt-2">
-                                                                        {uRank?.badges?.length > 0 ? (
-                                                                            uRank.badges.map(b => (
-                                                                                <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[6px] font-black px-1.5 py-0.5 rounded">
-                                                                                    {b.replace('COMISIONES_EKT', 'COMISIONES').replace('COMISIONES_COP', 'COMISIONES')}
-                                                                                </span>
-                                                                            ))
-                                                                        ) : (
-                                                                            <span className="bg-gray-100 text-gray-400 border border-gray-200 text-[6px] font-black px-1.5 py-0.5 rounded">SIN CURSOS</span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            {userRole === "PROMOTOR" && !isComplete && (
-                                                                <div className="bg-red-50 text-red-500 border border-red-200 p-2 rounded-lg text-center text-[9px] font-black uppercase">
-                                                                    ⚠️ PERFIL INCOMPLETO: Clic en Editar y agrega tu Supervisor y/o Foto para poder hacer exámenes.
-                                                                </div>
-                                                            )}
-                                                            {(userRole === "PROMOTOR" || userRole === "ADMIN") && (
-                                                                <div className="flex gap-2 pt-3 border-t">
-                                                                    {userRole === "PROMOTOR" && (
-                                                                        <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">✏️ Editar</button>
-                                                                    )}
-                                                                    {userRole === "ADMIN" && (
-                                                                        <>
-                                                                            <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">
-                                                                                {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Inactivar'}
-                                                                            </button>
-                                                                            <button onClick={() => handleDeleteRoster(r)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95 transition-transform">🗑️ Borrar</button>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {subTabEquipo === "PROMOTOR_MES" && (() => {
-                                        const hoy = new Date().getDate();
-                                        const puedeVotar = hoy <= 20;
-
-                                        return (
-                                            <div className="space-y-4">
-                                                <div className="bg-gradient-to-r from-blue-500 to-movistar-blue p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden flex justify-between">
-                                                    <div className="relative z-10 w-full pr-8">
-                                                        <h3 className="font-black text-lg italic uppercase mb-2">¡Reconoce al Mejor!</h3>
-                                                        <p className="text-[10px] font-bold leading-relaxed opacity-90">
-                                                            Cada mes reiniciamos esta dinámica para premiar el esfuerzo de nuestros compañeros. <br/>
-                                                            <strong>Recuerda: Tienes hasta el día 20 del mes para emitir tu único voto.</strong>
-                                                        </p>
-                                                    </div>
-                                                    <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center pr-6">
-                                                        {userRole === "ADMIN" && candidates.length < 4 && 
-                                                            <label className="bg-movistar-dark text-white p-3 rounded-xl font-black text-[9px] cursor-pointer active:scale-90 shadow-md z-20">
-                                                                + FOTO<input type="file" accept="image/*" className="hidden" onChange={addCandidate}/>
-                                                            </label>
-                                                        }
-                                                    </div>
-                                                    <div className="absolute -right-4 -bottom-4 opacity-20 text-7xl pointer-events-none">🏆</div>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    {candidates.map(c => (
-                                                        <div key={c.id} className="bg-white p-4 rounded-[2rem] shadow-lg border flex flex-col items-center relative">
-                                                            {userRole === "ADMIN" && <button onClick={() => deleteDoc("promotor_mes", c.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-8 h-8 flex items-center justify-center font-black shadow-sm z-10 active:scale-90">X</button>}
-                                                            <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-movistar-blue"><img src={c.foto} className="w-full h-full object-cover"/></div>
-                                                            <h4 className="font-black text-[11px] text-center uppercase mb-2 h-8">{c.nombre}</h4>
-                                                            <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-3"><span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span></div>
-                                                            {userRole === "PROMOTOR" && (
-                                                                puedeVotar ? (
-                                                                    <button onClick={()=>voteCandidate(c.id)} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">VOTAR ⭐</button>
-                                                                ) : (
-                                                                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-black text-[10px] cursor-not-allowed">CERRADO 🔒</button>
-                                                                )
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {subTabEquipo === "RANKING" && (
-                                        <div className="space-y-4">
-                                            <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                                <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
-                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Descubre quiénes lideran la tabla de aprendizaje y certificaciones a nivel nacional. Selecciona a un promotor para ver sus calificaciones.</p>
-                                            </div>
-                                            <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full text-left">
-                                                        <thead className="bg-gray-50 border-b">
-                                                            <tr className="text-[9px] font-black text-gray-400">
-                                                                <th className="p-4 text-center">#</th><th className="p-4">PROMOTOR Y CURSOS</th><th className="p-4 text-right">SCORE</th>{userRole === "ADMIN" && <th className="p-4 text-center"></th>}
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {Array.isArray(ranking) && ranking.map((u, i) => {
-                                                                const rMatch = rosters.find(ro => ro.nombre.toUpperCase() === u.name.toUpperCase());
-                                                                const photoUrl = rMatch && rMatch.foto && rMatch.foto.startsWith("data:image") ? rMatch.foto : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
-                                                                const isExpanded = expandedRank === u.id;
-                                                                
-                                                                return (
-                                                                    <React.Fragment key={u.id}>
-                                                                        <tr onClick={() => setExpandedRank(isExpanded ? null : u.id)} className={`border-b transition-colors cursor-pointer select-none ${isExpanded ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
-                                                                            <td className="p-3 text-center font-black text-movistar-dark">#{i+1}</td>
-                                                                            <td className="p-3">
-                                                                                <div className="flex items-center gap-3">
-                                                                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-white">
-                                                                                        <img src={photoUrl} alt={u.name} className="w-full h-full object-cover" />
-                                                                                    </div>
-                                                                                    <div>
-                                                                                        <div className="font-black text-[10px] uppercase text-movistar-dark">{u.name}</div>
-                                                                                        <div className="text-[8px] text-movistar-blue mt-0.5 font-bold uppercase leading-tight">
-                                                                                            {u.badges?.length || 0} CURSO(S) COMPLETADO(S) <span className="text-gray-400 ml-1">{isExpanded ? '▲' : '▼'}</span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </td>
-                                                                            <td className="p-3 text-right font-black text-movistar-blue text-lg">{u.score}</td>
-                                                                            {userRole === "ADMIN" && <td className="p-2 text-center"><button onClick={(e) => { e.stopPropagation(); deleteDoc("ranking", u.id); }} className="bg-red-50 text-red-500 rounded-full w-6 h-6 font-black text-[10px] flex items-center justify-center mx-auto active:scale-90">X</button></td>}
-                                                                        </tr>
-                                                                        {isExpanded && (
-                                                                            <tr className="bg-gray-50 border-b animate-pop">
-                                                                                <td colSpan={userRole === "ADMIN" ? "4" : "3"} className="px-6 py-4">
-                                                                                    <p className="text-[9px] font-black text-gray-400 mb-2 uppercase">Detalle de Calificaciones:</p>
-                                                                                    <div className="space-y-2">
-                                                                                        {u.badges?.map(b => (
-                                                                                            <div key={b} className="flex justify-between items-center bg-white border border-gray-200 p-3 rounded-xl shadow-sm">
-                                                                                                <span className="font-bold text-[10px] text-movistar-dark uppercase">
-                                                                                                    {b==='BASICO'?'Portabilidad Básica':b==='EXPERTO'?'Porta Avanzada':b==='VENTAS'?'Venta Consultiva':b==='SUELDO_FIELDWY'?'Sueldo y Fieldwy':b.includes('COMISIONES')?'Esquema de Comisiones':b}
-                                                                                                </span>
-                                                                                                <span className="bg-green-100 text-movistar-green px-2 py-1 rounded text-[10px] font-black">{u.courseScores?.[b] || 'Aprobado'} pts</span>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                        {(!u.badges || u.badges.length === 0) && <p className="text-xs text-gray-400 italic">No ha completado cursos.</p>}
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        )}
-                                                                    </React.Fragment>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })()}
-
-                        {activeTab === 'PORTAL' && (
-                            <div className="space-y-6 animate-pop">
-                                <div className="flex bg-gray-200 p-1 rounded-2xl flex-wrap">
-                                    <button onClick={()=>setSubTabPortal("COMUNICADOS")} className={`subtab-btn ${subTabPortal==="COMUNICADOS"?'subtab-active':'subtab-inactive'}`}>NOTICIAS</button>
-                                    <button onClick={()=>setSubTabPortal("ENCUESTA")} className={`subtab-btn ${subTabPortal==="ENCUESTA"?'subtab-active':'subtab-inactive'}`}>ENCUESTA</button>
-                                    <button onClick={()=>setSubTabPortal("CALCULADORA")} className={`subtab-btn ${subTabPortal==="CALCULADORA"?'subtab-active':'subtab-inactive'}`}>SIMULADOR</button>
-                                    <button onClick={()=>setSubTabPortal("VACACIONES")} className={`subtab-btn ${subTabPortal==="VACACIONES"?'subtab-active':'subtab-inactive'}`}>VACACIONES</button>
-                                    <button onClick={()=>setSubTabPortal("QUEJAS")} className={`subtab-btn ${subTabPortal==="QUEJAS"?'subtab-active':'subtab-inactive'}`}>BUZÓN</button>
-                                </div>
-
-                                {subTabPortal === "COMUNICADOS" && (
-                                    <div className="space-y-5">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
-                                            <div className="relative z-10 w-full pr-12">
-                                                <h2 className="font-black text-lg italic uppercase">TABLÓN OFICIAL</h2>
-                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Noticias, actualizaciones y comunicados importantes de la agencia.</p>
-                                            </div>
-                                            <div className="absolute right-2 top-0 bottom-0 flex items-center justify-center text-6xl opacity-30">
-                                                📰
-                                            </div>
-                                        </div>
-
-                                        {userRole === "ADMIN" && (
-                                            <form onSubmit={submitComunicado} className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-3">
-                                                <h3 className="font-black text-[10px] text-movistar-blue uppercase">📝 Nuevo Comunicado</h3>
-                                                <textarea required placeholder="¿Qué quieres informar al equipo?" rows="3" value={comTexto} onChange={e=>setComTexto(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
-                                                <div className="flex gap-2">
-                                                    <label className="flex-1 bg-blue-50 text-movistar-blue border border-blue-200 p-3 rounded-xl font-black text-[9px] text-center cursor-pointer flex items-center justify-center hover:bg-blue-100">
-                                                        {comImgBase64 ? "IMAGEN CARGADA ✓" : "📷 SUBIR IMAGEN"}
-                                                        <input type="file" accept="image/*" className="hidden" onChange={handleComImageUpload}/>
-                                                    </label>
-                                                </div>
-                                                <input type="url" placeholder="Link YouTube o Video (Opcional)" value={comVideoUrl} onChange={e=>setComVideoUrl(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none"/>
-                                                <button type="submit" className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">PUBLICAR ANUNCIO</button>
-                                            </form>
-                                        )}
-
-                                        <div className="space-y-5">
-                                            {comunicados.length === 0 && <div className="text-center p-6 bg-gray-50 rounded-2xl text-gray-400 font-bold text-xs">Aún no hay comunicados.</div>}
-                                            {comunicados.map(com => {
-                                                const hasLiked = com.likes && com.likes.includes(userId.trim().toUpperCase());
-                                                const likeCount = com.likes ? com.likes.length : 0;
-                                                return (
-                                                    <div key={com.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative">
-                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("comunicados", com.id)} className="absolute top-3 right-3 bg-red-100 text-red-500 rounded-full w-7 h-7 flex items-center justify-center font-black text-[10px] z-10 hover:bg-red-200 shadow-sm active:scale-90">X</button>}
-                                                        <div className="p-5 pb-3">
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <div className="w-8 h-8 rounded-full bg-movistar-blue text-white flex items-center justify-center font-black">C</div>
-                                                                <div>
-                                                                    <p className="text-[10px] font-black text-movistar-dark leading-none">CAPYM NACIONAL</p>
-                                                                    <p className="text-[8px] font-bold text-gray-400">{com.fecha?.toDate().toLocaleString('es-MX')}</p>
-                                                                </div>
-                                                            </div>
-                                                            <p className="text-xs font-bold text-gray-700 whitespace-pre-wrap">{com.texto}</p>
-                                                        </div>
-                                                        {com.imgBase64 && <img src={com.imgBase64} alt="Comunicado" className="w-full h-auto object-cover border-y" />}
-                                                        {com.videoUrl && getYouTubeEmbedUrl(com.videoUrl) && (
-                                                            <div className="relative w-full aspect-video border-y bg-black"><iframe src={getYouTubeEmbedUrl(com.videoUrl)} frameBorder="0" allowFullScreen className="absolute top-0 left-0 w-full h-full"></iframe></div>
-                                                        )}
-                                                        {com.videoUrl && !getYouTubeEmbedUrl(com.videoUrl) && (
-                                                            <a href={com.videoUrl} target="_blank" className="block w-full bg-blue-50 text-movistar-blue text-center p-3 text-[10px] font-black uppercase hover:bg-blue-100 border-y">🔗 VER ENLACE EXTERNO</a>
-                                                        )}
-                                                        <div className="border-t p-3 bg-gray-50 flex items-center justify-between">
-                                                            <button onClick={() => toggleLike(com.id)} 
-                                                                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
-                                                                <span className={`text-lg ${hasLiked ? '' : 'grayscale opacity-50'}`}>❤️</span>
-                                                                Me moviencanta ({likeCount})
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {subTabPortal === "ENCUESTA" && (
-                                    <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                            <div className="flex justify-between items-center">
-                                                <div>
-                                                    <h2 className="font-black text-lg italic uppercase">VOZ AL EQUIPO</h2>
-                                                    <p className="text-[9px] font-bold text-gray-400 mt-1">Queremos saber cómo te sientes y qué te motiva.</p>
-                                                </div>
-                                                {userRole === "ADMIN" && (
-                                                    <button onClick={toggleEncuestaAdmin} className={`px-3 py-2 rounded-xl font-black text-[8px] text-white shadow-md active:scale-90 transition-colors ${encuestaActiva ? 'bg-movistar-red' : 'bg-movistar-green'}`}>
-                                                        {encuestaActiva ? 'APAGAR' : 'ENCENDER'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {userRole === "ADMIN" ? (
-                                            <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
-                                                <h3 className="font-black text-xs text-movistar-dark uppercase mb-4 text-center">Dashboard de Satisfacción</h3>
-                                                <p className="text-center text-[10px] font-bold text-gray-400 mb-6">{encStats.total} Respuestas Totales</p>
-                                                
-                                                <div className="bg-blue-50 p-6 rounded-2xl text-center mb-6 border border-blue-100">
-                                                    <p className="text-[10px] font-black text-movistar-blue uppercase mb-1">Índice Global de Satisfacción</p>
-                                                    <p className="text-5xl font-black text-movistar-dark">{encStats.idx} <span className="text-lg text-gray-400">/ 5</span></p>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                                    <div>
-                                                        <h4 className="font-black text-[9px] text-movistar-green mb-3 uppercase text-center">🏆 Fortalezas (Top 3)</h4>
-                                                        <div className="space-y-2">
-                                                            {encStats.tops.map((t,i) => (
-                                                                <div key={i} className="bg-gray-50 p-2 rounded-lg text-center border">
-                                                                    <p className="text-[11px] font-black text-movistar-dark">{t.avg.toFixed(1)}</p>
-                                                                    <p className="text-[7px] font-bold text-gray-500 uppercase leading-tight mt-1">{t.text}</p>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-black text-[9px] text-movistar-red mb-3 uppercase text-center">📉 Áreas de Oportunidad</h4>
-                                                        <div className="space-y-2">
-                                                            {encStats.bots.map((t,i) => (
-                                                                <div key={i} className="bg-gray-50 p-2 rounded-lg text-center border">
-                                                                    <p className="text-[11px] font-black text-movistar-dark">{t.avg.toFixed(1)}</p>
-                                                                    <p className="text-[7px] font-bold text-gray-500 uppercase leading-tight mt-1">{t.text}</p>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <h4 className="font-black text-[10px] text-movistar-dark mb-4 text-center border-t pt-4 uppercase">¿Qué incentivo motivaría más al equipo?</h4>
-                                                <div className="bar-chart mb-8">
-                                                    <div className="bar-col" style={{height: `${Math.max((encStats.qMot.a/encStats.total)*100, 5)}%`}}>
-                                                        <span className="absolute -top-4 w-full text-center text-[8px] font-black">{encStats.qMot.a}</span>
-                                                        <span className="bar-label">Convención</span>
-                                                    </div>
-                                                    <div className="bar-col bg-movistar-green" style={{height: `${Math.max((encStats.qMot.b/encStats.total)*100, 5)}%`}}>
-                                                        <span className="absolute -top-4 w-full text-center text-[8px] font-black">{encStats.qMot.b}</span>
-                                                        <span className="bar-label">Descanso</span>
-                                                    </div>
-                                                    <div className="bar-col bg-movistar-dark" style={{height: `${Math.max((encStats.qMot.c/encStats.total)*100, 5)}%`}}>
-                                                        <span className="absolute -top-4 w-full text-center text-[8px] font-black">{encStats.qMot.c}</span>
-                                                        <span className="bar-label">Visita Agencia</span>
-                                                    </div>
-                                                    <div className="bar-col bg-orange-400" style={{height: `${Math.max((encStats.qMot.d/encStats.total)*100, 5)}%`}}>
-                                                        <span className="absolute -top-4 w-full text-center text-[8px] font-black">{encStats.qMot.d}</span>
-                                                        <span className="bar-label">Reconocimiento</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : encuestaActiva ? (
-                                            <form onSubmit={submitEncuesta} className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-6">
-                                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-6">
-                                                    <p className="text-[10px] font-bold text-movistar-dark leading-relaxed">
-                                                        Por favor evalúa los siguientes {ENCUESTA_PREGUNTAS.length} aspectos de tu experiencia en CAPYM. <br/>
-                                                        <strong>Escala: 1 (Muy malo / Nada de acuerdo) al 5 (Excelente / Totalmente de acuerdo).</strong>
-                                                    </p>
-                                                </div>
-
-                                                {ENCUESTA_PREGUNTAS.map((pregunta, index) => (
-                                                    <div key={index} className="border-b pb-4 border-gray-100">
-                                                        <label className="text-[10px] font-black text-movistar-dark uppercase block mb-3">{index + 1}. {pregunta}</label>
-                                                        <div className="flex gap-2">
-                                                            {[1, 2, 3, 4, 5].map(val => (
-                                                                <label key={val} className={`flex-1 text-center py-2 rounded-xl cursor-pointer border font-black transition-colors ${encRespuestas[index] === val ? 'bg-movistar-blue text-white border-movistar-blue shadow-md' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
-                                                                    <input type="radio" name={`q_${index}`} value={val} checked={encRespuestas[index] === val} onChange={(e) => updateEncRespuesta(index, e.target.value)} className="hidden"/>
-                                                                    {val}
-                                                                </label>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                ))}
-
-                                                <div className="pt-4">
-                                                    <label className="text-[10px] font-black text-movistar-dark uppercase block mb-4">{ENCUESTA_PREGUNTAS.length + 1}. ¿Qué te gustaría que se hiciera como motivación extra?</label>
-                                                    <div className="space-y-3">
-                                                        <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-colors border ${encMotivacion === "a" ? 'bg-blue-50 border-movistar-blue' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <input type="radio" name="motivacion" value="a" checked={encMotivacion==="a"} onChange={e=>setEncMotivacion(e.target.value)} className="w-5 h-5 accent-movistar-blue"/>
-                                                            <span className="text-[10px] font-black uppercase text-movistar-dark">a) Una convención donde vayan los mejores promotores</span>
-                                                        </label>
-                                                        <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-colors border ${encMotivacion === "b" ? 'bg-blue-50 border-movistar-blue' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <input type="radio" name="motivacion" value="b" checked={encMotivacion==="b"} onChange={e=>setEncMotivacion(e.target.value)} className="w-5 h-5 accent-movistar-blue"/>
-                                                            <span className="text-[10px] font-black uppercase text-movistar-dark">b) Un día de descanso extra</span>
-                                                        </label>
-                                                        <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-colors border ${encMotivacion === "c" ? 'bg-blue-50 border-movistar-blue' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <input type="radio" name="motivacion" value="c" checked={encMotivacion==="c"} onChange={e=>setEncMotivacion(e.target.value)} className="w-5 h-5 accent-movistar-blue"/>
-                                                            <span className="text-[10px] font-black uppercase text-movistar-dark">c) Un día conociendo la agencia/oficinas</span>
-                                                        </label>
-                                                        <label className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-colors border ${encMotivacion === "d" ? 'bg-blue-50 border-movistar-blue' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <input type="radio" name="motivacion" value="d" checked={encMotivacion==="d"} onChange={e=>setEncMotivacion(e.target.value)} className="w-5 h-5 accent-movistar-blue"/>
-                                                            <span className="text-[10px] font-black uppercase text-movistar-dark">d) Un reconocimiento público o medalla</span>
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                                <button type="submit" className="w-full bg-movistar-blue text-white p-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg mt-4 active:scale-95 transition-transform">ENVIAR RESPUESTAS</button>
-                                            </form>
-                                        ) : (
-                                            <div className="bg-white p-10 rounded-[2rem] shadow-sm border text-center mt-4">
-                                                <div className="text-5xl mb-4">🔒</div>
-                                                <h3 className="font-black text-movistar-dark uppercase mb-2">Encuesta Cerrada</h3>
-                                                <p className="text-[10px] font-bold text-gray-400">Por el momento, la encuesta de satisfacción no está disponible. ¡Gracias por participar anteriormente!</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {subTabPortal === "CALCULADORA" && (
-                                    <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                            <h2 className="font-black text-lg italic uppercase">Simulador de Comisiones</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Proyecta tus comisiones semanales ingresando tus metas y ventas logradas.</p>
-                                        </div>
-
-                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                            {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                                <select value={calcCadena} onChange={e=>setCalcCadena(e.target.value)} className="w-full bg-blue-50 p-3 rounded-xl font-black text-[10px] text-movistar-blue mb-4 outline-none border border-blue-100">
-                                                    <option value="ELEKTRA">CADENA: ELEKTRA</option>
-                                                    <option value="COPPEL_SUBURBIA">CADENA: COPPEL / SUBURBIA</option>
-                                                </select>
-                                            )}
-
-                                            <div className="bg-gray-50 p-4 rounded-2xl border mb-6">
-                                                <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">🎯 Metas Semanales</h3>
-                                                <div className="grid grid-cols-2 gap-3 mb-3">
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase">Cuota Total</label>
-                                                        <input type="number" placeholder="0" value={cuotaTotal} onChange={e=>setCuotaTotal(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-dark shadow-sm"/>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase">Cuota TEMM</label>
-                                                        <input type="number" placeholder="0" value={cuotaTemm} onChange={e=>setCuotaTemm(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-green shadow-sm"/>
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase">Cuota Porta</label>
-                                                        <input type="number" placeholder="0" value={cuotaPorta} onChange={e=>setCuotaPorta(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-movistar-blue shadow-sm"/>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase">Cuota No Porta</label>
-                                                        <input type="number" placeholder="0" value={cuotaNoPorta} onChange={e=>setCuotaNoPorta(e.target.value)} className="w-full bg-white border p-3 rounded-xl font-black text-xs mt-1 outline-none text-center text-gray-700 shadow-sm"/>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="mb-6">
-                                                <h3 className="font-black text-[10px] text-movistar-dark uppercase mb-3 text-center">📈 Ventas Logradas</h3>
-                                                
-                                                <div className="mb-3">
-                                                    <h4 className="font-black text-[8px] text-movistar-blue mb-1 uppercase">Altas Portabilidad</h4>
-                                                    <div className="grid grid-cols-3 gap-2">
-                                                        <input type="number" placeholder="$100" value={cP1} onChange={e=>setCP1(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
-                                                        <input type="number" placeholder="$150" value={cP2} onChange={e=>setCP2(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
-                                                        <input type="number" placeholder="$200" value={cP3} onChange={e=>setCP3(e.target.value)} className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-blue"/>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="mb-3">
-                                                    <h4 className="font-black text-[8px] text-gray-500 mb-1 uppercase">Altas No Porta</h4>
-                                                    <div className="grid grid-cols-3 gap-2">
-                                                        <input type="number" placeholder="$100" value={cNP1} onChange={e=>setCNP1(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
-                                                        <input type="number" placeholder="$150" value={cNP2} onChange={e=>setCNP2(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
-                                                        <input type="number" placeholder="$200" value={cNP3} onChange={e=>setCNP3(e.target.value)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl text-center text-xs font-black outline-none text-gray-700"/>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mb-3">
-                                                    <h4 className="font-black text-[8px] text-movistar-green mb-1 uppercase">Equipos TEMM</h4>
-                                                    <div className="grid grid-cols-3 gap-2">
-                                                        <input type="number" placeholder="$100" value={cT1} onChange={e=>setCT1(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
-                                                        <input type="number" placeholder="$150" value={cT2} onChange={e=>setCT2(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
-                                                        <input type="number" placeholder="$200" value={cT3} onChange={e=>setCT3(e.target.value)} className="bg-green-50 border border-green-200 p-3 rounded-xl text-center text-xs font-black outline-none text-movistar-green"/>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-gray-50 p-4 rounded-2xl border mb-6 space-y-4">
-                                                <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center mb-2">📊 Resumen y Alcance</h3>
-                                                
-                                                <div>
-                                                    <div className="flex justify-between items-end mb-1">
-                                                        <span className="text-[9px] font-black text-movistar-dark uppercase">TOTAL ALTAS</span>
-                                                        <span className="text-[10px] font-black text-movistar-dark">{sumTotal} / {cuotaTotal || 0} <span className="text-[8px] font-bold text-gray-400 ml-1">({alcanceTotal.toFixed(1)}%)</span></span>
-                                                    </div>
-                                                    <div className="progress-bar-container"><div className="progress-bar-fill bg-movistar-dark" style={{width: `${Math.min(alcanceTotal, 100)}%`}}></div></div>
-                                                </div>
-                                                
-                                                <div>
-                                                    <div className="flex justify-between items-end mb-1">
-                                                        <span className="text-[9px] font-black text-movistar-green uppercase">EQUIPOS TEMM</span>
-                                                        <span className="text-[10px] font-black text-movistar-green">{sumTemm} / {cuotaTemm || 0} <span className="text-[8px] font-bold text-gray-400 ml-1">({alcanceTemm.toFixed(1)}%)</span></span>
-                                                    </div>
-                                                    <div className="progress-bar-container"><div className="progress-bar-fill bg-movistar-green" style={{width: `${Math.min(alcanceTemm, 100)}%`}}></div></div>
-                                                </div>
-                                                
-                                                <div className="grid grid-cols-2 gap-4 pt-2">
-                                                    <div>
-                                                        <div className="flex justify-between items-end mb-1">
-                                                            <span className="text-[8px] font-black text-movistar-blue uppercase">PORTA</span>
-                                                            <span className="text-[9px] font-black text-movistar-blue">{sumPorta} <span className="text-gray-400">/ {cuotaPorta || 0}</span></span>
-                                                        </div>
-                                                        <div className="progress-bar-container h-1.5"><div className="progress-bar-fill bg-movistar-blue" style={{width: `${Math.min(alcancePorta, 100)}%`}}></div></div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex justify-between items-end mb-1">
-                                                            <span className="text-[8px] font-black text-gray-600 uppercase">NO PORTA</span>
-                                                            <span className="text-[9px] font-black text-gray-600">{sumNoPorta} <span className="text-gray-400">/ {cuotaNoPorta || 0}</span></span>
-                                                        </div>
-                                                        <div className="progress-bar-container h-1.5"><div className="progress-bar-fill bg-gray-500" style={{width: `${Math.min(alcanceNoPorta, 100)}%`}}></div></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-movistar-green text-white p-6 rounded-2xl text-center shadow-lg relative overflow-hidden">
-                                                <div className="relative z-10">
-                                                    <p className="text-[10px] font-bold uppercase mb-1">
-                                                        Pago Estimado <br/>
-                                                        <span className="text-[8px] opacity-80">(Alcance Total: {alcanceTotal < 80 ? '<80%' : alcanceTotal < 95 ? 'T1' : alcanceTotal < 100 ? 'T2' : 'T3'} | Alcance TEMM: {alcanceTemm < 80 ? '<80%' : alcanceTemm < 95 ? 'T1' : alcanceTemm < 100 ? 'T2' : 'T3'})</span>
-                                                    </p>
-                                                    <p className="text-5xl font-black">${calculatePayout()}</p>
-                                                </div>
-                                                <div className="absolute -right-4 -top-4 opacity-10 text-8xl">💰</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {subTabPortal === "VACACIONES" && (
-                                    <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                            <h2 className="font-black text-lg italic uppercase">Días Libres</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Gestiona y envía tus solicitudes de días de descanso al equipo administrativo.</p>
-                                        </div>
-
-                                        {userRole === "PROMOTOR" ? (
-                                            <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                                <form onSubmit={submitVac} className="space-y-4">
-                                                    <input type="text" placeholder="Nombre" required value={vacName} onChange={e=>setVacName(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
-                                                    <input type="text" placeholder="Usuario FW" required value={vacUser} onChange={e=>setVacUser(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none"/>
-                                                    <div><label className="text-[9px] font-black text-gray-400 ml-2">Inicio (Min 15 días)</label><input type="date" required min={minVacDate} value={vacDate} onChange={e=>setVacDate(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/></div>
-                                                    <div><label className="text-[9px] font-black text-gray-400 ml-2">Días a pedir</label><input type="number" min="1" max="14" required value={vacDays} onChange={e=>setVacDays(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none mt-1"/></div>
-                                                    <button type="submit" className="w-full bg-movistar-blue text-white p-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform">ENVIAR SOLICITUD</button>
-                                                </form>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {vacaciones.map(v => (
-                                                    <div key={v.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-blue relative">
-                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("vacaciones", v.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-sm active:scale-90">X</button>}
-                                                        <div className="flex justify-between w-11/12"><span className="text-[9px] font-black text-movistar-blue">{v.idpdv}</span><span className="text-[8px] font-bold text-gray-400">{v.fecha?.toDate().toLocaleDateString()}</span></div>
-                                                        <h4 className="font-black text-xs uppercase my-1">{v.nombre}</h4>
-                                                        <p className="text-[10px] font-bold text-gray-500">Pide <span className="text-movistar-dark font-black">{v.diasSolicitados} días</span> desde <span className="text-movistar-dark font-black">{v.fechaDeseada}</span></p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {subTabPortal === "QUEJAS" && (
-                                    <div className="space-y-4">
-                                        <div className="bg-gradient-to-r from-orange-400 to-red-500 p-6 rounded-[2rem] text-white shadow-lg relative overflow-hidden">
-                                            <div className="relative z-10">
-                                                <h3 className="font-black text-lg italic uppercase mb-2">¡Ayúdanos a mejorar!</h3>
-                                                <p className="text-[10px] font-bold leading-relaxed opacity-90">
-                                                    Si tienes alguna sugerencia, o algo que nos quieras comentar acerca de tus jefes o los comunicados, <strong>te leeremos con gusto.</strong> Toda la información se trata con profesionalismo.
-                                                </p>
-                                            </div>
-                                            <div className="absolute -right-4 -bottom-4 opacity-20 text-7xl">💬</div>
-                                        </div>
-
-                                        {userRole === "PROMOTOR" ? (
-                                            <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
-                                                <h2 className="text-lg font-black mb-4 uppercase text-movistar-dark">Buzón Operativo</h2>
-                                                <form onSubmit={submitSug} className="space-y-4">
-                                                    <input type="text" placeholder="Tu Nombre Completo" value={sugName} onChange={e=>setSugName(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
-                                                    <input type="text" placeholder="Tu Usuario Fieldwy" value={sugFw} onChange={e=>setSugFw(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
-                                                    
-                                                    <select value={sugSup} onChange={e=>setSugSup(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase text-movistar-dark">
-                                                        <option value="">SELECCIONA TU SUPERVISOR</option>
-                                                        {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
-                                                    </select>
-                                                    
-                                                    <textarea required placeholder="Escribe aquí tu sugerencia, queja o reporte operativo..." rows="5" value={sugText} onChange={e=>setSugText(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
-                                                    
-                                                    <button type="submit" className="w-full bg-movistar-dark text-white p-4 rounded-xl font-black text-[10px] active:scale-95 transition-transform uppercase">Enviar a buzón 📤</button>
-                                                </form>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {quejas.map(q => (
-                                                    <div key={q.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border-l-4 border-movistar-red relative">
-                                                        {userRole === "ADMIN" && <button onClick={() => deleteDoc("quejas", q.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-sm active:scale-90">X</button>}
-                                                        <div className="flex justify-between mb-2 w-11/12">
-                                                            <div>
-                                                                <span className="text-[10px] font-black text-movistar-dark uppercase block">{q.nombre} <span className="text-gray-400 font-bold text-[8px]">(FW: {q.fw})</span></span>
-                                                                <span className="text-[8px] font-black text-movistar-red">ID TIENDA: {q.idpdv} | SUP: {q.supervisor}</span>
-                                                            </div>
-                                                            <span className="text-[8px] font-bold text-gray-400">{q.fecha?.toDate().toLocaleDateString()}</span>
-                                                        </div>
-                                                        <p className="text-xs font-bold text-gray-600 italic bg-gray-50 p-3 rounded-lg mt-2">"{q.texto}"</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
