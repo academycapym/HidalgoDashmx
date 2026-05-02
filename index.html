@@ -145,19 +145,62 @@
             BASICO: [
                 { q: "De acuerdo al Manual de Portabilidad por App, ¿cuáles son los datos estrictamente necesarios que valida el Administrador de Base de Datos (ABD) en un trámite?", options: [{t:"Que el número corresponda al donador, NIP correcto/vigente, Receptor válido y que sea Persona Física.", isC:true}, {t:"Identificación oficial escaneada, huella digital y firma del cliente en contrato.", isC:false}, {t:"Que el cliente tenga equipo liberado, saldo a favor en su compañía anterior y un correo válido.", isC:false}, {t:"Que sea Persona Moral con RFC validado y cuente con tarjeta de crédito.", isC:false}] },
                 { q: "¿Cuál es el tiempo de vigencia establecido para el NIP de portabilidad y qué restricciones tiene la llamada al 051?", options: [{t:"Vigencia de 5 días naturales; se permiten máximo dos llamadas al 051 pero SMS ilimitados.", isC:true}, {t:"Vigencia de 24 horas; no hay límite de llamadas al 051.", isC:false}, {t:"Vigencia de 15 días hábiles; solo se permite una llamada al 051.", isC:false}, {t:"Vigencia ilimitada siempre y cuando el cliente no apague su equipo celular.", isC:false}] },
-                { q: "En el proceso operativo de portabilidad, ¿qué significa exactamente la sigla FVC y cuál es su función principal?", options: [{t:"Fecha de Ventana de Cambio: es el día en que se concreta la portabilidad y la línea se activa en Movistar.", isC:true}, {t:"Firma de Validación de Contrato: el paso final donde el cliente acepta los términos.", isC:false}, {t:"Folio de Venta Confirmado: el comprobante que se le entrega al cliente al salir de la tienda.", isC:false}, {t:"Fin de Vinculación Comercial: el día en que el cliente pierde su número antiguo permanentemente.", isC:false}] }
+                { q: "En el proceso operativo de portabilidad, ¿qué significa exactamente la sigla FVC y cuál es su función principal?", options: [{t:"Fecha de Ventana de Cambio: es el día en que se concreta la portabilidad y la línea se activa en Movistar.", isC:true}, {t:"Firma de Validación de Contrato: el paso final donde el cliente acepta los términos.", isC:false}, {t:"Folio de Venta Confirmado: el comprobante que se le entrega al cliente al salir de la tienda.", isC:false}, {t:"Fin de Vinculación Comercial: el día en que el cliente pierde su número antiguo permanentemente.", isC:false}] },
+                { q: "¿Qué es el NIP de portabilidad?", options: [{t:"Un código de 4 dígitos enviado por SMS o mensaje de voz para validar la solicitud.", isC:true}, {t:"Un número de cuenta bancaria.", isC:false}, {t:"El folio alfanumérico de tu INE.", isC:false}, {t:"La contraseña de acceso a la App Ónix.", isC:false}] },
+                { q: "¿Quién tiene el derecho y obligación de solicitar la portabilidad numérica?", options: [{t:"Exclusivamente el usuario titular de la línea donadora.", isC:true}, {t:"Cualquier familiar o amigo con el equipo en mano.", isC:false}, {t:"Solamente las empresas o corporativos.", isC:false}, {t:"El supervisor de tienda por cuenta propia.", isC:false}] },
+                { q: "¿Cuáles son documentos válidos como Identificación Oficial para un trámite en sistema?", options: [{t:"INE, Pasaporte, Cédula Profesional vigente.", isC:true}, {t:"Acta de nacimiento y comprobante de domicilio.", isC:false}, {t:"Recibo de luz o estado de cuenta.", isC:false}, {t:"Credencial escolar o de biblioteca.", isC:false}] },
+                { q: "¿Qué horario límite garantiza habitualmente que el trámite ingrese en la ventana del día siguiente?", options: [{t:"Antes de las 17:00 hrs de lunes a sábado.", isC:true}, {t:"A las 23:59 hrs de cualquier día.", isC:false}, {t:"Antes del mediodía exclusivamente.", isC:false}, {t:"No hay límite de hora para las ventanas.", isC:false}] },
+                { q: "¿Qué saldo se requiere en la compañía actual (donadora) para portarse?", options: [{t:"Ninguno, el trámite es un derecho totalmente gratuito.", isC:true}, {t:"Mínimo $50 pesos de saldo amigo.", isC:false}, {t:"El equivalente al costo de un plan.", isC:false}, {t:"Tener saldo negativo o deuda vigente.", isC:false}] },
+                { q: "¿Se pierden las recargas hechas en el chip temporal Movistar al ejecutarse la portabilidad?", options: [{t:"No, los beneficios y recargas se trasladan automáticamente al número portado.", isC:true}, {t:"Sí, la línea y el saldo se reinician desde cero.", isC:false}, {t:"Solo si es plan tarifario pospago.", isC:false}, {t:"Sí, porque el chip temporal se desactiva físicamente.", isC:false}] },
+                { q: "¿Qué ocurre si el NIP se ingresa incorrectamente más de 3 veces en el sistema?", options: [{t:"Se bloquea temporalmente y es necesario generar o solicitar uno nuevo.", isC:true}, {t:"Se portará pero con multa hacia el cliente.", isC:false}, {t:"Se aprueba automáticamente por contingencia.", isC:false}, {t:"La línea donadora se cancela por fraude.", isC:false}] }
             ],
             EXPERTO: [
-                { q: "Si durante el proceso la App de Ónix arroja el 'Error Code 3059', ¿cuál es la acción resolutiva a tomar?", options: [{t:"Es necesario concluir el primer trámite existente o bien esperar que se cancele de forma automática al 6to día.", isC:true}, {t:"Se debe solicitar al cliente un nuevo NIP.", isC:false}, {t:"Significa que la SIM ya fue utilizada.", isC:false}, {t:"Reiniciar la aplicación.", isC:false}] }
+                { q: "Si durante el proceso la App de Ónix arroja el 'Error Code 3059', ¿cuál es la acción resolutiva a tomar?", options: [{t:"Es necesario concluir el primer trámite existente o bien esperar que se cancele de forma automática al 6to día.", isC:true}, {t:"Se debe solicitar al cliente un nuevo NIP.", isC:false}, {t:"Significa que la SIM ya fue utilizada.", isC:false}, {t:"Reiniciar la aplicación.", isC:false}] },
+                { q: "¿Qué significa que el sistema arroje un rechazo por 'DN Inactivo'?", options: [{t:"La línea fue cancelada, suspendida o dada de baja en su compañía original.", isC:true}, {t:"El teléfono celular del cliente está apagado en este momento.", isC:false}, {t:"No cuenta con saldo para recibir la llamada del 051.", isC:false}, {t:"El NIP ingresado ha caducado por tiempo.", isC:false}] },
+                { q: "¿Cómo se debe resolver operativamente un error de 'NIP Caduco'?", options: [{t:"Solicitando una nueva llamada o SMS al 051 para generar y capturar un nuevo NIP.", isC:true}, {t:"Pidiendo autorización manual al gerente de la tienda.", isC:false}, {t:"Borrando el caché de la App y subiendo la misma foto.", isC:false}, {t:"Reingresando el mismo NIP al día siguiente.", isC:false}] },
+                { q: "¿Qué hacer ante una 'Falla de conexión' o pantalla de carga constante en la App al enviar un trámite?", options: [{t:"Verificar la conexión de red (Datos/Wi-Fi), limpiar caché y reintentar.", isC:true}, {t:"Cancelar definitivamente la venta y pedirle al cliente que se retire.", isC:false}, {t:"Darle una nueva SIM y desechar la anterior sin validación.", isC:false}, {t:"Llamar directamente al IFT para reportarlo.", isC:false}] },
+                { q: "Si el cliente no recibe el SMS del 051 por saturación de red, ¿cuál es la alternativa principal?", options: [{t:"Llamar al 051 desde la línea donadora y escuchar el NIP por grabación de voz.", isC:true}, {t:"Rendirse con el trámite y ofrecer un alta nueva.", isC:false}, {t:"Ingresar los últimos 4 dígitos de su número de teléfono.", isC:false}, {t:"Esperar 24 horas forzosamente para reintentar el SMS.", isC:false}] },
+                { q: "¿Qué significa que un trámite caiga en estado 'Buzón ABD'?", options: [{t:"Que la solicitud requiere validación manual por un ejecutivo central debido a alertas visuales o documentales.", isC:true}, {t:"Que fue rechazado permanentemente por fraude.", isC:false}, {t:"Que el trámite se aprobó de manera automática.", isC:false}, {t:"Que el cliente no proporcionó correctamente su código postal.", isC:false}] },
+                { q: "¿Qué causa un rechazo por 'Homologación de Datos' (generalmente en números Pospago)?", options: [{t:"Los datos (nombre/RFC) del titular no coinciden con los que tiene registrados su compañía actual.", isC:true}, {t:"El número a portar no cuenta con 10 dígitos.", isC:false}, {t:"El chip Movistar insertado tiene un defecto de fábrica.", isC:false}, {t:"El cliente tiene un adeudo en su tarjeta de crédito.", isC:false}] },
+                { q: "¿A qué se refiere el término técnico 'DN Receptor'?", options: [{t:"Al número temporal de la nueva SIM Movistar que adoptará el número portado.", isC:true}, {t:"Al teléfono celular (hardware) físico del cliente.", isC:false}, {t:"Al número antiguo que el cliente desea abandonar.", isC:false}, {t:"A la antena receptora de señal más cercana a la tienda.", isC:false}] },
+                { q: "¿Se puede portar un cliente que cuenta con un plan forzoso vigente en su compañía?", options: [{t:"Sí, es su derecho portarse, pero la deuda de cancelación original con su compañía persistirá.", isC:true}, {t:"No, está estrictamente bloqueado por las autoridades.", isC:false}, {t:"Sí, y su deuda se elimina por completo al portarse.", isC:false}, {t:"Solo si debe menos de $500 pesos de penalización.", isC:false}] },
+                { q: "De acuerdo a las políticas de seguridad y antifraude, ¿cuánto tiempo tarda en llegar el NIP generado?", options: [{t:"Usualmente es inmediato o demora menos de 5 minutos.", isC:true}, {t:"Tarda hasta 24 horas hábiles por revisión.", isC:false}, {t:"Demora 7 días como política general.", isC:false}, {t:"Requiere pago previo para liberarse.", isC:false}] }
             ],
             VENTAS: [
-                { q: "De acuerdo a la metodología de Venta Consultiva, ¿cómo se define la Fórmula Potenciadora?", options: [{t:"(Conocimiento del producto + Conocimiento del cómo + Desarrollo de persuasión) multiplicado por Empuje.", isC:true}, {t:"(Rapidez + Inventario) * Suerte.", isC:false}] }
+                { q: "De acuerdo a la metodología de Venta Consultiva, ¿cómo se define la Fórmula Potenciadora?", options: [{t:"(Conocimiento del producto + Conocimiento del cómo + Desarrollo de persuasión) multiplicado por Empuje.", isC:true}, {t:"(Rapidez + Inventario) * Suerte.", isC:false}, {t:"Ventas * Tiempo en piso.", isC:false}, {t:"Oferta agresiva + Descuentos máximos.", isC:false}] },
+                { q: "¿Cuál es el primer y más vital paso en un proceso de Venta Consultiva?", options: [{t:"Descubrir, indagar y entender a fondo las necesidades del cliente.", isC:true}, {t:"Lanzar la oferta del producto más caro de inmediato.", isC:false}, {t:"Entregarle un contrato físico para que lo firme.", isC:false}, {t:"Ofrecer un celular a meses sin intereses sin preguntar nada.", isC:false}] },
+                { q: "El 'manejo de objeciones' exitoso consiste en:", options: [{t:"Escuchar la inquietud, empatizar con el cliente y solucionar con un valor agregado.", isC:true}, {t:"Discutir y demostrarle al cliente que está equivocado.", isC:false}, {t:"Ignorar la queja y cambiar rápidamente de tema.", isC:false}, {t:"Bajar el precio del producto inmediatamente al primer 'no'.", isC:false}] },
+                { q: "¿Cuál es la diferencia fundamental entre una característica y un beneficio?", options: [{t:"La característica describe qué es el producto, el beneficio explica cómo le sirve o ayuda al cliente.", isC:true}, {t:"Son exactamente el mismo concepto comercial.", isC:false}, {t:"Característica es el costo y beneficio es el producto de regalo.", isC:false}, {t:"Las características no existen en telecomunicaciones.", isC:false}] },
+                { q: "¿Cuál es la mejor respuesta ante la objeción 'Mi compañía me da más gigas'?", options: [{t:"Indagar su consumo real ('¿Para qué usa sus datos?') y ofrecerle nuestros beneficios exclusivos (ej. redes ilimitadas).", isC:true}, {t:"Decirle directamente que la otra compañía miente en sus gigas.", isC:false}, {t:"Cortar la labor de venta y dejarlo ir.", isC:false}, {t:"Regalarle un chip temporal sin recarga para probar.", isC:false}] },
+                { q: "La táctica de 'Cross-Selling' o Venta Cruzada se refiere a:", options: [{t:"Ofrecer productos complementarios que mejoren su compra (ej. un plan + un equipo TEMM o un seguro).", isC:true}, {t:"Vender a escondidas del supervisor de la tienda.", isC:false}, {t:"Robar las ventas a compañeros de la competencia.", isC:false}, {t:"Hacer la portabilidad de un número de casa a un celular.", isC:false}] },
+                { q: "¿Cómo se define y logra el 'Cierre de Venta'?", options: [{t:"Generando acuerdos paso a paso y guiando al cliente con firmeza al sí final.", isC:true}, {t:"Rindiéndose rápido si el cliente muestra dudas.", isC:false}, {t:"Hablando negativamente de la competencia hasta que acepte.", isC:false}, {t:"Esperando callado a que el cliente pida el producto.", isC:false}] },
+                { q: "En la fase inicial de contacto, ¿qué significa 'Romper el hielo'?", options: [{t:"Establecer confianza, saludo cálido y empatía inicial con el cliente.", isC:true}, {t:"Romper el empaque o blíster de la SIM frente a él.", isC:false}, {t:"Hablar del clima o de política de manera obligatoria.", isC:false}, {t:"Bajar el tono de voz para sonar misterioso.", isC:false}] },
+                { q: "¿Qué tipo de preguntas son mejores para descubrir las verdaderas necesidades del cliente?", options: [{t:"Preguntas abiertas (Qué busca, Cómo lo usa, Cuánto invierte).", isC:true}, {t:"Preguntas cerradas (que se responden con un simple Sí o No).", isC:false}, {t:"Preguntas con trampa para forzar una respuesta.", isC:false}, {t:"No hay que preguntar, solo recitar el guión.", isC:false}] },
+                { q: "¿Por qué el seguimiento Post-Venta te permite multiplicar tus ganancias?", options: [{t:"Garantiza la satisfacción, genera recomendaciones (referidos) y clientes leales a largo plazo.", isC:true}, {t:"Es un mito urbano de los manuales de ventas, no sirve.", isC:false}, {t:"Solo es pérdida de tiempo valioso en piso.", isC:false}, {t:"Porque es una obligación exclusiva de Movistar.", isC:false}] }
             ],
             COMISIONES: [
-                { q: "¿Cuál es el porcentaje de logro mínimo (primer candado) requerido para comenzar a comisionar?", options: [{t:"Alcanzar al menos el 80% del logro total de la cuota.", isC:true}, {t:"Lograr exactamente el 100%.", isC:false}] }
+                { q: "¿Cuál es el porcentaje de logro mínimo (primer candado) requerido para comenzar a comisionar?", options: [{t:"Alcanzar al menos el 80% del logro total de la cuota.", isC:true}, {t:"Lograr exactamente el 100%.", isC:false}, {t:"Con realizar 1 venta en el mes basta.", isC:false}, {t:"Llegar únicamente al 50%.", isC:false}] },
+                { q: "La principal diferencia monetaria entre los Tiers de pago (ej. T1 vs T3) radica en:", options: [{t:"El porcentaje de alcance de la meta, el T3 paga mejor por cada alta por superar el 100%.", isC:true}, {t:"Depende del modelo de celular vendido.", isC:false}, {t:"Depende del día de la semana en que se venda.", isC:false}, {t:"La antigüedad laboral del promotor.", isC:false}] },
+                { q: "¿Las cuotas de Venta de Equipos (TEMM) y las de Portabilidad son la misma bolsa?", options: [{t:"No, son esquemas, metas y tabuladores financieros totalmente independientes.", isC:true}, {t:"Sí, son la misma bolsa y se suman juntas.", isC:false}, {t:"Solo se paga si cumples ambas al 100% simultáneamente.", isC:false}, {t:"La venta de equipos no genera ningún pago de comisión.", isC:false}] },
+                { q: "Si al cierre de mes alcanzas un 79% de tu cuota, ¿cuánto dinero comisionas de esa bolsa?", options: [{t:"$0 pesos, ya que no se superó el primer candado mínimo del 80%.", isC:true}, {t:"Me pagan la parte proporcional de ese 79%.", isC:false}, {t:"Gano exactamente lo mismo que al lograr el 80%.", isC:false}, {t:"Se cobra la mitad del Tier 1.", isC:false}] },
+                { q: "¿Qué característica define operativamente a un trámite clasificado como 'Alta Nueva' (No Porta)?", options: [{t:"Una línea adquirida con un número nuevo y lada asignada de origen.", isC:true}, {t:"Una recarga doble en una línea existente.", isC:false}, {t:"La retención o renovación de un cliente antiguo.", isC:false}, {t:"Cualquier trámite realizado sin el chip físico.", isC:false}] },
+                { q: "Supongamos que logras vender 100 Equipos TEMM (llegando al 120%) pero tienes 0 Portabilidades. ¿Cobras comisión?", options: [{t:"Sí, cobras la bolsa TEMM al máximo Tier (T3), pero nada de la bolsa de Portabilidad.", isC:true}, {t:"No cobras absolutamente nada en el mes.", isC:false}, {t:"Cobras ambas bolsas por efecto de compensación solidaria.", isC:false}, {t:"Se te aplica un descuento por no portar números.", isC:false}] },
+                { q: "En la cadena comercial Coppel, si un cliente adquiere el equipo a crédito, la venta para el promotor:", options: [{t:"Cuenta normal para la meta mensual siempre y cuando se concrete la activación del equipo.", isC:true}, {t:"No cuenta para el promotor, solo para la tienda.", isC:false}, {t:"Paga la mitad de comisión por ser a crédito.", isC:false}, {t:"Se paga hasta que el cliente termine de liquidar la deuda en meses.", isC:false}] },
+                { q: "El diseño del esquema de comisiones está hecho para fomentar superar el 100% de la meta. ¿Por qué?", options: [{t:"Porque el valor a pagar por CADA alta incrementa de forma acelerada al brincar al Tier 3.", isC:true}, {t:"Porque si no se llega al 100%, hay despido inmediato.", isC:false}, {t:"Para que la agencia regale saldo a los promotores.", isC:false}, {t:"Para justificar el pago exclusivo de bonos a supervisores.", isC:false}] },
+                { q: "¿Cuándo se realiza habitualmente el corte de conteo para el cálculo de comisiones?", options: [{t:"Al cierre del mes calendario operativo (último día del mes).", isC:true}, {t:"Todos los domingos a la medianoche.", isC:false}, {t:"Cada semestre obligatoriamente.", isC:false}, {t:"El día 15 de cada mes.", isC:false}] },
+                { q: "¿Por qué se exige llevar y reportar el 'Seguimiento Diario' para el cálculo de comisión?", options: [{t:"Permite conciliar la operativa, corregir errores y asegurar que TODAS tus ventas se registren y paguen correctamente.", isC:true}, {t:"Solo es un requerimiento administrativo para gastar papelería.", isC:false}, {t:"No afecta en nada el pago real de la comisión.", isC:false}, {t:"Sirve únicamente para darte el bono de asistencia semanal.", isC:false}] }
             ],
             SUELDO_FIELDWY: [
-                { q: "¿Cuántos minutos mínimos deben cumplirse entre el Check-In y el Check-Out?", options: [{t:"Un mínimo de 480 minutos (8 horas).", isC:true}, {t:"Un mínimo de 360 minutos.", isC:false}] }
+                { q: "¿Cuántos minutos mínimos deben cumplirse entre el primer Check-In y el último Check-Out del día?", options: [{t:"Un mínimo de 480 minutos acumulados (8 horas).", isC:true}, {t:"Un mínimo de 360 minutos.", isC:false}, {t:"Mínimo 600 minutos.", isC:false}, {t:"No hay tiempo mínimo requerido en piso.", isC:false}] },
+                { q: "¿Cuáles son los dos factores que valida la App Fieldwy para considerar un Check-In como exitoso?", options: [{t:"Estar dentro de la ubicación GPS autorizada (Geocerca) y subir una fotografía en formato válido.", isC:true}, {t:"Que portes zapatos lustrados en la foto.", isC:false}, {t:"Que tengas un teléfono de gama alta.", isC:false}, {t:"El saldo positivo de tus datos móviles.", isC:false}] },
+                { q: "¿Qué sucede en nómina si olvidas registrar tu asistencia (Check-In) en todo un día laboral?", options: [{t:"Se toma automáticamente como falta injustificada, generando descuento en tu sueldo base.", isC:true}, {t:"No pasa absolutamente nada.", isC:false}, {t:"Solo te dan una advertencia verbal.", isC:false}, {t:"Recibes un bono por ahorro de datos.", isC:false}] },
+                { q: "¿Qué debes reportar en la aplicación al salir a tomar tu horario de comida?", options: [{t:"Se debe registrar la pausa de alimentos (Break/Comida) o utilizar el submódulo asignado según política de agencia.", isC:true}, {t:"Solamente apagar el teléfono celular.", isC:false}, {t:"Dar de baja temporalmente la tienda.", isC:false}, {t:"Nada, el satélite adivina el descanso.", isC:false}] },
+                { q: "¿Cuál es el propósito principal del submódulo de 'Incidencias' o 'Justificaciones'?", options: [{t:"Para reportar formalmente causas de fuerza mayor: retrasos de transporte, falla de internet en tienda o permisos autorizados.", isC:true}, {t:"Para subir fotografías o memes en horas libres.", isC:false}, {t:"Para vender recargas electrónicas.", isC:false}, {t:"Es un módulo decorativo sin función.", isC:false}] },
+                { q: "¿Es posible engañar al sistema y hacer Check-In si vas camino a la tienda (ej. a 5 kilómetros de distancia)?", options: [{t:"No, el sistema cuenta con validación de geocerca y marcará error de radio o fuera de rango.", isC:true}, {t:"Sí, siempre y cuando se mande mensaje al grupo.", isC:false}, {t:"Sí, si vas viajando en transporte público.", isC:false}, {t:"Es posible si desactivas el internet.", isC:false}] },
+                { q: "Si la App se bloquea, congela o marca error al momento de registrar tu asistencia de entrada, ¿qué debes hacer de inmediato?", options: [{t:"Borrar la memoria caché, verificar que tengas señal/datos y, si persiste, notificar con evidencia urgente a tu supervisor.", isC:true}, {t:"Regresar a casa por ser un error de sistema.", isC:false}, {t:"Omitir el registro y no decir nada hasta fin de mes.", isC:false}, {t:"Llamar por queja corporativa al cliente.", isC:false}] },
+                { q: "El pago de tu sueldo base como promotor está estrictamente condicionado a:", options: [{t:"El registro fiel y cumplimiento correcto de tus jornadas y asistencias dentro de la App Fieldwy.", isC:true}, {t:"La cantidad de equipos totales activados al mes.", isC:false}, {t:"Tus ventas cruzadas exclusivas.", isC:false}, {t:"Únicamente los años de antigüedad que tengas en nómina.", isC:false}] },
+                { q: "Al tomarte la fotografía (Selfie) requerida al momento de dar Check-In, ¿qué aspectos operativos audita la mesa de control?", options: [{t:"La portación correcta del uniforme vigente y encontrarse físicamente dentro de la instalación/piso de venta de la tienda.", isC:true}, {t:"Si usas filtros fotográficos.", isC:false}, {t:"Que forzosamente aparezcan clientes reales comprando detrás de ti.", isC:false}, {t:"El nivel visible de batería en pantalla.", isC:false}] },
+                { q: "Si en tu contrato tienes estipulado un horario de cierre a las 20:00 hrs, ¿a partir de qué momento es válido ejecutar tu Check-Out en la App?", options: [{t:"Debe ser registrado puntualmente a partir de las 20:00 hrs, nunca de manera anticipada sin autorización oficial.", isC:true}, {t:"A partir de las 19:45 hrs aprovechando minutos de gracia.", isC:false}, {t:"Puede ser a las 19:00 hrs si ya se alcanzó la cuota de ventas del día.", isC:false}, {t:"Hasta que cierre y apaguen luces de toda la plaza comercial.", isC:false}] }
             ]
         };
 
@@ -276,6 +319,7 @@
             const [rostFilterCourse, setRostFilterCourse] = useState("TODOS");
 
             const [quizState, setQuizState] = useState('MENU');
+            const [quizPassed, setQuizPassed] = useState(false);
             const [colaboradorName, setColaboradorName] = useState("");
             const [questions, setQuestions] = useState([]);
             const [curQ, setCurQ] = useState(0);
@@ -309,6 +353,12 @@
             const [comTexto, setComTexto] = useState("");
             const [comImgBase64, setComImgBase64] = useState("");
             const [comVideoUrl, setComVideoUrl] = useState("");
+
+            // --- NUEVOS ESTADOS PARA EXÁMENES DINÁMICOS ---
+            const [dynamicExams, setDynamicExams] = useState([]);
+            const [newExamTitle, setNewExamTitle] = useState("");
+            const [newExamId, setNewExamId] = useState("");
+            const [newExamJson, setNewExamJson] = useState("");
 
             const [calcCadena, setCalcCadena] = useState("ELEKTRA");
             const [cuotaTotal, setCuotaTotal] = useState("");
@@ -468,6 +518,11 @@
                     }));
                     unsubs.push(getDbPath("config").doc("general").onSnapshot(d => { if (d.exists) setEncuestaActiva(d.data().encuestaActiva ?? true); }));
                     
+                    // EXAMENES DINAMICOS
+                    unsubs.push(getDbPath("examenes").onSnapshot(s => {
+                        setDynamicExams(s.docs.map(d => ({...d.data(), id: d.id})));
+                    }));
+
                     // CARPETA DIGITAL LISTENER
                     unsubs.push(getDbPath("carpeta_digital").where("mes", "==", getCurrentMonthStr()).onSnapshot(s => {
                         setCarpetas(s.docs.map(d => ({...d.data(), id: d.id})));
@@ -637,15 +692,22 @@
 
             const startQuiz = (type) => {
                 if(!colaboradorName) return alert("Selecciona un perfil primero.");
-                if(!EXAMS_DATA[type]) return alert("Examen no disponible.");
-                setCurType(type); setQuestions([...EXAMS_DATA[type]].sort(() => Math.random() - 0.5));
-                setCurQ(0); setAnswers([]); setTimer(180); setQuizState('PLAY');
+                let examData = EXAMS_DATA[type];
+                if (!examData) {
+                    const dynMatch = dynamicExams.find(e => e.id === type);
+                    if (dynMatch) examData = dynMatch.preguntas;
+                }
+                if(!examData) return alert("Examen no disponible.");
+                setCurType(type); setQuestions([...examData].sort(() => Math.random() - 0.5));
+                setCurQ(0); setAnswers([]); setTimer(examData.length * 18); // 18 segundos por pregunta aprox
+                setQuizState('PLAY');
             };
 
             const finishQuiz = async (finalAnswers, finalTimer) => {
                 const finalScore = finalAnswers.filter(Boolean).length;
                 const finalPassed = finalScore >= Math.ceil(questions.length * 0.8);
                 const finalPts = (finalScore * 5) + (finalPassed ? finalTimer : 0);
+                setQuizPassed(finalPassed);
                 setQuizState('RESULT');
                 
                 if (userRole === "PROMOTOR") {
@@ -686,6 +748,56 @@
             const handleAns = (isC) => {
                 const newAns = [...answers, isC]; setAnswers(newAns);
                 if (curQ + 1 < questions.length) setCurQ(v => v + 1); else finishQuiz(newAns, timer);
+            };
+
+            const downloadCertificate = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'landscape' });
+                
+                // Fondo y bordes
+                doc.setFillColor(11, 39, 57); 
+                doc.rect(0, 0, 297, 210, 'F');
+                doc.setFillColor(255, 255, 255);
+                doc.rect(5, 5, 287, 200, 'F');
+                doc.setDrawColor(1, 157, 244); 
+                doc.setLineWidth(2);
+                doc.rect(10, 10, 277, 190);
+                
+                // Textos
+                doc.setTextColor(11, 39, 57);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(28);
+                doc.text("CERTIFICADO DE APROBACIÓN", 148.5, 50, { align: "center" });
+                
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(16);
+                doc.text("CAPYM otorga el presente reconocimiento a:", 148.5, 80, { align: "center" });
+                
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(30);
+                doc.setTextColor(1, 157, 244);
+                doc.text((colaboradorName || "Usuario").toUpperCase(), 148.5, 105, { align: "center" });
+                
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(16);
+                doc.setTextColor(11, 39, 57);
+                doc.text(`Por haber concluido y aprobado satisfactoriamente la certificación oficial en:`, 148.5, 130, { align: "center" });
+                
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(22);
+                let courseTitle = curType === 'BASICO' ? 'PORTABILIDAD BÁSICA' : curType === 'EXPERTO' ? 'PORTABILIDAD EXPERTA' : curType === 'VENTAS' ? 'VENTA CONSULTIVA' : curType === 'SUELDO_FIELDWY' ? 'SUELDO Y FIELDWY' : curType === 'COMISIONES' ? 'ESQUEMA DE COMISIONES' : curType;
+                
+                const dEx = dynamicExams.find(e => e.id === curType);
+                if (dEx) courseTitle = dEx.titulo;
+
+                doc.text(courseTitle, 148.5, 150, { align: "center" });
+                
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(12);
+                const scorePercent = Math.round((answers.filter(Boolean).length / questions.length) * 100);
+                doc.text(`Calificación Final: ${scorePercent}%  |  Fecha de emisión: ${new Date().toLocaleDateString('es-MX')}`, 148.5, 175, { align: "center" });
+                
+                doc.save(`Certificado_${courseTitle.replace(/\s+/g, '_')}_${colaboradorName}.pdf`);
             };
 
             const minVacDate = useMemo(() => { const d = new Date(); d.setDate(d.getDate() + 15); return d.toISOString().split('T')[0]; }, []);
@@ -949,6 +1061,25 @@
                 if(!url) return null; let videoId = null;
                 const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
                 if (ytMatch && ytMatch[1]) videoId = ytMatch[1]; return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+            };
+
+            const handleCreateDynamicExam = async () => {
+                if(!newExamId || !newExamTitle || !newExamJson) return alert("Llena todos los campos");
+                try {
+                    const parsed = JSON.parse(newExamJson);
+                    if(!Array.isArray(parsed) || parsed.length === 0) throw new Error("El JSON debe ser un arreglo [ ] con preguntas.");
+                    if(parsed[0].q === undefined || parsed[0].options === undefined) throw new Error("Faltan las propiedades 'q' u 'options'.");
+                    
+                    await getDbPath("examenes").doc(newExamId).set({
+                        titulo: newExamTitle,
+                        preguntas: parsed,
+                        fecha: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    alert("Examen publicado exitosamente.");
+                    setNewExamId(""); setNewExamTitle(""); setNewExamJson("");
+                } catch(e) {
+                    alert("Error en el formato JSON: " + e.message + "\n\nPide a la IA que verifique la estructura.");
+                }
             };
 
             const filteredData = useMemo(() => {
@@ -1632,6 +1763,7 @@
                                 <div className="flex bg-gray-200 p-1 rounded-2xl">
                                     <button onClick={()=>setSubTabAcademia("EXAMENES")} className={`subtab-btn ${subTabAcademia==="EXAMENES"?'subtab-active':'subtab-inactive'}`}>EXÁMENES</button>
                                     <button onClick={()=>setSubTabAcademia("REPOSITORIO")} className={`subtab-btn ${subTabAcademia==="REPOSITORIO"?'subtab-active':'subtab-inactive'}`}>DOCUMENTOS</button>
+                                    {userRole === "ADMIN" && <button onClick={()=>setSubTabAcademia("CREADOR")} className={`subtab-btn ${subTabAcademia==="CREADOR"?'subtab-active':'subtab-inactive'}`}>⚙️ CREADOR</button>}
                                 </div>
 
                                 {subTabAcademia === "EXAMENES" ? (
@@ -1674,6 +1806,14 @@
                                                             {renderExamBtn('EXPERTO', '🔥 PORTABILIDAD EXPERTA (10 Q)', 'bg-movistar-dark text-white')}
                                                         </div>
                                                     </div>
+                                                    {dynamicExams.length > 0 && (
+                                                        <div className="pt-2">
+                                                            <h4 className="font-black text-[10px] text-movistar-blue mb-2 uppercase border-b border-gray-200 pb-1">🌟 NUEVAS CERTIFICACIONES</h4>
+                                                            <div className="grid gap-2">
+                                                                {dynamicExams.map(ex => renderExamBtn(ex.id, `⭐ ${ex.titulo} (${ex.preguntas?.length || 0} Q)`, 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white'))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -1723,10 +1863,64 @@
                                                 ))}
                                             </div>
                                         </div>
+                                    ) : subTabAcademia === "CREADOR" && userRole === "ADMIN" ? (
+                                        <div className="space-y-4">
+                                            <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                                <h2 className="font-black text-lg italic uppercase">Creador de Exámenes</h2>
+                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Sube nuevos cuestionarios creados con Inteligencia Artificial.</p>
+                                            </div>
+                                            <div className="bg-white p-6 rounded-[2rem] shadow-xl border space-y-4">
+                                                <h3 className="font-black text-[11px] text-movistar-dark uppercase">1. Datos del Examen</h3>
+                                                <input type="text" placeholder="ID Único corto (Ej. PLANES_ILIMITADOS)" value={newExamId} onChange={e=>setNewExamId(e.target.value.toUpperCase().replace(/\s+/g, '_'))} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                                <input type="text" placeholder="Título para el Certificado (Ej. Certificación Planes Ilimitados)" value={newExamTitle} onChange={e=>setNewExamTitle(e.target.value.toUpperCase())} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                                
+                                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mt-4">
+                                                    <h3 className="font-black text-[11px] text-movistar-blue uppercase mb-2">2. Cargar Preguntas (Formato IA)</h3>
+                                                    <p className="text-[9px] font-bold text-gray-500 mb-3 leading-relaxed">
+                                                        Copia este texto y pídeselo a la IA (ChatGPT/Gemini):<br/>
+                                                        <span className="bg-white p-2 rounded block mt-1 text-movistar-dark border select-all">
+                                                            "Crea un examen sobre [PON TU TEMA AQUI] con 10 preguntas. Devuelve SOLO un arreglo JSON puro con esta estructura exacta: [{"{"} "q": "Pregunta 1", "options": [{"{"}"t": "Respuesta correcta", "isC": true{"}"}, {"{"}"t": "Mala", "isC": false{"}"}] {"}"}]"
+                                                        </span>
+                                                    </p>
+                                                    <textarea rows="6" value={newExamJson} onChange={e=>setNewExamJson(e.target.value)} placeholder='Pega aquí el código JSON que te dio la IA...' className="w-full bg-white p-3 rounded-xl text-[9px] font-mono outline-none border border-blue-200 resize-none"></textarea>
+                                                </div>
+                                                
+                                                <button onClick={handleCreateDynamicExam} className="w-full bg-movistar-green text-white py-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform mt-2">PUBLICAR EXAMEN AL EQUIPO 🚀</button>
+                                                
+                                                <div className="mt-8 border-t pt-6">
+                                                    <h4 className="font-black text-[10px] text-gray-400 uppercase mb-4">Exámenes Publicados Dinámicamente</h4>
+                                                    {dynamicExams.map(ex => (
+                                                        <div key={ex.id} className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100 mb-2">
+                                                            <div>
+                                                                <p className="font-black text-[10px] text-movistar-dark uppercase">{ex.titulo}</p>
+                                                                <p className="text-[8px] font-bold text-movistar-blue mt-1">ID: {ex.id} | {ex.preguntas?.length || 0} Preguntas</p>
+                                                            </div>
+                                                            <button onClick={() => deleteDoc("examenes", ex.id)} className="bg-red-50 text-red-500 p-3 rounded-xl font-black text-[9px] active:scale-90 shadow-sm border border-red-100">X</button>
+                                                        </div>
+                                                    ))}
+                                                    {dynamicExams.length === 0 && <p className="text-center text-[9px] font-bold text-gray-400">Sin exámenes dinámicos creados aún.</p>}
+                                                </div>
+                                            </div>
+                                        </div>
                                     ) : (
                                         <div className="bg-white p-10 rounded-[2rem] shadow-2xl text-center">
-                                            <h2 className="text-2xl font-black mb-6 italic uppercase">¡Examen Terminado!</h2>
-                                            <button onClick={() => setQuizState('MENU')} className="bg-movistar-dark text-white w-full py-5 rounded-2xl font-black text-xs active:scale-95 transition-transform">Volver</button>
+                                            <h2 className="text-2xl font-black mb-2 italic uppercase">¡Examen Terminado!</h2>
+                                            {quizPassed ? (
+                                                <div className="mb-6 animate-pop">
+                                                    <div className="text-6xl mb-2">🏆</div>
+                                                    <p className="text-sm font-bold text-movistar-green">¡Felicidades! Has aprobado la certificación.</p>
+                                                    <button onClick={downloadCertificate} className="mt-4 w-full bg-movistar-green text-white py-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform flex items-center justify-center gap-2">
+                                                        <span className="text-lg">📥</span> Descargar Certificado PDF
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="mb-6 animate-pop">
+                                                    <div className="text-6xl mb-2">❌</div>
+                                                    <p className="text-sm font-bold text-movistar-red">No has alcanzado el 80% requerido.</p>
+                                                    <p className="text-[10px] text-gray-500 mt-1">Revisa el material de estudio y vuelve a intentarlo.</p>
+                                                </div>
+                                            )}
+                                            <button onClick={() => setQuizState('MENU')} className="bg-movistar-dark text-white w-full py-5 rounded-2xl font-black text-xs active:scale-95 transition-transform uppercase">Volver al Menú</button>
                                         </div>
                                     )
                                 ) : (
