@@ -698,7 +698,15 @@
                     if (dynMatch) examData = dynMatch.preguntas;
                 }
                 if(!examData) return alert("Examen no disponible.");
-                setCurType(type); setQuestions([...examData].sort(() => Math.random() - 0.5));
+                setCurType(type); 
+                
+                // Mezclamos aleatoriamente tanto las preguntas como las opciones de cada pregunta
+                const shuffledQ = [...examData].sort(() => Math.random() - 0.5).map(q => ({
+                    ...q,
+                    options: [...q.options].sort(() => Math.random() - 0.5)
+                }));
+                
+                setQuestions(shuffledQ);
                 setCurQ(0); setAnswers([]); setTimer(examData.length * 18); // 18 segundos por pregunta aprox
                 setQuizState('PLAY');
             };
@@ -763,25 +771,30 @@
                 doc.setLineWidth(2);
                 doc.rect(10, 10, 277, 190);
                 
-                // Textos
-                doc.setTextColor(11, 39, 57);
+                // Marca de agua
+                doc.setTextColor(240, 245, 250);
+                doc.setFontSize(110);
                 doc.setFont("helvetica", "bold");
+                doc.text("CAPYM", 148.5, 125, { align: "center" });
+                
+                // Textos principales
+                doc.setTextColor(11, 39, 57);
                 doc.setFontSize(28);
-                doc.text("CERTIFICADO DE APROBACIÓN", 148.5, 50, { align: "center" });
+                doc.text("CERTIFICADO DE ACREDITACIÓN", 148.5, 45, { align: "center" });
                 
                 doc.setFont("helvetica", "normal");
-                doc.setFontSize(16);
-                doc.text("CAPYM otorga el presente reconocimiento a:", 148.5, 80, { align: "center" });
+                doc.setFontSize(14);
+                doc.text("HidalgoDash y CAPYM otorgan el presente reconocimiento a:", 148.5, 65, { align: "center" });
                 
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(30);
                 doc.setTextColor(1, 157, 244);
-                doc.text((colaboradorName || "Usuario").toUpperCase(), 148.5, 105, { align: "center" });
+                doc.text((colaboradorName || "Usuario").toUpperCase(), 148.5, 85, { align: "center" });
                 
                 doc.setFont("helvetica", "normal");
-                doc.setFontSize(16);
+                doc.setFontSize(14);
                 doc.setTextColor(11, 39, 57);
-                doc.text(`Por haber concluido y aprobado satisfactoriamente la certificación oficial en:`, 148.5, 130, { align: "center" });
+                doc.text("Por haber concluido satisfactoriamente la certificación oficial en el módulo de:", 148.5, 105, { align: "center" });
                 
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(22);
@@ -790,12 +803,23 @@
                 const dEx = dynamicExams.find(e => e.id === curType);
                 if (dEx) courseTitle = dEx.titulo;
 
-                doc.text(courseTitle, 148.5, 150, { align: "center" });
+                doc.text(courseTitle.toUpperCase(), 148.5, 120, { align: "center" });
                 
                 doc.setFont("helvetica", "normal");
                 doc.setFontSize(12);
-                const scorePercent = Math.round((answers.filter(Boolean).length / questions.length) * 100);
-                doc.text(`Calificación Final: ${scorePercent}%  |  Fecha de emisión: ${new Date().toLocaleDateString('es-MX')}`, 148.5, 175, { align: "center" });
+                doc.text(`Emitido el día: ${new Date().toLocaleDateString('es-MX')}`, 148.5, 135, { align: "center" });
+                
+                // Firma
+                doc.setDrawColor(11, 39, 57);
+                doc.setLineWidth(0.5);
+                doc.line(100, 165, 197, 165); // Linea de firma centrada
+                
+                doc.setFont("helvetica", "bold");
+                doc.text("JUAN ROBERTO ESCALANTE CAMPOS", 148.5, 172, { align: "center" });
+                
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(10);
+                doc.text("GTE REGIONAL DE HIDALGO", 148.5, 178, { align: "center" });
                 
                 doc.save(`Certificado_${courseTitle.replace(/\s+/g, '_')}_${colaboradorName}.pdf`);
             };
