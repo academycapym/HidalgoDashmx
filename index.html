@@ -194,8 +194,9 @@
         const getCurrentMonthStr = () => new Date().toISOString().slice(0, 7);
         const getEmptyCarpeta = (idpdv, mes) => ({
             idpdv, mes,
-            boleta: [1,2,3,4].reduce((acc, sem) => {
+            boleta: [1,2,3,4,5].reduce((acc, sem) => {
                 acc[sem] = {
+                    periodo: '',
                     TEMM: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
                     PORTA: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
                     PP_VOZ: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
@@ -513,13 +514,14 @@
                 carpetas.forEach(c => {
                     const tienda = getStoreName(c.idpdv);
                     
-                    // Export Boleta
-                    [1, 2, 3, 4].forEach(sem => {
+                    // Export Boleta (5 semanas ahora)
+                    [1, 2, 3, 4, 5].forEach(sem => {
+                        const periodo = c.boleta?.[sem]?.periodo || '';
                         ['TEMM', 'PORTA', 'PP_VOZ', 'TOTAL'].forEach(prod => {
                             const row = c.boleta?.[sem]?.[prod];
                             if (row) {
                                 dataBoleta.push({
-                                    "IDPDV": c.idpdv, "Tienda": tienda, "Semana": sem, "Producto": prod,
+                                    "IDPDV": c.idpdv, "Tienda": tienda, "Semana": sem, "Periodo": periodo, "Producto": prod,
                                     "Altas": row.a, "Cuota": row.c, "Comisiona": row.ok ? 'SI' : 'NO',
                                     "L": row.d0?.L || '', "M": row.d0?.M || '', "X": row.d0?.X || '', "J": row.d0?.J || '', "V": row.d0?.V || '', "S": row.d0?.S || '', "D": row.d0?.D || '',
                                     "Comentario": row.com
@@ -571,14 +573,31 @@
                 XLSX.writeFile(wb, `Reporte_Encuestas_${getCurrentMonthStr()}.xlsx`);
             };
 
+            const updatePeriodo = (sem, value) => {
+                const n = {...localCarpeta};
+                if(!n.boleta[sem]) n.boleta[sem] = {
+                    periodo: '',
+                    TEMM: {a:'', c:'', d0:{}, com:'', ok:false},
+                    PORTA: {a:'', c:'', d0:{}, com:'', ok:false},
+                    PP_VOZ: {a:'', c:'', d0:{}, com:'', ok:false},
+                    TOTAL: {a:'', c:'', d0:{}, com:'', ok:false}
+                };
+                n.boleta[sem].periodo = value;
+                setLocalCarpeta(n);
+            };
+
             const updateBoleta = (sem, prod, field, value) => {
                 const n = {...localCarpeta};
+                if(!n.boleta[sem]) n.boleta[sem] = { periodo:'', TEMM:{}, PORTA:{}, PP_VOZ:{}, TOTAL:{} };
+                if(!n.boleta[sem][prod]) n.boleta[sem][prod] = {a:'', c:'', d0:{}, com:'', ok:false};
                 n.boleta[sem][prod][field] = value;
                 setLocalCarpeta(n);
             };
 
             const updateBoletaD0 = (sem, prod, dayKey, value) => {
                 const n = {...localCarpeta};
+                if(!n.boleta[sem]) n.boleta[sem] = { periodo:'', TEMM:{}, PORTA:{}, PP_VOZ:{}, TOTAL:{} };
+                if(!n.boleta[sem][prod]) n.boleta[sem][prod] = {a:'', c:'', d0:{}, com:'', ok:false};
                 if (typeof n.boleta[sem][prod].d0 !== 'object' || n.boleta[sem][prod].d0 === null) {
                     n.boleta[sem][prod].d0 = { L: '', M: '', X: '', J: '', V: '', S: '', D: '' };
                 }
@@ -1166,9 +1185,22 @@
 
                                         {subTabCarpeta === "BOLETA" && (
                                             <div className="space-y-4">
-                                                {[1,2,3,4].map(sem => (
+                                                {[1,2,3,4,5].map(sem => (
                                                     <div key={sem} className="border rounded-xl overflow-hidden">
-                                                        <div className="bg-gray-100 p-2 border-b"><p className="text-[9px] font-black text-movistar-dark uppercase">SEMANA {sem}</p></div>
+                                                        <div className="bg-gray-100 p-2 border-b flex justify-between items-center">
+                                                            <p className="text-[9px] font-black text-movistar-dark uppercase">SEMANA {sem}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[8px] font-bold text-gray-500 uppercase">PERIODO:</span>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Ej. Del 01 al 07"
+                                                                    value={localCarpeta.boleta[sem]?.periodo || ''}
+                                                                    onChange={e => updatePeriodo(sem, e.target.value)}
+                                                                    disabled={userRole === "PROMOTOR"}
+                                                                    className="bg-white border p-1 text-[8px] rounded outline-none font-bold text-movistar-dark w-28 text-center"
+                                                                />
+                                                            </div>
+                                                        </div>
                                                         <div className="overflow-x-auto">
                                                             <table className="w-full tabla-carpeta min-w-[600px]">
                                                                 <thead>
