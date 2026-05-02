@@ -299,6 +299,8 @@
             const [searchStore, setSearchStore] = useState("");
             const [opProductFilter, setOpProductFilter] = useState("TEMM");
             const [searchRoster, setSearchRoster] = useState("");
+            const [searchStoreCarpeta, setSearchStoreCarpeta] = useState("");
+            const [supFilterCarpeta, setSupFilterCarpeta] = useState("TODOS");
             const [rosterTab, setRosterTab] = useState("ACTIVOS");
             const [selectedProfileModal, setSelectedProfileModal] = useState(null);
             const [showMissingCourses, setShowMissingCourses] = useState(false);
@@ -380,6 +382,20 @@
             const estatusUnicos = useMemo(() => {
                 return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.estatus || "SIN ESTATUS"))].filter(Boolean).sort();
             }, [dataTEMM]);
+
+            const carpetaStoresFiltered = useMemo(() => {
+                if (!Array.isArray(dataTEMM)) return [];
+                let f = dataTEMM;
+                if (userRole === "SUPERVISOR") {
+                    f = f.filter(d => (d.sup || "").toUpperCase().includes(userId));
+                } else if (userRole === "ADMIN") {
+                    if (supFilterCarpeta !== "TODOS") f = f.filter(d => (d.sup || "") === supFilterCarpeta);
+                }
+                if (searchStoreCarpeta) {
+                    f = f.filter(d => d.id.includes(searchStoreCarpeta) || (d.tienda || "").toUpperCase().includes(searchStoreCarpeta.toUpperCase()));
+                }
+                return f;
+            }, [dataTEMM, userRole, userId, supFilterCarpeta, searchStoreCarpeta]);
 
             const getStoreName = (id) => {
                 if (!id || id === '0') return "SIN ASIGNAR";
@@ -560,13 +576,16 @@
             };
 
             const downloadCarpetasExcel = () => {
-                if (!carpetas || carpetas.length === 0) return alert("No hay datos de carpetas para exportar este mes.");
+                const allowedStoreIds = carpetaStoresFiltered.map(d => String(d.id).replace(/^0+/, ''));
+                const carpetasToExport = carpetas.filter(c => allowedStoreIds.includes(String(c.idpdv).replace(/^0+/, '')));
+
+                if (!carpetasToExport || carpetasToExport.length === 0) return alert("No hay datos de carpetas para exportar con los filtros actuales.");
 
                 const dataBoleta = [];
                 const dataEstac = [];
                 const dataShare = [];
 
-                carpetas.forEach(c => {
+                carpetasToExport.forEach(c => {
                     const tienda = getStoreName(c.idpdv);
                     
                     // Export Boleta (5 semanas ahora)
@@ -1314,14 +1333,24 @@
                                 </div>
 
                                 {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                    <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border flex flex-col gap-2">
-                                        <select className="w-full bg-gray-50 p-4 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase" value={viewStoreId} onChange={e => setViewStoreId(e.target.value)}>
+                                    <div className="bg-white p-5 rounded-[1.5rem] shadow-sm border flex flex-col gap-3">
+                                        <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center border-b pb-2">Herramientas de Auditoría</h3>
+                                        <div className="flex gap-2">
+                                            <input type="text" placeholder="🔍 BUSCAR TIENDA O ID..." value={searchStoreCarpeta} onChange={e => setSearchStoreCarpeta(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border focus:border-movistar-blue uppercase"/>
+                                            {userRole === "ADMIN" && (
+                                                <select className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border focus:border-movistar-blue uppercase" value={supFilterCarpeta} onChange={e => setSupFilterCarpeta(e.target.value)}>
+                                                    <option value="TODOS">SUPERVISOR (TODOS)</option>
+                                                    {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
+                                            )}
+                                        </div>
+                                        <select className="w-full bg-blue-50 text-movistar-blue p-4 rounded-xl font-black text-[10px] outline-none border border-blue-200 uppercase" value={viewStoreId} onChange={e => setViewStoreId(e.target.value)}>
                                             <option value="">-- SELECCIONA TIENDA PARA AUDITAR --</option>
-                                            {dataTEMM.filter(d => userRole === "ADMIN" ? true : ((d.sup || "").toUpperCase().includes(userId))).map(d => (
+                                            {carpetaStoresFiltered.map(d => (
                                                 <option key={d.id} value={d.id}>{d.id} - {d.tienda}</option>
                                             ))}
                                         </select>
-                                        <button onClick={downloadCarpetasExcel} className="w-full bg-movistar-green text-white p-4 rounded-xl font-black text-[10px] active:scale-95 shadow-sm uppercase">📥 DESCARGAR REPORTE MENSUAL EXCEL</button>
+                                        <button onClick={downloadCarpetasExcel} className="w-full bg-movistar-green text-white p-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform">📥 DESCARGAR EXCEL FILTRADO</button>
                                     </div>
                                 )}
 
