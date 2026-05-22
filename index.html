@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V30.1</title>
+    <title>HidalgoDash CAPYM V30.2</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -83,7 +83,7 @@
     <div id="root">
         <div id="emergency-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V30.1...</p>
+            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V30.2...</p>
         </div>
     </div>
 
@@ -269,7 +269,7 @@
             const [userCluster, setUserCluster] = useState("");
             const [pass, setPass] = useState("");
             
-            const [activeTab, setActiveTab] = useState("CARPETA"); // V30.1 DEFAULT TAB
+            const [activeTab, setActiveTab] = useState("CARPETA"); // V30.2 DEFAULT TAB
             const [subTabCarpeta, setSubTabCarpeta] = useState("BOLETA");
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
             const [subTabPortal, setSubTabPortal] = useState("COMUNICADOS");
@@ -896,21 +896,21 @@
                             await getDbPath("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
                             alert(`Sincronizado Múltiples Productos (${list.length} Tiendas | Fecha: ${diaAct})`);
                         } else if (type === "inv") {
-                            const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tiendas") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario"));
-                            if (!wsTiendas) return alert("Pestaña no encontrada.");
+                            const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tiendas") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario") || n.toLowerCase().includes("general"));
+                            if (!wsTiendas) return alert("Pestaña de Inventario no encontrada.");
                             const jDataInv = XLSX.utils.sheet_to_json(wb.Sheets[wsTiendas], { header: "A", defval: "" });
                             list = jDataInv.filter(row => {
-                                const iVal = String(row["D"] || "").toUpperCase().trim();
+                                const iVal = String(row["G"] || "").toUpperCase().trim();
                                 return iVal.length >= 3 && !iVal.includes("ID") && !iVal.includes("PDV");
                             }).map(row => ({ 
-                                id: String(row["D"] || "").trim().replace(/^0+/, ''), 
-                                mod: String(row["N"] || "").trim(), 
-                                mar: String(row["O"] || "").trim(), 
-                                status: String(row["P"] || "").trim().toUpperCase(),
-                                q: parseInt(Number(row["Z"])) || 0 
+                                id: String(row["G"] || "").trim().replace(/^0+/, ''), 
+                                mod: String(row["R"] || "").trim(), 
+                                mar: String(row["S"] || "").trim(), 
+                                status: String(row["U"] || "").trim().toUpperCase(),
+                                q: parseInt(Number(row["AE"])) || 0 
                             }));
                             await getDbPath("operacion_v2").doc("inv").set({ list: list });
-                            alert("Sincronizado Inventario exitosamente!");
+                            alert("¡Inventario Sincronizado exitosamente!");
                         }
                     } catch (error) { alert("Error procesando Excel."); console.error(error); }
                 }; reader.readAsBinaryString(file);
@@ -1227,7 +1227,7 @@
                     <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm">
                         <div className="text-center mb-10">
                             <h1 className="text-movistar-blue text-4xl font-black italic tracking-tighter uppercase leading-none">HIDALGODASH</h1>
-                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V30.1</p>
+                            <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Capym V30.2</p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-5">
                             <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-gray-50 border-none rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue uppercase" value={userId} onChange={e => setUserId(e.target.value)} required />
@@ -1547,7 +1547,7 @@
                                 {actualizadoAl !== "Desconocido" && (
                                     <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
                                         <div className="relative z-10">
-                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V30.1!</p>
+                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V30.2!</p>
                                             <p className="text-[10px] font-black opacity-100 mt-1 uppercase text-yellow-300">Actualizado al: {actualizadoAl}</p>
                                         </div>
                                         <div className="absolute right-2 opacity-30 text-5xl">📊</div>
@@ -1624,7 +1624,7 @@
                                                         CARGAR DIARIO<input type="file" className="hidden" accept=".xlsx" onChange={(e) => uploadFile("temm", e)}/>
                                                     </label>
                                                     <label className="flex-1 bg-movistar-dark text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer active:scale-95 transition-transform">
-                                                        CARGAR INV.<input type="file" className="hidden" accept=".xlsx" onChange={(e) => uploadFile("inv", e)}/>
+                                                        CARGAR INV.<input type="file" className="hidden" accept=".xlsx, .csv" onChange={(e) => uploadFile("inv", e)}/>
                                                     </label>
                                                 </div>
                                             </div>
@@ -2177,7 +2177,19 @@
                                                                         <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-white"><img src={photoUrl} className="w-full h-full object-cover" /></div>
                                                                         <div>
                                                                             <div className="font-black text-[10px] uppercase text-movistar-dark">{u.name}</div>
-                                                                            <div className="text-[8px] text-movistar-blue mt-0.5 font-bold uppercase">{u.badges?.length || 0} CURSO(S)</div>
+                                                                            <div className="text-[8px] text-movistar-blue mt-0.5 font-bold uppercase mb-1">{u.badges?.length || 0} CURSO(S)</div>
+                                                                            
+                                                                            {/* MODIFICACIÓN: Aquí se muestran los badges visualmente */}
+                                                                            {u.badges && u.badges.length > 0 && (
+                                                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                                                    {u.badges.map(b => (
+                                                                                        <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                                                                                            {b === 'BASICO' ? 'PORTA BÁSICA' : b === 'EXPERTO' ? 'PORTA EXPERTA' : b === 'VENTAS' ? 'VENTAS' : b === 'SUELDO_FIELDWY' ? 'S. FIELDWY' : b.includes('COMISIONES') ? 'COMISIONES' : b}
+                                                                                        </span>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                            
                                                                         </div>
                                                                     </div>
                                                                 </td>
