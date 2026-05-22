@@ -11,12 +11,12 @@
             var loader = document.getElementById('emergency-loader');
             if (loader) {
                 loader.innerHTML = `
-                    <div style="padding:20px;text-align:center;color:#E63780;">
-                        <h2 style="font-size:20px;font-weight:900;">⚠️ ERROR</h2>
-                        <div style="background:#fce4ec;padding:10px;font-family:monospace;font-size:10px;text-align:left;">
+                    <div style="padding:20px;text-align:center;color:#E63780;font-family:sans-serif;">
+                        <h2 style="font-size:20px;font-weight:800;">⚠️ ERROR</h2>
+                        <div style="background:#fce4ec;padding:10px;font-family:monospace;font-size:11px;text-align:left;border-radius:8px;">
                             ${msg}<br>Linea: ${lineNo}
                         </div>
-                        <button onclick="location.reload();" style="margin-top:20px;background:#019DF4;color:white;padding:10px;border-radius:10px;border:none;">REINICIAR</button>
+                        <button onclick="location.reload();" style="margin-top:20px;background:#019DF4;color:white;padding:12px;border-radius:10px;border:none;font-weight:bold;">REINICIAR</button>
                     </div>`;
             }
             return false;
@@ -27,7 +27,9 @@
     </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -45,45 +47,51 @@
             theme: {
                 extend: {
                     colors: { movistar: { blue: '#019DF4', dark: '#0B2739', green: '#5CB615', red: '#E63780' } },
-                    fontFamily: { sans: ['Montserrat', 'sans-serif'] }
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
                 }
             }
         }
     </script>
 
     <style>
-        body { background-color: #f3f4f6; margin: 0; font-family: 'Montserrat', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .tab-btn { flex: 1; padding: 12px 2px; font-size: 6.5px; font-weight: 900; text-align: center; border-bottom: 4px solid transparent; transition: 0.3s; text-transform: uppercase; color: #86888C; }
-        @media (min-width: 380px) { .tab-btn { font-size: 8px; } }
-        .tab-active { border-bottom-color: #5CB615; color: #5CB615; background: white; }
-        .subtab-btn { flex: 1; padding: 10px 2px; border-radius: 12px; font-size: 7px; font-weight: 900; text-align: center; transition: 0.3s; }
-        .subtab-active { background-color: white; color: #019DF4; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .subtab-inactive { color: #6b7280; }
+        body { background-color: #f8fafc; margin: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        /* Clean Tabs */
+        .tab-btn { flex: 1; padding: 10px 4px; font-size: 11px; font-weight: 600; text-align: center; border-radius: 12px; transition: 0.2s ease-in-out; color: #64748b; margin: 4px; border: 1px solid transparent; }
+        .tab-active { background-color: #019DF4; color: white; font-weight: 700; box-shadow: 0 4px 6px -1px rgba(1, 157, 244, 0.3), 0 2px 4px -1px rgba(1, 157, 244, 0.1); }
+        .tab-btn:not(.tab-active):hover { background-color: #f1f5f9; color: #334155; }
+        
+        /* Clean SubTabs */
+        .subtab-btn { flex: 1; padding: 8px 4px; border-radius: 10px; font-size: 10px; font-weight: 600; text-align: center; transition: 0.2s; margin: 2px; }
+        .subtab-active { background-color: white; color: #019DF4; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .subtab-inactive { background-color: transparent; color: #64748b; }
+        .subtab-inactive:hover { background-color: #e2e8f0; color: #334155; }
+
         .login-gradient { background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); }
-        .spinner { width: 45px; height: 45px; border: 5px solid #e5e7eb; border-top: 5px solid #019DF4; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; }
+        .spinner { width: 45px; height: 45px; border: 4px solid #e2e8f0; border-top: 4px solid #019DF4; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .animate-pop { animation: pop 0.3s ease-out; }
-        @keyframes pop { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .animate-pop { animation: pop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes pop { 0% { transform: scale(0.96); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        .progress-bar-container { width: 100%; background-color: #e5e7eb; height: 8px; border-radius: 9999px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; transition: width 0.5s ease-in-out; }
-        .bar-chart { display: flex; align-items: flex-end; height: 100px; gap: 8px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
-        .bar-col { flex: 1; background: #019DF4; border-radius: 4px 4px 0 0; position: relative; transition: 0.5s; }
-        .bar-label { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 8px; font-weight: 900; color: #86888C; }
+        
+        .progress-bar-container { width: 100%; background-color: #f1f5f9; height: 8px; border-radius: 9999px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; transition: width 0.5s ease-out; }
         
         /* Estilos Compactos para Carpeta Digital */
-        .tabla-carpeta th, .tabla-carpeta td { border: 1px solid #e5e7eb; padding: 4px; text-align: center; font-size: 8px; }
-        .tabla-carpeta th { background-color: #0B2739; color: white; font-weight: 900; text-transform: uppercase; }
-        .tabla-carpeta input { width: 100%; font-size: 8px; text-align: center; font-weight: 800; background: transparent; border: none; outline: none; padding: 2px; }
-        .tabla-carpeta input:focus { background: #e0f2fe; }
-        .tabla-carpeta select { font-size: 8px; text-align: center; font-weight: 800; background: transparent; border: none; outline: none; width: 100%; cursor: pointer;}
+        .tabla-carpeta th, .tabla-carpeta td { border: 1px solid #e2e8f0; padding: 6px; text-align: center; font-size: 10px; }
+        .tabla-carpeta th { background-color: #f8fafc; color: #334155; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .tabla-carpeta input { width: 100%; font-size: 10px; text-align: center; font-weight: 600; background: transparent; border: none; outline: none; padding: 4px; border-radius: 4px; transition: 0.2s;}
+        .tabla-carpeta input:focus { background: #eff6ff; }
+        .tabla-carpeta select { font-size: 10px; text-align: center; font-weight: 600; background: transparent; border: none; outline: none; width: 100%; cursor: pointer;}
+        
+        select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
     </style>
 </head>
 <body>
     <div id="root">
         <div id="emergency-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
             <div class="spinner"></div>
-            <p style="margin-top: 20px; font-weight: 900; color: #0B2739; font-size: 14px;">INICIANDO V30.2...</p>
+            <p style="margin-top: 20px; font-weight: 700; color: #0B2739; font-size: 14px; letter-spacing: 0.5px;">INICIANDO DASHBOARD...</p>
         </div>
     </div>
 
@@ -233,6 +241,17 @@
             if(!name) return "";
             return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
         };
+        
+        const getBadgeLabel = (b) => {
+            if (!b) return '';
+            const bStr = String(b).toUpperCase();
+            if (bStr === 'BASICO') return 'PORTA BÁSICA';
+            if (bStr === 'EXPERTO') return 'PORTA EXPERTA';
+            if (bStr === 'VENTAS') return 'VENTAS';
+            if (bStr === 'SUELDO_FIELDWY') return 'S. FIELDWY';
+            if (bStr.includes('COMISIONES')) return 'COMISIONES';
+            return bStr;
+        };
 
         const getCurrentMonthStr = () => new Date().toISOString().slice(0, 7);
         const getEmptyCarpeta = (idpdv, mes) => ({
@@ -297,7 +316,7 @@
 
             // Search and filters
             const [searchStore, setSearchStore] = useState("");
-            const [opProductFilter, setOpProductFilter] = useState("TEMM");
+            const [opProductFilter, setOpProductFilter] = useState("TOTAL");
             const [searchRoster, setSearchRoster] = useState("");
             const [searchStoreCarpeta, setSearchStoreCarpeta] = useState("");
             const [supFilterCarpeta, setSupFilterCarpeta] = useState("TODOS");
@@ -494,13 +513,22 @@
 
                 try {
                     unsubs.push(getDbPath("operacion_v2").onSnapshot(s => {
-                        let tm = []; let iv = [];
+                        let tmChunks = []; let ivChunks = []; let actAl = "Desconocido";
                         s.forEach(d => {
                             const obj = d.data();
-                            if (d.id === "temm") { tm = Array.isArray(obj.list) ? obj.list : []; setActualizadoAl(obj.actualizado_al || "Desconocido"); }
-                            if (d.id === "inv" && Array.isArray(obj.list)) iv = obj.list;
+                            if (d.id.startsWith("temm_chunk_") || d.id === "temm") {
+                                if (Array.isArray(obj.list)) tmChunks.push(obj.list);
+                                if (obj.actualizado_al) actAl = obj.actualizado_al;
+                            }
+                            if (d.id.startsWith("inv_chunk_") || d.id === "inv") {
+                                if (Array.isArray(obj.list)) ivChunks.push(obj.list);
+                            }
                         });
-                        setDataTEMM(tm); setDataINV(iv);
+                        
+                        let tm = []; tmChunks.forEach(c => tm = tm.concat(c));
+                        let iv = []; ivChunks.forEach(c => iv = iv.concat(c));
+                        
+                        setDataTEMM(tm); setDataINV(iv); setActualizadoAl(actAl);
                     }));
                     unsubs.push(getDbPath("ranking").onSnapshot(s => {
                         let docs = s.docs.map(d => ({...d.data(), id: d.id}));
@@ -864,6 +892,35 @@
             const uploadFile = async (type, e) => {
                 if (!db) return alert("Sin red"); const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
+                
+                const saveInChunks = async (prefix, dataList, extra = {}) => {
+                    const CHUNK_SIZE = 1500;
+                    const chunks = [];
+                    for (let i = 0; i < dataList.length; i += CHUNK_SIZE) {
+                        chunks.push(dataList.slice(i, i + CHUNK_SIZE));
+                    }
+                    
+                    const snap = await getDbPath("operacion_v2").get();
+                    
+                    // 1. Eliminar chunks anteriores secuencialmente para evitar sobrecarga del batch
+                    for (let doc of snap.docs) {
+                        if (doc.id.startsWith(`${prefix}_chunk_`) || doc.id === prefix) {
+                            await doc.ref.delete();
+                        }
+                    }
+                    
+                    // 2. Escribir nuevos chunks de forma secuencial para evitar el límite de payload (10MB por request)
+                    if (chunks.length === 0) {
+                        await getDbPath("operacion_v2").doc(`${prefix}_chunk_0`).set({ list: [], ...extra });
+                    } else {
+                        for (let i = 0; i < chunks.length; i++) {
+                            await getDbPath("operacion_v2").doc(`${prefix}_chunk_${i}`).set(
+                                i === 0 ? { list: chunks[i], ...extra } : { list: chunks[i] }
+                            );
+                        }
+                    }
+                };
+
                 reader.onload = async (evt) => {
                     try {
                         const r = evt.target.result; const wb = XLSX.read(r, { type: 'binary', cellDates: true });
@@ -893,12 +950,15 @@
                                     altas_voz: Math.round(Number(row["Y"]) || 0), cuota_voz: Math.round(Number(row["Z"]) || 0)
                                 };
                             });
-                            await getDbPath("operacion_v2").doc("temm").set({ list: list, actualizado_al: diaAct });
+                            await saveInChunks("temm", list, { actualizado_al: diaAct });
                             alert(`Sincronizado Múltiples Productos (${list.length} Tiendas | Fecha: ${diaAct})`);
                         } else if (type === "inv") {
-                            const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tiendas") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario") || n.toLowerCase().includes("general"));
-                            if (!wsTiendas) return alert("Pestaña de Inventario no encontrada.");
-                            const jDataInv = XLSX.utils.sheet_to_json(wb.Sheets[wsTiendas], { header: "A", defval: "" });
+                            // Buscar hoja de tiendas/inventario de forma menos estricta
+                            const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tienda") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario") || n.toLowerCase().includes("general"));
+                            const sheetToUse = wsTiendas ? wb.Sheets[wsTiendas] : wb.Sheets[wb.SheetNames[0]];
+                            
+                            const jDataInv = XLSX.utils.sheet_to_json(sheetToUse, { header: "A", defval: "" });
+                            
                             list = jDataInv.filter(row => {
                                 const iVal = String(row["G"] || "").toUpperCase().trim();
                                 return iVal.length >= 3 && !iVal.includes("ID") && !iVal.includes("PDV");
@@ -909,8 +969,9 @@
                                 status: String(row["U"] || "").trim().toUpperCase(),
                                 q: parseInt(Number(row["AE"])) || 0 
                             }));
-                            await getDbPath("operacion_v2").doc("inv").set({ list: list });
-                            alert("¡Inventario Sincronizado exitosamente!");
+                            
+                            await saveInChunks("inv", list);
+                            alert(`¡Inventario Sincronizado exitosamente! (${list.length} registros guardados)`);
                         }
                     } catch (error) { alert("Error procesando Excel."); console.error(error); }
                 }; reader.readAsBinaryString(file);
@@ -1277,7 +1338,7 @@
                                         <div className="flex flex-wrap gap-2 justify-center">
                                             {ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre))?.badges?.map(b => (
                                                 <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[8px] font-black px-2 py-1.5 rounded-lg shadow-sm">
-                                                    {b === 'BASICO' ? 'PORTA BÁSICA' : b === 'EXPERTO' ? 'PORTA EXPERTA' : b === 'VENTAS' ? 'VENTA CONSULTIVA' : b === 'SUELDO_FIELDWY' ? 'SUELDO Y FIELDWY' : b.includes('COMISIONES') ? 'ESQUEMA COMISIONES' : b}
+                                                    {getBadgeLabel(b)}
                                                 </span>
                                             ))}
                                             {(!ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre))?.badges || ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre)).badges.length === 0) && <span className="text-[10px] text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-lg">Sin certificaciones ❌</span>}
@@ -1307,7 +1368,7 @@
                         </div>
                     </div>
 
-                    <div className="bg-white flex sticky top-[68px] z-40 border-b shadow-sm overflow-x-auto hide-scrollbar">
+                    <div className="bg-white flex sticky top-[68px] z-40 border-b shadow-sm overflow-x-auto hide-scrollbar p-1">
                         <button className={`tab-btn ${activeTab==='CARPETA'?'tab-active':''}`} onClick={()=>setActiveTab('CARPETA')}>Carpeta</button>
                         <button className={`tab-btn ${activeTab==='OPERACION'?'tab-active':''}`} onClick={()=>setActiveTab('OPERACION')}>Operación</button>
                         <button className={`tab-btn ${activeTab==='ACADEMIA'?'tab-active':''}`} onClick={()=>setActiveTab('ACADEMIA')}>Academia</button>
@@ -1545,12 +1606,12 @@
                         {activeTab === 'OPERACION' && (
                             <div className="space-y-4">
                                 {actualizadoAl !== "Desconocido" && (
-                                    <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-4 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
+                                    <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-5 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
                                         <div className="relative z-10">
-                                            <p className="text-[12px] font-black uppercase tracking-widest">¡HIDALGO DASH V30.2!</p>
-                                            <p className="text-[10px] font-black opacity-100 mt-1 uppercase text-yellow-300">Actualizado al: {actualizadoAl}</p>
+                                            <p className="text-[10px] font-medium opacity-80 mb-1">Versión V30.2</p>
+                                            <p className="text-xl font-black mt-1 text-white leading-tight">Actualizado al:<br/><span className="text-yellow-300 text-2xl">{actualizadoAl}</span></p>
                                         </div>
-                                        <div className="absolute right-2 opacity-30 text-5xl">📊</div>
+                                        <div className="absolute right-2 opacity-20 text-6xl">📊</div>
                                     </div>
                                 )}
 
@@ -1577,10 +1638,10 @@
                                         <div className="bg-white p-4 rounded-[1.5rem] border shadow-sm mb-4 flex flex-col gap-2">
                                             <input type="text" placeholder="🔍 BUSCAR TIENDA POR ID O NOMBRE..." value={searchStore} onChange={e => setSearchStore(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase"/>
                                             <select className="w-full text-[10px] font-black bg-blue-50 text-movistar-blue border border-blue-100 p-3 rounded-xl outline-none" value={opProductFilter} onChange={e => setOpProductFilter(e.target.value)}>
-                                                <option value="TOTAL">📈 PRODUCTO: TOTAL (Altas y Cuota M/N)</option>
-                                                <option value="TEMM">📱 PRODUCTO: EQUIPOS TEMM (Altas y Cuota Q/R)</option>
-                                                <option value="PORTA">🔄 PRODUCTO: PORTABILIDAD (Altas y Cuota U/V)</option>
-                                                <option value="VOZ">📞 PRODUCTO: VOZ PREPAGO (Altas y Cuota Y/Z)</option>
+                                                <option value="TOTAL">📈 PRODUCTO: TOTAL</option>
+                                                <option value="TEMM">📱 PRODUCTO: EQUIPOS TEMM</option>
+                                                <option value="PORTA">🔄 PRODUCTO: PORTABILIDAD</option>
+                                                <option value="VOZ">📞 PRODUCTO: VOZ PREPAGO</option>
                                             </select>
                                         </div>
 
@@ -1607,15 +1668,15 @@
                                             <div className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-3 mb-4">
                                                 <div className="flex gap-2">
                                                     <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={supFilter} onChange={e => setSupFilter(e.target.value)}>
-                                                        <option value="TODOS">SUPERVISORES</option>
+                                                        <option value="TODOS">Supervisores</option>
                                                         {[...new Set((Array.isArray(dataTEMM)?dataTEMM:[]).map(d => d?.sup))].filter(Boolean).sort().map(s => <option key={s} value={s}>{s}</option>)}
                                                     </select>
                                                     <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={cadFilter} onChange={e => setCadFilter(e.target.value)}>
-                                                        <option value="TODAS">CADENAS</option>
-                                                        <option value="COPPEL">COPPEL</option><option value="ELEKTRA">ELEKTRA</option><option value="SUBURBIA">SUBURBIA</option>
+                                                        <option value="TODAS">Cadenas</option>
+                                                        <option value="COPPEL">Coppel</option><option value="ELEKTRA">Elektra</option><option value="SUBURBIA">Suburbia</option>
                                                     </select>
                                                     <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={estatusOpFilter} onChange={e => setEstatusOpFilter(e.target.value)}>
-                                                        <option value="TODOS">ESTATUS</option>
+                                                        <option value="TODOS">Estatus</option>
                                                         {estatusUnicos.map(e => <option key={e} value={e}>{e}</option>)}
                                                     </select>
                                                 </div>
@@ -1679,18 +1740,30 @@
                                                         
                                                         {expandedStoreRosters[d.id] && (
                                                             <div className="flex flex-col gap-2 animate-pop pt-1 mb-3">
-                                                                {storeRosters.length > 0 ? storeRosters.map(r => (
-                                                                    <div key={r.id} onClick={() => setSelectedProfileModal(r)} className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-100 cursor-pointer hover:border-movistar-blue transition-colors">
-                                                                         <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 border border-gray-300 flex-shrink-0 relative">
-                                                                             {r.foto && r.foto.startsWith('data') ? <img src={r.foto} className="w-full h-full object-cover"/> : <span className="text-xl flex items-center justify-center h-full">👤</span>}
-                                                                             {r.estatus === 'INACTIVO' && <div className="absolute inset-0 bg-black bg-opacity-50"></div>}
-                                                                         </div>
-                                                                         <div className="flex-1">
-                                                                             <p className="text-[9px] font-black text-movistar-dark uppercase leading-none">{r.nombre}</p>
-                                                                             <p className="text-[7px] font-bold text-movistar-blue uppercase mt-1">{r.rol} | {r.estatus || 'ACTIVO'}</p>
-                                                                         </div>
-                                                                    </div>
-                                                                )) : <span className="text-[8px] font-bold text-gray-400">SIN PROMOTORES ASIGNADOS</span>}
+                                                                {storeRosters.length > 0 ? storeRosters.map(r => {
+                                                                    const uRank = ranking.find(rk => normalizeName(rk.name) === normalizeName(r.nombre));
+                                                                    return (
+                                                                        <div key={r.id} onClick={() => setSelectedProfileModal(r)} className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-100 cursor-pointer hover:border-movistar-blue transition-colors">
+                                                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 border border-gray-300 flex-shrink-0 relative">
+                                                                                {r.foto && r.foto.startsWith('data') ? <img src={r.foto} className="w-full h-full object-cover"/> : <span className="text-xl flex items-center justify-center h-full">👤</span>}
+                                                                                {r.estatus === 'INACTIVO' && <div className="absolute inset-0 bg-black bg-opacity-50"></div>}
+                                                                            </div>
+                                                                            <div className="flex-1">
+                                                                                <p className="text-[9px] font-black text-movistar-dark uppercase leading-none">{r.nombre}</p>
+                                                                                <p className="text-[7px] font-bold text-movistar-blue uppercase mt-1">{r.rol} | {r.estatus || 'ACTIVO'}</p>
+                                                                                {uRank && uRank.badges && uRank.badges.length > 0 ? (
+                                                                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                                        {uRank.badges.map(b => (
+                                                                                            <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                                                                                                {getBadgeLabel(b)}
+                                                                                            </span>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                ) : <p className="text-[6px] font-bold text-gray-400 mt-1">SIN CERTIFICACIONES</p>}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }) : <span className="text-[8px] font-bold text-gray-400">SIN PROMOTORES ASIGNADOS</span>}
                                                             </div>
                                                         )}
                                                         
@@ -1892,7 +1965,15 @@
                                                                         return (
                                                                             <tr key={r.id} className="border-b">
                                                                                 <td className="p-2 border uppercase text-movistar-dark truncate max-w-[100px]">{r.nombre}</td>
-                                                                                <td className="p-2 border text-movistar-red uppercase truncate max-w-[150px]">{missing.join(', ')}</td>
+                                                                                <td className="p-2 border max-w-[150px]">
+                                                                                    <div className="flex flex-wrap gap-1">
+                                                                                        {missing.map(m => (
+                                                                                            <span key={m} className="bg-red-50 text-movistar-red border border-red-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                                                                                                {getBadgeLabel(m)}
+                                                                                            </span>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </td>
                                                                             </tr>
                                                                         );
                                                                     })}
@@ -2107,7 +2188,16 @@
                                                             <div className="flex-1">
                                                                 <h4 className="font-black text-xs uppercase text-movistar-dark">{r.nombre}</h4>
                                                                 <p className="text-[9px] font-bold text-movistar-blue leading-tight mt-1">ROL: {r.rol} | SUP: {r.supervisor}</p>
-                                                                <p className="text-[8px] font-bold text-gray-400 mt-1">TIENDA: {r.idpdv || '0'} - {getStoreName(r.idpdv)} | Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)}` : 'N/A'}</p>
+                                                                <p className="text-[8px] font-bold text-gray-400 mt-1 mb-1">TIENDA: {r.idpdv || '0'} - {getStoreName(r.idpdv)} | Edad: {r.cumpleanos ? `${calculateAge(r.cumpleanos)}` : 'N/A'}</p>
+                                                                {uRank && uRank.badges && uRank.badges.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {uRank.badges.map(b => (
+                                                                            <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                                                                                {getBadgeLabel(b)}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : <span className="text-[7px] font-bold text-gray-400">SIN CERTIFICACIONES</span>}
                                                             </div>
                                                         </div>
                                                         {(userRole === "PROMOTOR" || userRole === "SUPERVISOR" || userRole === "ADMIN") && (
@@ -2179,12 +2269,11 @@
                                                                             <div className="font-black text-[10px] uppercase text-movistar-dark">{u.name}</div>
                                                                             <div className="text-[8px] text-movistar-blue mt-0.5 font-bold uppercase mb-1">{u.badges?.length || 0} CURSO(S)</div>
                                                                             
-                                                                            {/* MODIFICACIÓN: Aquí se muestran los badges visualmente */}
                                                                             {u.badges && u.badges.length > 0 && (
                                                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                                                     {u.badges.map(b => (
                                                                                         <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
-                                                                                            {b === 'BASICO' ? 'PORTA BÁSICA' : b === 'EXPERTO' ? 'PORTA EXPERTA' : b === 'VENTAS' ? 'VENTAS' : b === 'SUELDO_FIELDWY' ? 'S. FIELDWY' : b.includes('COMISIONES') ? 'COMISIONES' : b}
+                                                                                            {getBadgeLabel(b)}
                                                                                         </span>
                                                                                     ))}
                                                                                 </div>
