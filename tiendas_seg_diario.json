@@ -1,0 +1,638 @@
+[
+  {
+    "idpv": 2090171,
+    "nombre": "COPPEL PLAZA DEL VALLE (194)",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2090172,
+    "nombre": "COPPEL-CANADA OCAMPO (574)",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2090173,
+    "nombre": "COPPEL PILARES (TOL) (208)",
+    "cadena": "Coppel",
+    "plaza": "Metepec"
+  },
+  {
+    "idpv": 2090174,
+    "nombre": "COPPEL-CANADA JUAREZ (582)",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2090175,
+    "nombre": "COPPEL - JUAREZ II (64)",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2090176,
+    "nombre": "COPPEL - 5 DE MAYO (159)",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2090552,
+    "nombre": "SUBURBIA - METEPEC",
+    "cadena": "Suburbia",
+    "plaza": "Metepec"
+  },
+  {
+    "idpv": 2090559,
+    "nombre": "SUBURBIA - GRAN PLAZA",
+    "cadena": "Suburbia",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2090618,
+    "nombre": "COPPEL UNIVERSIDAD",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2090742,
+    "nombre": "COPPEL SENDERO",
+    "cadena": "Coppel",
+    "plaza": "Lerma"
+  },
+  {
+    "idpv": 2090749,
+    "nombre": "COPPEL CARRANZA LA COLCHONERA",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2090826,
+    "nombre": "COPPEL CANADA GUADALUPE VICTORIA",
+    "cadena": "Coppel",
+    "plaza": "Ocoyoacac"
+  },
+  {
+    "idpv": 2090839,
+    "nombre": "COPPEL JUAREZ",
+    "cadena": "Coppel",
+    "plaza": "TIZAYUCA"
+  },
+  {
+    "idpv": 2090872,
+    "nombre": "COPPEL LAS VILLAS",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2090875,
+    "nombre": "COPPEL JUAREZ (IXTLAHUCA)",
+    "cadena": "Coppel",
+    "plaza": "Ixtlahuaca"
+  },
+  {
+    "idpv": 2090892,
+    "nombre": "COPPEL CANADA RAYÓN",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2090893,
+    "nombre": "COPPEL PLAZA HIDALGO",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2090912,
+    "nombre": "COPPEL PLAZA TULA",
+    "cadena": "Coppel",
+    "plaza": "TULA DE ALLENDE"
+  },
+  {
+    "idpv": 2090913,
+    "nombre": "COPPEL CANADA PLAZA BONITA",
+    "cadena": "Coppel",
+    "plaza": "TIZAYUCA"
+  },
+  {
+    "idpv": 2090932,
+    "nombre": "ELEKTRA ACTOPAN HIDALGO",
+    "cadena": "Elektra",
+    "plaza": "ACTOPAN"
+  },
+  {
+    "idpv": 2090937,
+    "nombre": "COPPEL CANADA TULA",
+    "cadena": "Coppel",
+    "plaza": "TULA DE ALLENDE"
+  },
+  {
+    "idpv": 2090947,
+    "nombre": "COPPEL REVOLUCIÓN",
+    "cadena": "Coppel",
+    "plaza": "TULA DE ALLENDE"
+  },
+  {
+    "idpv": 2090997,
+    "nombre": "COPPEL 21 DE MARZO",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2091007,
+    "nombre": "COPPEL CANADA ACTOPAN",
+    "cadena": "Coppel",
+    "plaza": "ACTOPAN"
+  },
+  {
+    "idpv": 2091016,
+    "nombre": "COPPEL ENRIQUEZ",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2091032,
+    "nombre": "COPPEL TOTOLTEPEC",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2091046,
+    "nombre": "COPPEL HIDALGO",
+    "cadena": "Coppel",
+    "plaza": "Tenango Del Valle"
+  },
+  {
+    "idpv": 2091151,
+    "nombre": "COPPEL CANADA REOLIN",
+    "cadena": "Coppel",
+    "plaza": "Lerma"
+  },
+  {
+    "idpv": 2091192,
+    "nombre": "EKT JUAREZ",
+    "cadena": "Elektra",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2091194,
+    "nombre": "EKT SAN MATEO",
+    "cadena": "Elektra",
+    "plaza": "San Mateo Atenco"
+  },
+  {
+    "idpv": 2091206,
+    "nombre": "EKT ZINACANTEPEC",
+    "cadena": "Elektra",
+    "plaza": "Zinacantepec"
+  },
+  {
+    "idpv": 2091207,
+    "nombre": "BA MEGA IXTLAHUACA",
+    "cadena": "Elektra",
+    "plaza": "Atlacomulco"
+  },
+  {
+    "idpv": 2091209,
+    "nombre": "EKT ADOLFO LOPEZ MATEOS",
+    "cadena": "Elektra",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2091238,
+    "nombre": "EKT SANTIAGO TIANGUISTENGO",
+    "cadena": "Elektra",
+    "plaza": "Tianguistenco"
+  },
+  {
+    "idpv": 2091244,
+    "nombre": "EKT ATLACOMULCO (5306)",
+    "cadena": "Elektra",
+    "plaza": "Atlacomulco"
+  },
+  {
+    "idpv": 2091372,
+    "nombre": "COPPEL CANADA MORELOS (TIANGUISTENCO)",
+    "cadena": "Coppel",
+    "plaza": "Tianguistenco"
+  },
+  {
+    "idpv": 2091438,
+    "nombre": "COPPEL DEL ROSAL",
+    "cadena": "Coppel",
+    "plaza": "IXMIQUILPAN"
+  },
+  {
+    "idpv": 2091496,
+    "nombre": "EKT PLAZA LERMA",
+    "cadena": "Elektra",
+    "plaza": "Lerma"
+  },
+  {
+    "idpv": 2091551,
+    "nombre": "COPPEL PLAZA SANTIN",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2091565,
+    "nombre": "COPPEL 16 DE SEPTIEMBRE (ZINACANTEPEC)",
+    "cadena": "Coppel",
+    "plaza": "Zinacantepec"
+  },
+  {
+    "idpv": 2091586,
+    "nombre": "COPPEL CONSTITUCIÓN",
+    "cadena": "Coppel",
+    "plaza": "MIXQUIHUALA"
+  },
+  {
+    "idpv": 2091587,
+    "nombre": "COPPEL  MADERO",
+    "cadena": "Coppel",
+    "plaza": "TLAXCOAPAN"
+  },
+  {
+    "idpv": 2091588,
+    "nombre": "COPPEL PLAZA SAN FRANCISCO",
+    "cadena": "Coppel",
+    "plaza": "Metepec"
+  },
+  {
+    "idpv": 2091708,
+    "nombre": "EKT SAN FELIPE DEL PROGRESO",
+    "cadena": "Elektra",
+    "plaza": "San Felipe Del Progreso"
+  },
+  {
+    "idpv": 2091711,
+    "nombre": "Coppel Nicolás Bravo Tianguistenco",
+    "cadena": "Coppel",
+    "plaza": "Tianguistenco"
+  },
+  {
+    "idpv": 2091864,
+    "nombre": "ELEKTRA PROGRESO HIDALGO",
+    "cadena": "Elektra",
+    "plaza": "MIXQUIHUALA"
+  },
+  {
+    "idpv": 2091869,
+    "nombre": "COPPEL ZAPATA",
+    "cadena": "Coppel",
+    "plaza": "MIXQUIHUALA"
+  },
+  {
+    "idpv": 2091896,
+    "nombre": "EKT SAN PEDRO TOTOLTEPEC",
+    "cadena": "Elektra",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2092138,
+    "nombre": "BA EKT TIZAYUCA",
+    "cadena": "Elektra",
+    "plaza": "TIZAYUCA"
+  },
+  {
+    "idpv": 2092175,
+    "nombre": "EKT TOLUCA PLAZA SANTINI",
+    "cadena": "Elektra",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2092192,
+    "nombre": "SUBURBIA PACHUCA",
+    "cadena": "Suburbia",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2092219,
+    "nombre": "Suburbia Alfredo del Mazo",
+    "cadena": "Suburbia",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2092308,
+    "nombre": "ELEKTRA OCOYOACAC  EDO. MEX",
+    "cadena": "Elektra",
+    "plaza": "Ocoyoacac"
+  },
+  {
+    "idpv": 2092309,
+    "nombre": "ELEKTRA MEGA TOLUCA MERCADO JUAREZ",
+    "cadena": "Elektra",
+    "plaza": "Almoloya de Juarez"
+  },
+  {
+    "idpv": 2092310,
+    "nombre": "ELEKTRA MEGA TENANFO DEL VALLE",
+    "cadena": "Elektra",
+    "plaza": "Tenango Del Valle"
+  },
+  {
+    "idpv": 2092359,
+    "nombre": "EKT TULIPANES (8290)",
+    "cadena": "Elektra",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2092361,
+    "nombre": "MINI ELEKTRA SAHAGUN",
+    "cadena": "Elektra",
+    "plaza": "CD SAHAGUN"
+  },
+  {
+    "idpv": 2092362,
+    "nombre": "ELEKTRA TULANCINGO CUAUHTEMOC",
+    "cadena": "Elektra",
+    "plaza": "TULANCINGO DE BRAVO"
+  },
+  {
+    "idpv": 2092363,
+    "nombre": "ELEKTRA TULANCINGO",
+    "cadena": "Elektra",
+    "plaza": "TULANCINGO DE BRAVO"
+  },
+  {
+    "idpv": 2092366,
+    "nombre": "EKT TULA CALZADA",
+    "cadena": "Elektra",
+    "plaza": "TULA DE ALLENDE"
+  },
+  {
+    "idpv": 2092367,
+    "nombre": "ELEKTRA TEPEJI DEL RIO",
+    "cadena": "Elektra",
+    "plaza": "TULA DE ALLENDE"
+  },
+  {
+    "idpv": 2092437,
+    "nombre": "ELEKTRA TLAXCOAPAN",
+    "cadena": "Elektra",
+    "plaza": "TLAXCOAPAN"
+  },
+  {
+    "idpv": 2092446,
+    "nombre": "EKT TEMOAYA EDO. MEXICO",
+    "cadena": "Elektra",
+    "plaza": "Temoaya"
+  },
+  {
+    "idpv": 2092447,
+    "nombre": "EKT Mega Valle De Bravo",
+    "cadena": "Elektra",
+    "plaza": "Valle de Bravo"
+  },
+  {
+    "idpv": 2092457,
+    "nombre": "EKT MEGA TENANCINGO EDO DE MEX",
+    "cadena": "Elektra",
+    "plaza": "Tenancingo"
+  },
+  {
+    "idpv": 2092781,
+    "nombre": "EKT XONACATLAN",
+    "cadena": "Elektra",
+    "plaza": "Xonacatlan"
+  },
+  {
+    "idpv": 2092784,
+    "nombre": "MINIEKT ALMOLOYA DE JUAREZ",
+    "cadena": "Elektra",
+    "plaza": "Almoloya de Juarez"
+  },
+  {
+    "idpv": 2092790,
+    "nombre": "COPPEL TENANCINGO",
+    "cadena": "Coppel",
+    "plaza": "Tenancingo"
+  },
+  {
+    "idpv": 2092797,
+    "nombre": "COPPEL CANADA INDEPENDENCIA",
+    "cadena": "Coppel",
+    "plaza": "Ixtapan de La Sal"
+  },
+  {
+    "idpv": 2092923,
+    "nombre": "COPPEL CANADA CARDENAS (1104)",
+    "cadena": "Coppel",
+    "plaza": "Villa Victoria"
+  },
+  {
+    "idpv": 2092936,
+    "nombre": "EKT IXMIQUILPAN",
+    "cadena": "Elektra",
+    "plaza": "IXMIQUILPAN"
+  },
+  {
+    "idpv": 2092975,
+    "nombre": "COPPEL -CANADACOLÓN",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2092982,
+    "nombre": "COPPEL  VILLA GUERRERO",
+    "cadena": "Coppel",
+    "plaza": "Villa Guerrero"
+  },
+  {
+    "idpv": 2093011,
+    "nombre": "COPPEL PATIO TULANCINGO",
+    "cadena": "Coppel",
+    "plaza": "TULANCINGO DE BRAVO"
+  },
+  {
+    "idpv": 2093014,
+    "nombre": "COPPEL GRAN PATIO",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2093017,
+    "nombre": "COPPEL PLAZA BELLA",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2093034,
+    "nombre": "COPPEL TOLLOACAN",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2093041,
+    "nombre": "Coppel Nicolás Bravo Atlacomulco",
+    "cadena": "Coppel",
+    "plaza": "Atlacomulco"
+  },
+  {
+    "idpv": 2093092,
+    "nombre": "EKT ACAMBAY EDO DE MEX",
+    "cadena": "Elektra",
+    "plaza": "Acambay"
+  },
+  {
+    "idpv": 2093110,
+    "nombre": "COPPEL JUAREZ",
+    "cadena": "Coppel",
+    "plaza": "AYUTLA DE LOS LIBRES"
+  },
+  {
+    "idpv": 2093123,
+    "nombre": "COPPEL OJUELOS",
+    "cadena": "Coppel",
+    "plaza": "Toluca de Lerdo"
+  },
+  {
+    "idpv": 2093130,
+    "nombre": "EKT Villa Victoria",
+    "cadena": "Elektra",
+    "plaza": "Villa Victoria"
+  },
+  {
+    "idpv": 2093137,
+    "nombre": "MEGA ELEKTRA PLAZA LA PILA (METEPEC)",
+    "cadena": "Elektra",
+    "plaza": "Metepec"
+  },
+  {
+    "idpv": 2093223,
+    "nombre": "MEGA ELEKTRA 21 DE MARZO TULANCINGO",
+    "cadena": "Elektra",
+    "plaza": "TULANCINGO DE BRAVO"
+  },
+  {
+    "idpv": 2093259,
+    "nombre": "COPPEL CANADA SOR JUANA",
+    "cadena": "Coppel",
+    "plaza": "Almoloya de Juarez"
+  },
+  {
+    "idpv": 2093373,
+    "nombre": "COPPEL SAHAGUN",
+    "cadena": "Coppel",
+    "plaza": "CD SAHAGUN"
+  },
+  {
+    "idpv": 2093375,
+    "nombre": "COPPEL GRAN PATIO",
+    "cadena": "Coppel",
+    "plaza": "Almoloya de Juarez"
+  },
+  {
+    "idpv": 2093377,
+    "nombre": "SB ATLACOMULCO",
+    "cadena": "Suburbia",
+    "plaza": "Atlacomulco"
+  },
+  {
+    "idpv": 2093389,
+    "nombre": "MEGA ELEKTRA AV. JUAREZ TIZAYUCA",
+    "cadena": "Elektra",
+    "plaza": "TIZAYUCA"
+  },
+  {
+    "idpv": 2093457,
+    "nombre": "MEGA PLAZA LA JOYA PACHUCA",
+    "cadena": "Elektra",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2093564,
+    "nombre": "MEGA ELEKTRA CD SAHAGUN 2",
+    "cadena": "Elektra",
+    "plaza": "CD SAHAGUN"
+  },
+  {
+    "idpv": 2093570,
+    "nombre": "EKT MEGA ATITALAQUIA, HIDALGO",
+    "cadena": "Elektra",
+    "plaza": "TLAXCOAPAN"
+  },
+  {
+    "idpv": 2093669,
+    "nombre": "COPPEL EXPLANADA",
+    "cadena": "Coppel",
+    "plaza": "PACHUCA"
+  },
+  {
+    "idpv": 2093677,
+    "nombre": "Sb Toluca Multiplaza Santin",
+    "cadena": "Suburbia",
+    "plaza": "Lerma"
+  },
+  {
+    "idpv": 2093678,
+    "nombre": "SB TULANCINGO PATIO",
+    "cadena": "Suburbia",
+    "plaza": "TULANCINGO DE BRAVO"
+  },
+  {
+    "idpv": 2093727,
+    "nombre": "Coppel Atlacomulco",
+    "cadena": "Coppel",
+    "plaza": "Atlacomulco"
+  },
+  {
+    "idpv": 2093747,
+    "nombre": "SUBURBIA PLAZA TIZARA (TIZAYUCA)",
+    "cadena": "Suburbia",
+    "plaza": "TIZAYUCA"
+  },
+  {
+    "idpv": 2093749,
+    "nombre": "Mega Elektra Malinalco",
+    "cadena": "Elektra",
+    "plaza": "Malinalco"
+  },
+  {
+    "idpv": 2093808,
+    "nombre": "COPPEL CALIMAYA",
+    "cadena": "Coppel",
+    "plaza": "Calimaya"
+  },
+  {
+    "idpv": 2093815,
+    "nombre": "ELEKTRA DIVERTI PLAZA (9376)",
+    "cadena": "Elektra",
+    "plaza": "TULA DE ALLENDE"
+  },
+  {
+    "idpv": 209003824,
+    "nombre": "COPPEL REFORMA TEMOAYA (7780)",
+    "cadena": "Coppel",
+    "plaza": "Temoaya"
+  },
+  {
+    "idpv": 209003825,
+    "nombre": "COPPEL XONACATLAN (7907)",
+    "cadena": "Coppel",
+    "plaza": "Xonacatlan"
+  },
+  {
+    "idpv": 209003827,
+    "nombre": "COPPEL VILLA VICTORIA (7911)",
+    "cadena": "Coppel",
+    "plaza": "Villa Victoria"
+  },
+  {
+    "idpv": 209003838,
+    "nombre": "COPPEL PANAMERICANA (7942)",
+    "cadena": "Coppel",
+    "plaza": "Acambay"
+  },
+  {
+    "idpv": 209003840,
+    "nombre": "SUBURBIA TULA PLAZA BOULEVARD (832)",
+    "cadena": "Suburbia",
+    "plaza": "TULA DE ALLENDE"
+  },
+  {
+    "idpv": 209003847,
+    "nombre": "MEGA PLAZA MIA SANTIAGO T",
+    "cadena": "Elektra",
+    "plaza": "Toluca de Lerdo"
+  }
+]
