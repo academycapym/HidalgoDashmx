@@ -304,6 +304,149 @@
         };
 
         const getCurrentMonthStr = () => new Date().toISOString().slice(0, 7);
+
+        const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const DIAS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const PRODUCTOS_CUOTA = ['TEMM', 'PORTA', 'PREPAGO'];
+
+        const formatMesLabel = (yyyyMM) => {
+            const [y, m] = yyyyMM.split('-').map(Number);
+            return `${MESES_ES[m - 1]} ${y}`;
+        };
+
+        const getMesSelectorOptions = (count = 18) => {
+            const opts = [];
+            const d = new Date();
+            for (let i = 0; i < count; i++) {
+                const dt = new Date(d.getFullYear(), d.getMonth() - i, 1);
+                const mes = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+                opts.push({ value: mes, label: formatMesLabel(mes) });
+            }
+            return opts;
+        };
+
+        const buildMonthWeeks = (yyyyMM) => {
+            const [y, m] = yyyyMM.split('-').map(Number);
+            const lastDay = new Date(y, m, 0).getDate();
+            const weeks = [];
+            let week = { weekNum: 1, days: [] };
+            for (let day = 1; day <= lastDay; day++) {
+                const date = new Date(y, m - 1, day);
+                const dow = date.getDay();
+                if (dow === 1 && week.days.length > 0) {
+                    weeks.push(week);
+                    week = { weekNum: weeks.length + 1, days: [] };
+                }
+                week.days.push({ day, dow, label: DIAS_ES[dow] });
+            }
+            if (week.days.length) weeks.push(week);
+            return weeks;
+        };
+
+        const emptyDiaProductos = () => ({
+            TEMM: { cuota: 0, altas: 0, gap: 0 },
+            PORTA: { cuota: 0, altas: 0, gap: 0 },
+            PREPAGO: { cuota: 0, altas: 0, gap: 0 }
+        });
+
+        const aggregateDiasCuotas = (stores) => {
+            const agg = {};
+            (stores || []).forEach(s => {
+                if (!s?.dias) return;
+                Object.entries(s.dias).forEach(([day, prods]) => {
+                    if (!agg[day]) agg[day] = emptyDiaProductos();
+                    PRODUCTOS_CUOTA.forEach(p => {
+                        const cell = prods[p] || {};
+                        const c = Number(cell.cuota) || 0;
+                        const a = Number(cell.altas) || 0;
+                        agg[day][p].cuota += c;
+                        agg[day][p].altas += a;
+                        agg[day][p].gap += a - c;
+                    });
+                });
+            });
+            Object.keys(agg).forEach(day => {
+                PRODUCTOS_CUOTA.forEach(p => {
+                    agg[day][p].cuota = Math.round(agg[day][p].cuota * 10000) / 10000;
+                    agg[day][p].altas = Math.round(agg[day][p].altas * 10000) / 10000;
+                    agg[day][p].gap = Math.round(agg[day][p].gap * 10000) / 10000;
+                });
+            });
+            return agg;
+        };
+
+        const parseCuotaAltasFromWorkbook = (wb, mesStr) => {
+            const wsCuota = wb.Sheets['Cuota'];
+            const wsAltas = wb.Sheets['Altas'];
+            if (!wsCuota || !wsAltas) throw new Error("Faltan pestañas 'Cuota' o 'Altas' en el Excel.");
+
+            const cuotaRows = XLSX.utils.sheet_to_json(wsCuota, { header: 1, defval: '' });
+            const altasRows = XLSX.utils.sheet_to_json(wsAltas, { header: 1, defval: '' });
+            const headerCuota = cuotaRows[5] || [];
+            const colPorta = {}, colTemm = {}, colGral = {};
+            headerCuota.forEach((h, i) => {
+                const s = String(h).toLowerCase().trim();
+                const mP = s.match(/^(\d+)\s+porta/);
+                const mT = s.match(/^(\d+)\s+temm/);
+                const mG = s.match(/^(\d+)\s+gral/);
+                if (mP) colPorta[mP[1]] = i;
+                if (mT) colTemm[mT[1]] = i;
+                if (mG) colGral[mG[1]] = i;
+            });
+
+            const parseAltasBlock = (start, end) => {
+                const map = {};
+                for (let r = start; r < end; r++) {
+                    const row = altasRows[r];
+                    if (!row || !row[0]) continue;
+                    const id = String(row[0]).trim().replace(/^0+/, '').split('.')[0];
+                    if (!/^\d{5,}$/.test(id)) continue;
+                    const dias = {};
+                    for (let d = 1; d <= 31; d++) {
+                        const v = row[3 + d];
+                        dias[String(d)] = Number(v) || 0;
+                    }
+                    map[id] = dias;
+                }
+                return map;
+            };
+
+            const portaAltas = parseAltasBlock(2, 109);
+            const temmAltas = parseAltasBlock(111, 218);
+            const prepagoAltas = parseAltasBlock(220, altasRows.length);
+
+            const tiendas = [];
+            for (let r = 6; r < cuotaRows.length; r++) {
+                const row = cuotaRows[r];
+                if (!row || !row[3]) continue;
+                const idpv = String(row[3]).trim().replace(/^0+/, '').split('.')[0];
+                if (!/^\d{5,}$/.test(idpv)) continue;
+                const dias = {};
+                for (let d = 1; d <= 31; d++) {
+                    const dk = String(d);
+                    const cuotaPorta = Number(row[colPorta[dk]]) || 0;
+                    const cuotaTemm = Number(row[colTemm[dk]]) || 0;
+                    const cuotaPrep = Number(row[colGral[dk]]) || 0;
+                    const altaPorta = portaAltas[idpv]?.[dk] || 0;
+                    const altaTemm = temmAltas[idpv]?.[dk] || 0;
+                    const altaPrep = prepagoAltas[idpv]?.[dk] || 0;
+                    dias[dk] = {
+                        PORTA: { cuota: cuotaPorta, altas: altaPorta, gap: altaPorta - cuotaPorta },
+                        TEMM: { cuota: cuotaTemm, altas: altaTemm, gap: altaTemm - cuotaTemm },
+                        PREPAGO: { cuota: cuotaPrep, altas: altaPrep, gap: altaPrep - cuotaPrep }
+                    };
+                }
+                tiendas.push({
+                    idpdv: idpv,
+                    mes: mesStr,
+                    tienda: String(row[4] || '').trim(),
+                    sup: String(row[2] || '').trim(),
+                    cadena: String(row[6] || '').trim(),
+                    dias
+                });
+            }
+            return tiendas;
+        };
         const getEmptyCarpeta = (idpdv, mes) => ({
             idpdv, mes,
             boleta: [1,2,3,4,5].reduce((acc, sem) => {
@@ -394,6 +537,11 @@
             // Carpetas Digitales State
             const [carpetas, setCarpetas] = useState([]);
             const [registrosVentas, setRegistrosVentas] = useState([]);
+            const [cuotasAltasRecords, setCuotasAltasRecords] = useState([]);
+            const [carpetaMesSeleccionado, setCarpetaMesSeleccionado] = useState(getCurrentMonthStr());
+            const [cuotasMesSeleccionado, setCuotasMesSeleccionado] = useState(getCurrentMonthStr());
+            const [expandedCuotaWeeks, setExpandedCuotaWeeks] = useState({ 1: true });
+            const [isSeedingCuotas, setIsSeedingCuotas] = useState(false);
             const [viewStoreId, setViewStoreId] = useState("");
             const [localCarpeta, setLocalCarpeta] = useState(null);
             const [localRegistroVentas, setLocalRegistroVentas] = useState(null);
@@ -511,6 +659,44 @@
                 const s = dataTEMM.find(d => String(d.id || '').replace(/^0+/, '') === cleanId);
                 return s ? s.tienda : "PDV DESCONOCIDO";
             };
+
+            const cuotasAltasScopeStores = useMemo(() => {
+                let records = [...cuotasAltasRecords];
+                if (userRole === "PROMOTOR") {
+                    const cl = userId.trim().replace(/^0+/, '');
+                    records = records.filter(r => String(r.idpdv).replace(/^0+/, '') === cl);
+                } else if (userRole === "SUPERVISOR") {
+                    const supUpper = userId.toUpperCase();
+                    records = records.filter(r => {
+                        const supRec = (r.sup || "").toUpperCase();
+                        if (supRec.includes(supUpper)) return true;
+                        const temm = dataTEMM.find(d => String(d.id).replace(/^0+/, '') === String(r.idpdv).replace(/^0+/, ''));
+                        return temm && (temm.sup || "").toUpperCase().includes(supUpper);
+                    });
+                } else if (userRole === "ADMIN" && supFilter !== "TODOS") {
+                    records = records.filter(r => {
+                        const temm = dataTEMM.find(d => String(d.id).replace(/^0+/, '') === String(r.idpdv).replace(/^0+/, ''));
+                        return (r.sup || "") === supFilter || (temm?.sup || "") === supFilter;
+                    });
+                }
+                return records;
+            }, [cuotasAltasRecords, userRole, userId, supFilter, dataTEMM]);
+
+            const cuotasAltasVista = useMemo(() => {
+                if (userRole === "PROMOTOR") {
+                    const cl = userId.trim().replace(/^0+/, '');
+                    const one = cuotasAltasScopeStores.find(r => String(r.idpdv).replace(/^0+/, '') === cl);
+                    return { mode: 'tienda', dias: one?.dias || {}, tiendaLabel: one?.tienda || getStoreName(cl), count: 1 };
+                }
+                return {
+                    mode: 'agregado',
+                    dias: aggregateDiasCuotas(cuotasAltasScopeStores),
+                    tiendaLabel: userRole === "SUPERVISOR" ? `Zona ${userId}` : 'Red filtrada',
+                    count: cuotasAltasScopeStores.length
+                };
+            }, [cuotasAltasScopeStores, userRole, userId]);
+
+            const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(cuotasMesSeleccionado), [cuotasMesSeleccionado]);
 
             const encStats = useMemo(() => {
                 if (!encuestas.length) return { total: 0, idx: 0, tops: [], bots: [], qMot: {a:0, b:0, c:0, d:0} };
@@ -656,18 +842,22 @@
                         setDynamicExams(s.docs.map(d => ({...d.data(), id: d.id})));
                     }));
 
-                    // CARPETA DIGITAL LISTENER
-                    unsubs.push(getDbPath("carpeta_digital").where("mes", "==", getCurrentMonthStr()).onSnapshot(s => {
+                    // CARPETA DIGITAL — filtrado por mes seleccionado
+                    unsubs.push(getDbPath("carpeta_digital").where("mes", "==", carpetaMesSeleccionado).onSnapshot(s => {
                         setCarpetas(s.docs.map(d => ({...d.data(), id: d.id})));
                     }));
 
-                    unsubs.push(getDbPath("registro_ventas").where("mes", "==", getCurrentMonthStr()).onSnapshot(s => {
+                    unsubs.push(getDbPath("registro_ventas").where("mes", "==", carpetaMesSeleccionado).onSnapshot(s => {
                         setRegistrosVentas(s.docs.map(d => ({ ...d.data(), id: d.id })));
+                    }));
+
+                    unsubs.push(getDbPath("cuotas_altas_diario").where("mes", "==", cuotasMesSeleccionado).onSnapshot(s => {
+                        setCuotasAltasRecords(s.docs.map(d => ({ ...d.data(), id: d.id })));
                     }));
 
                 } catch(error) { console.error("Listeners", error); }
                 return () => unsubs.forEach(u => u());
-            }, [userAuth]);
+            }, [userAuth, carpetaMesSeleccionado, cuotasMesSeleccionado]);
 
             // MANEJO DE ESTADO LOCAL PARA CARPETA
             useEffect(() => {
@@ -679,32 +869,35 @@
                 }
             }, [userRole, userId, dataTEMM]);
 
+            const mesSelectorOptions = useMemo(() => getMesSelectorOptions(24), []);
+            const esMesCarpetaActual = carpetaMesSeleccionado === getCurrentMonthStr();
+            const puedeEditarCarpeta = esMesCarpetaActual || userRole === "ADMIN";
+
             useEffect(() => {
                 if (!viewStoreId) return;
-                const cMonth = getCurrentMonthStr();
-                const exist = carpetas.find(c => c.id === `${viewStoreId}_${cMonth}`);
+                const cleanId = String(viewStoreId).replace(/^0+/, '');
+                const exist = carpetas.find(c => c.id === `${cleanId}_${carpetaMesSeleccionado}` || (String(c.idpdv).replace(/^0+/, '') === cleanId && c.mes === carpetaMesSeleccionado));
                 if (exist) setLocalCarpeta(JSON.parse(JSON.stringify(exist)));
-                else setLocalCarpeta(getEmptyCarpeta(viewStoreId, cMonth));
-            }, [viewStoreId, carpetas]);
+                else setLocalCarpeta(getEmptyCarpeta(viewStoreId, carpetaMesSeleccionado));
+            }, [viewStoreId, carpetas, carpetaMesSeleccionado]);
 
             useEffect(() => {
                 if (!viewStoreId) {
                     setLocalRegistroVentas(null);
                     return;
                 }
-                const cMonth = getCurrentMonthStr();
                 const cleanId = String(viewStoreId).replace(/^0+/, '');
-                const exist = registrosVentas.find(r => r.id === `${cleanId}_${cMonth}` || (String(r.idpdv).replace(/^0+/, '') === cleanId && r.mes === cMonth));
+                const exist = registrosVentas.find(r => r.id === `${cleanId}_${carpetaMesSeleccionado}` || (String(r.idpdv).replace(/^0+/, '') === cleanId && r.mes === carpetaMesSeleccionado));
                 if (exist) {
                     setLocalRegistroVentas({
                         idpdv: cleanId,
-                        mes: cMonth,
+                        mes: carpetaMesSeleccionado,
                         ventas: normalizeVentasFromFirebase(exist.ventas)
                     });
                 } else {
-                    setLocalRegistroVentas(getEmptyRegistroVentas(cleanId, cMonth));
+                    setLocalRegistroVentas(getEmptyRegistroVentas(cleanId, carpetaMesSeleccionado));
                 }
-            }, [viewStoreId, registrosVentas]);
+            }, [viewStoreId, registrosVentas, carpetaMesSeleccionado]);
 
             useEffect(() => {
                 if (subTabCarpeta !== "VENTAS" || !localRegistroVentas) return;
@@ -716,11 +909,48 @@
 
             const saveCarpeta = async () => {
                 if(!db || !localCarpeta) return;
+                if (!puedeEditarCarpeta) return alert("Este mes está en modo consulta. Solo puedes editar el mes actual (o eres Admin).");
                 try {
-                    const docId = `${localCarpeta.idpdv}_${localCarpeta.mes}`;
-                    await getDbPath("carpeta_digital").doc(docId).set(localCarpeta);
-                    alert("¡Avances guardados correctamente!");
+                    const docId = `${String(localCarpeta.idpdv).replace(/^0+/, '')}_${localCarpeta.mes}`;
+                    await getDbPath("carpeta_digital").doc(docId).set({ ...localCarpeta, idpdv: String(localCarpeta.idpdv).replace(/^0+/, ''), mes: localCarpeta.mes });
+                    alert(`¡Avances guardados (${formatMesLabel(localCarpeta.mes)})!`);
                 } catch(e) { alert("Error al guardar: " + e.message); }
+            };
+
+            const uploadCuotasAltasToFirebase = async (tiendas, mesStr) => {
+                if (!db) throw new Error("Sin conexión a Firebase");
+                const snap = await getDbPath("cuotas_altas_diario").where("mes", "==", mesStr).get();
+                for (const doc of snap.docs) await doc.ref.delete();
+                for (const t of tiendas) {
+                    const id = `${t.idpdv}_${mesStr}`;
+                    await getDbPath("cuotas_altas_diario").doc(id).set({
+                        idpdv: t.idpdv,
+                        mes: mesStr,
+                        tienda: t.tienda || '',
+                        sup: t.sup || '',
+                        cadena: t.cadena || '',
+                        dias: t.dias,
+                        actualizado: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            };
+
+            const bulkSeedCuotasAltas = async () => {
+                if (!db || userRole !== "ADMIN") return;
+                if (!window.confirm(`¿Importar cuotas/altas diarias a Firebase para ${formatMesLabel(cuotasMesSeleccionado)}?`)) return;
+                setIsSeedingCuotas(true);
+                try {
+                    const res = await fetch(`cuotas_altas_${cuotasMesSeleccionado}.json`, { cache: 'no-store' });
+                    if (!res.ok) throw new Error(`No se encontró cuotas_altas_${cuotasMesSeleccionado}.json`);
+                    const payload = await res.json();
+                    const tiendas = payload.tiendas || payload;
+                    await uploadCuotasAltasToFirebase(tiendas, payload.mes || cuotasMesSeleccionado);
+                    alert(`Cuotas y altas sincronizadas: ${tiendas.length} tiendas.`);
+                } catch (e) {
+                    alert("Error: " + (e.message || e));
+                } finally {
+                    setIsSeedingCuotas(false);
+                }
             };
 
             const downloadCarpetasExcel = () => {
@@ -774,7 +1004,7 @@
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataBoleta), "Boleta Semanal");
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataEstac), "Estacionalidad");
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataShare), "Share de Tienda");
-                XLSX.writeFile(wb, `Reporte_Carpetas_${getCurrentMonthStr()}.xlsx`);
+                XLSX.writeFile(wb, `Reporte_Carpetas_${carpetaMesSeleccionado}.xlsx`);
             };
 
             const downloadEncuestasExcel = () => {
@@ -885,6 +1115,7 @@
 
             const saveRegistroVentas = async () => {
                 if (!db || !localRegistroVentas?.idpdv) return alert("Selecciona una tienda primero.");
+                if (!puedeEditarCarpeta) return alert("Este mes está en modo consulta. Solo puedes editar el mes actual (o eres Admin).");
                 setIsSavingVentas(true);
                 try {
                     const docId = `${localRegistroVentas.idpdv}_${localRegistroVentas.mes}`;
@@ -931,7 +1162,7 @@
                 if (rows.length === 0) return alert("No hay ventas registradas para exportar con los filtros actuales.");
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Registro Ventas");
-                XLSX.writeFile(wb, `Registro_Ventas_${getCurrentMonthStr()}.xlsx`);
+                XLSX.writeFile(wb, `Registro_Ventas_${carpetaMesSeleccionado}.xlsx`);
             };
 
             const renderCarpetaAuditoria = (downloadHandler) => (
@@ -1198,8 +1429,14 @@
                             
                             await saveInChunks("inv", list);
                             alert(`¡Inventario Sincronizado exitosamente! (${list.length} registros guardados)`);
+                        } else if (type === "cuotas_altas") {
+                            const mesImp = cuotasMesSeleccionado;
+                            const tiendas = parseCuotaAltasFromWorkbook(wb, mesImp);
+                            if (!tiendas.length) return alert("No se extrajeron tiendas de Cuota/Altas.");
+                            await uploadCuotasAltasToFirebase(tiendas, mesImp);
+                            alert(`Cuotas y Altas diarias importadas: ${tiendas.length} tiendas · ${formatMesLabel(mesImp)}`);
                         }
-                    } catch (error) { alert("Error procesando Excel."); console.error(error); }
+                    } catch (error) { alert("Error procesando Excel: " + (error.message || error)); console.error(error); }
                 }; reader.readAsBinaryString(file);
             };
 
@@ -1622,12 +1859,32 @@
                                     <button onClick={()=>setSubTabCarpeta("VENTAS")} className={`subtab-btn ${subTabCarpeta==="VENTAS"?'subtab-active':'subtab-inactive'}`}>REGISTRO DE VENTAS</button>
                                 </div>
 
-                                <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden flex justify-between items-center">
-                                    <div className="relative z-10">
-                                        <h2 className="font-black text-lg italic uppercase">Carpeta Digital</h2>
-                                        <p className="text-[9px] font-bold text-gray-400 mt-1">Registros mensuales de {getCurrentMonthStr()}</p>
+                                <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
+                                    <div className="flex justify-between items-start gap-3">
+                                        <div className="relative z-10 flex-1">
+                                            <h2 className="font-black text-lg italic uppercase">Carpeta Digital</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Historial por mes y tienda (IDPV)</p>
+                                        </div>
+                                        <div className="text-4xl opacity-50 relative z-10">📁</div>
                                     </div>
-                                    <div className="text-4xl opacity-50 relative z-10">📁</div>
+                                    <div className="mt-4 relative z-10 flex flex-col gap-2">
+                                        <label className="text-[8px] font-black text-gray-400 uppercase">Mes de consulta</label>
+                                        <select
+                                            className="w-full bg-white/10 text-white border border-white/20 p-3 rounded-xl font-black text-[11px] outline-none"
+                                            value={carpetaMesSeleccionado}
+                                            onChange={e => setCarpetaMesSeleccionado(e.target.value)}
+                                        >
+                                            {mesSelectorOptions.map(o => (
+                                                <option key={o.value} value={o.value} className="text-movistar-dark">{o.label}</option>
+                                            ))}
+                                        </select>
+                                        {!puedeEditarCarpeta && (
+                                            <p className="text-[8px] font-bold text-yellow-300 uppercase">🔒 Modo consulta — {formatMesLabel(carpetaMesSeleccionado)}</p>
+                                        )}
+                                        {puedeEditarCarpeta && !esMesCarpetaActual && userRole === "ADMIN" && (
+                                            <p className="text-[8px] font-bold text-green-300 uppercase">✏️ Admin: edición habilitada en este mes</p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {(userRole === "ADMIN" || userRole === "SUPERVISOR") && subTabCarpeta !== "VENTAS" && renderCarpetaAuditoria(downloadCarpetasExcel)}
@@ -1647,7 +1904,7 @@
                                                     <p className="text-[10px] font-bold text-movistar-dark uppercase">IDPDV: {localRegistroVentas.idpdv} — {getStoreName(localRegistroVentas.idpdv)}</p>
                                                     <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase">{ventasFilledCount} / {VENTAS_MAX_ROWS} ventas · Mes {localRegistroVentas.mes}</p>
                                                 </div>
-                                                <button onClick={saveRegistroVentas} disabled={isSavingVentas} className="bg-movistar-blue text-white px-4 py-2 rounded-xl font-black text-[9px] shadow-md active:scale-95 disabled:opacity-50 shrink-0">💾 GUARDAR</button>
+                                                <button onClick={saveRegistroVentas} disabled={!puedeEditarCarpeta || isSavingVentas} className="bg-movistar-blue text-white px-4 py-2 rounded-xl font-black text-[9px] shadow-md active:scale-95 disabled:opacity-50 shrink-0">💾 GUARDAR</button>
                                             </div>
 
                                             <div className="space-y-1 max-h-[65vh] overflow-y-auto pr-1">
@@ -1665,30 +1922,30 @@
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                                     <div className="venta-field sm:col-span-2">
                                                                         <label>Fecha de venta</label>
-                                                                        <input type="date" value={row.fecha || ''} onChange={e => updateVentaRow(idx, 'fecha', e.target.value)} />
+                                                                        <input type="date" value={row.fecha || ''} onChange={e => updateVentaRow(idx, 'fecha', e.target.value)} disabled={!puedeEditarCarpeta} />
                                                                     </div>
                                                                     <div className="venta-field">
                                                                         <label>DN</label>
-                                                                        <input type="text" inputMode="numeric" placeholder="Número DN" value={row.dn || ''} onChange={e => updateVentaRow(idx, 'dn', e.target.value)} />
+                                                                        <input type="text" inputMode="numeric" placeholder="Número DN" value={row.dn || ''} onChange={e => updateVentaRow(idx, 'dn', e.target.value)} disabled={!puedeEditarCarpeta} />
                                                                     </div>
                                                                     <div className="venta-field">
                                                                         <label>Producto</label>
-                                                                        <select value={row.producto || ''} onChange={e => updateVentaRow(idx, 'producto', e.target.value)}>
+                                                                        <select value={row.producto || ''} onChange={e => updateVentaRow(idx, 'producto', e.target.value)} disabled={!puedeEditarCarpeta}>
                                                                             <option value="">— Seleccionar —</option>
                                                                             {VENTAS_PRODUCTOS.map(p => <option key={p} value={p}>{p}</option>)}
                                                                         </select>
                                                                     </div>
                                                                     <div className="venta-field">
                                                                         <label>Monto recarga</label>
-                                                                        <input type="number" min="0" step="0.01" placeholder="0.00" value={row.montoRecarga ?? ''} onChange={e => updateVentaRow(idx, 'montoRecarga', e.target.value)} />
+                                                                        <input type="number" min="0" step="0.01" placeholder="0.00" value={row.montoRecarga ?? ''} onChange={e => updateVentaRow(idx, 'montoRecarga', e.target.value)} disabled={!puedeEditarCarpeta} />
                                                                     </div>
                                                                     <div className="venta-field">
                                                                         <label>Monto equipo</label>
-                                                                        <input type="number" min="0" step="0.01" placeholder="0.00" value={row.montoEquipo ?? ''} onChange={e => updateVentaRow(idx, 'montoEquipo', e.target.value)} />
+                                                                        <input type="number" min="0" step="0.01" placeholder="0.00" value={row.montoEquipo ?? ''} onChange={e => updateVentaRow(idx, 'montoEquipo', e.target.value)} disabled={!puedeEditarCarpeta} />
                                                                     </div>
                                                                     <div className="venta-field sm:col-span-2">
                                                                         <label>Vinculación</label>
-                                                                        <select value={row.vinculacion || ''} onChange={e => updateVentaRow(idx, 'vinculacion', e.target.value)}>
+                                                                        <select value={row.vinculacion || ''} onChange={e => updateVentaRow(idx, 'vinculacion', e.target.value)} disabled={!puedeEditarCarpeta}>
                                                                             <option value="">— Seleccionar —</option>
                                                                             {VENTAS_VINCULACION.map(v => <option key={v} value={v}>{v}</option>)}
                                                                         </select>
@@ -1718,7 +1975,7 @@
                                                 })}
                                             </div>
 
-                                            <button onClick={saveRegistroVentas} disabled={isSavingVentas} className="w-full bg-movistar-blue text-white mt-4 py-4 rounded-xl font-black text-[10px] shadow-lg active:scale-95 transition-transform uppercase disabled:opacity-50">GUARDAR REGISTRO DE VENTAS 📤</button>
+                                            <button onClick={saveRegistroVentas} disabled={!puedeEditarCarpeta || isSavingVentas} className="w-full bg-movistar-blue text-white mt-4 py-4 rounded-xl font-black text-[10px] shadow-lg active:scale-95 transition-transform uppercase disabled:opacity-50">GUARDAR REGISTRO DE VENTAS 📤</button>
                                         </div>
                                     )
                                 ) : !localCarpeta ? (
@@ -1731,7 +1988,7 @@
                                                 <p className="text-[10px] font-black text-movistar-blue uppercase tracking-widest">{subTabCarpeta}</p>
                                                 <p className="text-[10px] font-bold text-movistar-dark uppercase">IDPDV: {localCarpeta.idpdv} - {getStoreName(localCarpeta.idpdv)}</p>
                                             </div>
-                                            <button onClick={saveCarpeta} className="bg-movistar-blue text-white px-4 py-2 rounded-xl font-black text-[9px] shadow-md active:scale-95">💾 GUARDAR</button>
+                                            <button onClick={saveCarpeta} disabled={!puedeEditarCarpeta} className="bg-movistar-blue text-white px-4 py-2 rounded-xl font-black text-[9px] shadow-md active:scale-95 disabled:opacity-40">💾 GUARDAR</button>
                                         </div>
 
                                         {subTabCarpeta === "BOLETA" && (
@@ -1747,7 +2004,7 @@
                                                                     placeholder="Ej. Del 01 al 07"
                                                                     value={localCarpeta.boleta[sem]?.periodo || ''}
                                                                     onChange={e => updatePeriodo(sem, e.target.value)}
-                                                                    disabled={userRole === "PROMOTOR"}
+                                                                    disabled={!puedeEditarCarpeta || userRole === "PROMOTOR"}
                                                                     className="bg-white border p-1 text-[8px] rounded outline-none font-bold text-movistar-dark w-28 text-center"
                                                                 />
                                                             </div>
@@ -1768,10 +2025,10 @@
                                                                             <tr key={prod}>
                                                                                 <td className="font-bold bg-gray-50">{prod.replace('_', ' ')}</td>
                                                                                 <td><input type="number" value={row.a} disabled className="bg-gray-100 cursor-not-allowed text-movistar-dark" /></td>
-                                                                                <td><input type="number" value={row.c} onChange={e => updateBoleta(sem, prod, 'c', e.target.value)} disabled={userRole === "PROMOTOR"} /></td>
+                                                                                <td><input type="number" value={row.c} onChange={e => updateBoleta(sem, prod, 'c', e.target.value)} disabled={!puedeEditarCarpeta || userRole === "PROMOTOR"} /></td>
                                                                                 <td className="font-bold text-movistar-blue bg-gray-50">{alcance}</td>
                                                                                 <td className={row.ok ? 'bg-green-100' : 'bg-red-100'}>
-                                                                                    <select value={row.ok ? 'SI' : 'NO'} onChange={e => updateBoleta(sem, prod, 'ok', e.target.value === 'SI')} disabled={userRole === "PROMOTOR"} className={row.ok ? 'text-movistar-green' : 'text-movistar-red'}>
+                                                                                    <select value={row.ok ? 'SI' : 'NO'} onChange={e => updateBoleta(sem, prod, 'ok', e.target.value === 'SI')} disabled={!puedeEditarCarpeta || userRole === "PROMOTOR"} className={row.ok ? 'text-movistar-green' : 'text-movistar-red'}>
                                                                                         <option value="NO">NO</option><option value="SI">SI</option>
                                                                                     </select>
                                                                                 </td>
@@ -1782,13 +2039,13 @@
                                                                                             return (
                                                                                                 <div key={day} className="flex flex-col items-center">
                                                                                                     <span className="text-[6px] font-black text-gray-500">{day}</span>
-                                                                                                    <input type="number" className={`w-5 h-5 text-[8px] text-center border rounded-sm outline-none ${userRole === 'PROMOTOR' ? 'bg-white focus:border-movistar-blue' : 'bg-gray-50'}`} value={val || ''} onChange={e => updateBoletaD0(sem, prod, day, e.target.value)} disabled={userRole !== "PROMOTOR"} />
+                                                                                                    <input type="number" className={`w-5 h-5 text-[8px] text-center border rounded-sm outline-none ${userRole === 'PROMOTOR' ? 'bg-white focus:border-movistar-blue' : 'bg-gray-50'}`} value={val || ''} onChange={e => updateBoletaD0(sem, prod, day, e.target.value)} disabled={!puedeEditarCarpeta || userRole !== "PROMOTOR"} />
                                                                                                 </div>
                                                                                             );
                                                                                         })}
                                                                                     </div>
                                                                                 </td>
-                                                                                <td><input type="text" value={row.com} onChange={e => updateBoleta(sem, prod, 'com', e.target.value)} disabled={userRole === "PROMOTOR"} /></td>
+                                                                                <td><input type="text" value={row.com} onChange={e => updateBoleta(sem, prod, 'com', e.target.value)} disabled={!puedeEditarCarpeta || userRole === "PROMOTOR"} /></td>
                                                                             </tr>
                                                                         )
                                                                     })}
@@ -1830,14 +2087,14 @@
                                                                 return (
                                                                     <tr key={i}>
                                                                         <td className="font-bold bg-gray-50">{dayNum}</td>
-                                                                        <td><input type="number" value={d.cTot} onChange={e => updateEstac(i, 'cTot', e.target.value)} /></td>
-                                                                        <td className={isEmptyPastDayTot ? 'bg-red-100' : ''}><input type="number" value={d.aTot} onChange={e => updateEstac(i, 'aTot', e.target.value)} /></td>
+                                                                        <td><input type="number" value={d.cTot} onChange={e => updateEstac(i, 'cTot', e.target.value)} disabled={!puedeEditarCarpeta} /></td>
+                                                                        <td className={isEmptyPastDayTot ? 'bg-red-100' : ''}><input type="number" value={d.aTot} onChange={e => updateEstac(i, 'aTot', e.target.value)} disabled={!puedeEditarCarpeta} /></td>
                                                                         <td className="bg-gray-50 text-gray-500 font-bold">{acCuotaTot}</td>
                                                                         <td className="bg-gray-50 text-gray-500 font-bold">{acAltaTot}</td>
                                                                         <td className={`font-black ${gapTot >= 0 ? 'bg-green-50 text-movistar-green' : 'bg-red-50 text-movistar-red'}`}>{gapTot > 0 ? '+'+gapTot : gapTot}</td>
 
-                                                                        <td><input type="number" value={d.cTem} onChange={e => updateEstac(i, 'cTem', e.target.value)} /></td>
-                                                                        <td className={isEmptyPastDayTemm ? 'bg-red-100' : ''}><input type="number" value={d.aTem} onChange={e => updateEstac(i, 'aTem', e.target.value)} /></td>
+                                                                        <td><input type="number" value={d.cTem} onChange={e => updateEstac(i, 'cTem', e.target.value)} disabled={!puedeEditarCarpeta} /></td>
+                                                                        <td className={isEmptyPastDayTemm ? 'bg-red-100' : ''}><input type="number" value={d.aTem} onChange={e => updateEstac(i, 'aTem', e.target.value)} disabled={!puedeEditarCarpeta} /></td>
                                                                         <td className="bg-gray-50 text-gray-500 font-bold">{acCuotaTemm}</td>
                                                                         <td className="bg-gray-50 text-gray-500 font-bold">{acAltaTemm}</td>
                                                                         <td className={`font-black ${gapTemm >= 0 ? 'bg-green-50 text-movistar-green' : 'bg-red-50 text-movistar-red'}`}>{gapTemm > 0 ? '+'+gapTemm : gapTemm}</td>
@@ -1886,10 +2143,10 @@
                                                                 return (
                                                                     <tr key={i}>
                                                                         <td className="font-bold bg-gray-50">{dayNum}</td>
-                                                                        <td><input type="number" value={d.mov} onChange={e => updateShare(i, 'mov', e.target.value)} /></td><td className="bg-green-50 font-bold">{acMov}</td>
-                                                                        <td><input type="number" value={d.tel} onChange={e => updateShare(i, 'tel', e.target.value)} /></td><td className="bg-blue-50 font-bold">{acTel}</td>
-                                                                        <td><input type="number" value={d.lib} onChange={e => updateShare(i, 'lib', e.target.value)} /></td><td className="bg-gray-100 font-bold">{acLib}</td>
-                                                                        <td><input type="number" value={d.att} onChange={e => updateShare(i, 'att', e.target.value)} /></td><td className="bg-gray-200 font-bold">{acAtt}</td>
+                                                                        <td><input type="number" value={d.mov} onChange={e => updateShare(i, 'mov', e.target.value)} disabled={!puedeEditarCarpeta} /></td><td className="bg-green-50 font-bold">{acMov}</td>
+                                                                        <td><input type="number" value={d.tel} onChange={e => updateShare(i, 'tel', e.target.value)} disabled={!puedeEditarCarpeta} /></td><td className="bg-blue-50 font-bold">{acTel}</td>
+                                                                        <td><input type="number" value={d.lib} onChange={e => updateShare(i, 'lib', e.target.value)} disabled={!puedeEditarCarpeta} /></td><td className="bg-gray-100 font-bold">{acLib}</td>
+                                                                        <td><input type="number" value={d.att} onChange={e => updateShare(i, 'att', e.target.value)} disabled={!puedeEditarCarpeta} /></td><td className="bg-gray-200 font-bold">{acAtt}</td>
                                                                         <td className="bg-yellow-50 font-bold text-movistar-dark">{totDia}</td>
                                                                         <td className="bg-yellow-50 font-black text-movistar-dark">{acTot}</td>
                                                                         <td className="bg-movistar-blue text-white font-bold">{pDia}</td>
@@ -1903,7 +2160,7 @@
                                             );
                                         })()}
 
-                                        <button onClick={saveCarpeta} className="w-full bg-movistar-blue text-white mt-4 py-4 rounded-xl font-black text-[10px] shadow-lg active:scale-95 transition-transform uppercase">GUARDAR AVANCES DE CARPETA 📤</button>
+                                        <button onClick={saveCarpeta} disabled={!puedeEditarCarpeta} className="w-full bg-movistar-blue text-white mt-4 py-4 rounded-xl font-black text-[10px] shadow-lg active:scale-95 transition-transform uppercase disabled:opacity-40">GUARDAR AVANCES DE CARPETA 📤</button>
                                     </div>
                                 )}
                             </div>
@@ -1937,10 +2194,114 @@
                                     </div>
                                 </div>
 
-                                <div className="flex bg-gray-200 p-1 rounded-2xl mb-4">
+                                <div className="flex bg-gray-200 p-1 rounded-2xl mb-4 flex-wrap">
                                     <button onClick={()=>setSubTabOp("GENERAL")} className={`subtab-btn ${subTabOp==="GENERAL"?'subtab-active':'subtab-inactive'}`}>TIENDAS</button>
+                                    <button onClick={()=>setSubTabOp("CUOTAS_ALTAS")} className={`subtab-btn ${subTabOp==="CUOTAS_ALTAS"?'subtab-active':'subtab-inactive'}`}>CUOTAS Y ALTAS</button>
                                     <button onClick={()=>setSubTabOp("INVENTARIO")} className={`subtab-btn ${subTabOp==="INVENTARIO"?'subtab-active':'subtab-inactive'}`}>INVENTARIO</button>
                                 </div>
+
+                                {subTabOp === "CUOTAS_ALTAS" && (
+                                    <div className="space-y-4 animate-pop">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Cuotas y Altas Diario</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">
+                                                {cuotasAltasVista.mode === 'tienda'
+                                                    ? `Tienda: ${cuotasAltasVista.tiendaLabel}`
+                                                    : `${cuotasAltasVista.tiendaLabel} · ${cuotasAltasVista.count} PDV`}
+                                            </p>
+                                            <div className="mt-3">
+                                                <label className="text-[8px] font-black text-gray-400 uppercase">Mes del calendario</label>
+                                                <select
+                                                    className="w-full mt-1 bg-white/10 text-white border border-white/20 p-3 rounded-xl font-black text-[11px] outline-none"
+                                                    value={cuotasMesSeleccionado}
+                                                    onChange={e => setCuotasMesSeleccionado(e.target.value)}
+                                                >
+                                                    {mesSelectorOptions.map(o => (
+                                                        <option key={o.value} value={o.value} className="text-movistar-dark">{o.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {userRole === "ADMIN" && (
+                                            <div className="bg-white p-4 rounded-[1.5rem] border shadow-sm flex flex-col gap-2">
+                                                <label className="flex-1 bg-movistar-blue text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer active:scale-95">
+                                                    IMPORTAR EXCEL (CUOTA + ALTAS)
+                                                    <input type="file" className="hidden" accept=".xlsx" onChange={e => uploadFile("cuotas_altas", e)} />
+                                                </label>
+                                                <button type="button" onClick={bulkSeedCuotasAltas} disabled={isSeedingCuotas} className="text-[8px] font-black text-gray-500 py-2 disabled:opacity-40">
+                                                    {isSeedingCuotas ? 'Sincronizando…' : `Sync JSON cuotas_altas_${cuotasMesSeleccionado}.json`}
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {cuotasAltasVista.count === 0 ? (
+                                            <div className="text-center p-8 bg-white rounded-[1.5rem] border text-gray-400 font-bold text-xs uppercase">
+                                                Sin datos de cuotas/altas para {formatMesLabel(cuotasMesSeleccionado)}. Importa el Excel (Admin).
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {cuotasMonthWeeks.map(week => {
+                                                    const isOpen = expandedCuotaWeeks[week.weekNum] !== false;
+                                                    const weekLabel = week.days.length
+                                                        ? `Semana ${week.weekNum} · Día ${week.days[0].day} al ${week.days[week.days.length - 1].day}`
+                                                        : `Semana ${week.weekNum}`;
+                                                    return (
+                                                        <div key={week.weekNum} className="bg-white rounded-[1.25rem] border shadow-sm overflow-hidden">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setExpandedCuotaWeeks(prev => ({ ...prev, [week.weekNum]: !isOpen }))}
+                                                                className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+                                                            >
+                                                                <span className="text-[10px] font-black text-movistar-dark uppercase">{weekLabel}</span>
+                                                                <span className="text-movistar-blue font-black text-lg">{isOpen ? '−' : '+'}</span>
+                                                            </button>
+                                                            {isOpen && (
+                                                                <div className="p-3 space-y-3">
+                                                                    {week.days.map(({ day, label }) => {
+                                                                        const prods = cuotasAltasVista.dias[String(day)] || emptyDiaProductos();
+                                                                        return (
+                                                                            <div key={day} className="border rounded-xl p-3 bg-slate-50/80">
+                                                                                <p className="text-[9px] font-black text-movistar-blue uppercase mb-2">{label} {day} · {formatMesLabel(cuotasMesSeleccionado)}</p>
+                                                                                <div className="grid grid-cols-1 gap-2">
+                                                                                    {PRODUCTOS_CUOTA.map(prod => {
+                                                                                        const cell = prods[prod] || { cuota: 0, altas: 0, gap: 0 };
+                                                                                        const gap = Number(cell.gap) || 0;
+                                                                                        const gapClass = gap >= 0 ? 'text-movistar-green bg-green-50' : 'text-movistar-red bg-red-50';
+                                                                                        const prodColors = prod === 'TEMM' ? 'border-l-movistar-blue' : prod === 'PORTA' ? 'border-l-purple-500' : 'border-l-amber-500';
+                                                                                        return (
+                                                                                            <div key={prod} className={`bg-white rounded-lg p-3 border-l-4 ${prodColors} shadow-sm`}>
+                                                                                                <p className="text-[8px] font-black text-gray-500 uppercase mb-2">{prod === 'PREPAGO' ? 'PREPAGO (Total)' : prod}</p>
+                                                                                                <div className="grid grid-cols-3 gap-2 text-center">
+                                                                                                    <div>
+                                                                                                        <p className="text-[7px] font-bold text-gray-400 uppercase">Cuota</p>
+                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{Number(cell.cuota).toFixed(2)}</p>
+                                                                                                    </div>
+                                                                                                    <div>
+                                                                                                        <p className="text-[7px] font-bold text-gray-400 uppercase">Altas</p>
+                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{Number(cell.altas).toFixed(2)}</p>
+                                                                                                    </div>
+                                                                                                    <div className={`rounded-lg py-1 ${gapClass}`}>
+                                                                                                        <p className="text-[7px] font-bold uppercase opacity-80">GAP</p>
+                                                                                                        <p className="text-sm font-black tabular-nums">{gap >= 0 ? '+' : ''}{gap.toFixed(2)}</p>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {subTabOp === "GENERAL" && (
                                     <>
