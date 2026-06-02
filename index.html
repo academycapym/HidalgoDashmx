@@ -83,6 +83,15 @@
         .tabla-carpeta input { width: 100%; font-size: 10px; text-align: center; font-weight: 600; background: transparent; border: none; outline: none; padding: 4px; border-radius: 4px; transition: 0.2s;}
         .tabla-carpeta input:focus { background: #eff6ff; }
         .tabla-carpeta select { font-size: 10px; text-align: center; font-weight: 600; background: transparent; border: none; outline: none; width: 100%; cursor: pointer;}
+
+        .venta-row { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+        .venta-row-compact { padding: 8px 12px; margin-bottom: 6px; cursor: pointer; }
+        .venta-row-compact:hover { border-color: #cbd5e1; background: #f8fafc; }
+        .venta-row-active { padding: 16px 14px; margin: 14px 0; border: 2px solid #019DF4; box-shadow: 0 8px 24px -6px rgba(1, 157, 244, 0.35); }
+        .venta-field label { display: block; font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.04em; }
+        .venta-field input, .venta-field select { width: 100%; font-size: 12px; font-weight: 700; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; outline: none; }
+        .venta-row-active .venta-field input, .venta-row-active .venta-field select { font-size: 14px; padding: 12px 14px; }
+        .venta-field input:focus, .venta-field select:focus { border-color: #019DF4; background: #eff6ff; }
         
         select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
     </style>
@@ -310,6 +319,36 @@
             share: Array.from({length: 31}).map(()=>({ mov:'', tel:'', lib:'', att:'' }))
         });
 
+        const VENTAS_MAX_ROWS = 200;
+        const VENTAS_PRODUCTOS = ['Portabilidad', 'Temm', 'Pospago', 'Prepago Voz'];
+        const VENTAS_VINCULACION = ['Sí', 'No'];
+
+        const getEmptyVentaRow = () => ({
+            fecha: '', dn: '', producto: '', montoRecarga: '', montoEquipo: '', vinculacion: ''
+        });
+
+        const isVentaRowFilled = (row) => {
+            if (!row) return false;
+            return !!(String(row.fecha || '').trim() || String(row.dn || '').trim() || String(row.producto || '').trim()
+                || String(row.montoRecarga ?? '').trim() || String(row.montoEquipo ?? '').trim() || String(row.vinculacion || '').trim());
+        };
+
+        const getEmptyRegistroVentas = (idpdv, mes) => ({
+            idpdv: String(idpdv || '').replace(/^0+/, ''),
+            mes,
+            ventas: Array.from({ length: VENTAS_MAX_ROWS }, () => getEmptyVentaRow())
+        });
+
+        const normalizeVentasFromFirebase = (ventas) => {
+            const base = Array.from({ length: VENTAS_MAX_ROWS }, () => getEmptyVentaRow());
+            if (!Array.isArray(ventas)) return base;
+            ventas.forEach((v, i) => {
+                if (i >= VENTAS_MAX_ROWS) return;
+                base[i] = { ...getEmptyVentaRow(), ...v };
+            });
+            return base;
+        };
+
         const App = () => {
             const [userAuth, setUserAuth] = useState(null);
             const isCanvasEnv = typeof __firebase_config !== 'undefined';
@@ -354,8 +393,12 @@
 
             // Carpetas Digitales State
             const [carpetas, setCarpetas] = useState([]);
+            const [registrosVentas, setRegistrosVentas] = useState([]);
             const [viewStoreId, setViewStoreId] = useState("");
             const [localCarpeta, setLocalCarpeta] = useState(null);
+            const [localRegistroVentas, setLocalRegistroVentas] = useState(null);
+            const [activeVentaIdx, setActiveVentaIdx] = useState(0);
+            const [isSavingVentas, setIsSavingVentas] = useState(false);
 
             // Search and filters
             const [searchStore, setSearchStore] = useState("");
@@ -448,7 +491,10 @@
             const carpetaStoresFiltered = useMemo(() => {
                 if (!Array.isArray(dataTEMM)) return [];
                 let f = dataTEMM;
-                if (userRole === "SUPERVISOR") {
+                if (userRole === "PROMOTOR") {
+                    const cl = userId.trim().replace(/^0+/, '');
+                    f = f.filter(d => String(d.id || '').replace(/^0+/, '') === cl);
+                } else if (userRole === "SUPERVISOR") {
                     f = f.filter(d => (d.sup || "").toUpperCase().includes(userId));
                 } else if (userRole === "ADMIN") {
                     if (supFilterCarpeta !== "TODOS") f = f.filter(d => (d.sup || "") === supFilterCarpeta);
@@ -615,6 +661,10 @@
                         setCarpetas(s.docs.map(d => ({...d.data(), id: d.id})));
                     }));
 
+                    unsubs.push(getDbPath("registro_ventas").where("mes", "==", getCurrentMonthStr()).onSnapshot(s => {
+                        setRegistrosVentas(s.docs.map(d => ({ ...d.data(), id: d.id })));
+                    }));
+
                 } catch(error) { console.error("Listeners", error); }
                 return () => unsubs.forEach(u => u());
             }, [userAuth]);
@@ -636,6 +686,33 @@
                 if (exist) setLocalCarpeta(JSON.parse(JSON.stringify(exist)));
                 else setLocalCarpeta(getEmptyCarpeta(viewStoreId, cMonth));
             }, [viewStoreId, carpetas]);
+
+            useEffect(() => {
+                if (!viewStoreId) {
+                    setLocalRegistroVentas(null);
+                    return;
+                }
+                const cMonth = getCurrentMonthStr();
+                const cleanId = String(viewStoreId).replace(/^0+/, '');
+                const exist = registrosVentas.find(r => r.id === `${cleanId}_${cMonth}` || (String(r.idpdv).replace(/^0+/, '') === cleanId && r.mes === cMonth));
+                if (exist) {
+                    setLocalRegistroVentas({
+                        idpdv: cleanId,
+                        mes: cMonth,
+                        ventas: normalizeVentasFromFirebase(exist.ventas)
+                    });
+                } else {
+                    setLocalRegistroVentas(getEmptyRegistroVentas(cleanId, cMonth));
+                }
+            }, [viewStoreId, registrosVentas]);
+
+            useEffect(() => {
+                if (subTabCarpeta !== "VENTAS" || !localRegistroVentas) return;
+                const nextEmpty = localRegistroVentas.ventas.findIndex(r => !isVentaRowFilled(r));
+                if (activeVentaIdx < 0 || activeVentaIdx >= VENTAS_MAX_ROWS) {
+                    setActiveVentaIdx(nextEmpty >= 0 ? nextEmpty : 0);
+                }
+            }, [subTabCarpeta, viewStoreId, localRegistroVentas?.idpdv]);
 
             const saveCarpeta = async () => {
                 if(!db || !localCarpeta) return;
@@ -779,6 +856,105 @@
                 n.share[dayIdx][field] = value;
                 setLocalCarpeta(n);
             };
+
+            const ventasFilledCount = useMemo(() => {
+                if (!localRegistroVentas?.ventas) return 0;
+                return localRegistroVentas.ventas.filter(isVentaRowFilled).length;
+            }, [localRegistroVentas]);
+
+            const ventaVisibleIndices = useMemo(() => {
+                if (!localRegistroVentas?.ventas) return [0];
+                const indices = new Set();
+                localRegistroVentas.ventas.forEach((row, i) => {
+                    if (isVentaRowFilled(row)) indices.add(i);
+                });
+                const nextEmpty = localRegistroVentas.ventas.findIndex(r => !isVentaRowFilled(r));
+                if (nextEmpty >= 0) indices.add(nextEmpty);
+                if (activeVentaIdx >= 0 && activeVentaIdx < VENTAS_MAX_ROWS) indices.add(activeVentaIdx);
+                return [...indices].sort((a, b) => a - b);
+            }, [localRegistroVentas, activeVentaIdx]);
+
+            const updateVentaRow = (idx, field, value) => {
+                setLocalRegistroVentas(prev => {
+                    if (!prev) return prev;
+                    const ventas = [...prev.ventas];
+                    ventas[idx] = { ...ventas[idx], [field]: value };
+                    return { ...prev, ventas };
+                });
+            };
+
+            const saveRegistroVentas = async () => {
+                if (!db || !localRegistroVentas?.idpdv) return alert("Selecciona una tienda primero.");
+                setIsSavingVentas(true);
+                try {
+                    const docId = `${localRegistroVentas.idpdv}_${localRegistroVentas.mes}`;
+                    await getDbPath("registro_ventas").doc(docId).set({
+                        idpdv: localRegistroVentas.idpdv,
+                        mes: localRegistroVentas.mes,
+                        ventas: localRegistroVentas.ventas,
+                        actualizado: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    alert(`Registro de ventas guardado (${ventasFilledCount} ventas | ${localRegistroVentas.mes}).`);
+                } catch (e) {
+                    alert("Error al guardar ventas: " + e.message);
+                } finally {
+                    setIsSavingVentas(false);
+                }
+            };
+
+            const downloadVentasExcel = () => {
+                const allowedStoreIds = carpetaStoresFiltered.map(d => String(d.id).replace(/^0+/, ''));
+                let docs = registrosVentas.filter(r => allowedStoreIds.includes(String(r.idpdv).replace(/^0+/, '')));
+                if (viewStoreId) {
+                    const cleanSel = String(viewStoreId).replace(/^0+/, '');
+                    docs = docs.filter(r => String(r.idpdv).replace(/^0+/, '') === cleanSel);
+                }
+                const rows = [];
+                docs.forEach(doc => {
+                    const tienda = getStoreName(doc.idpdv);
+                    (doc.ventas || []).forEach((v, idx) => {
+                        if (!isVentaRowFilled(v)) return;
+                        rows.push({
+                            "IDPDV": doc.idpdv,
+                            "Tienda": tienda,
+                            "Mes": doc.mes,
+                            "Fila": idx + 1,
+                            "Fecha Venta": v.fecha || '',
+                            "DN": v.dn || '',
+                            "Producto": v.producto || '',
+                            "Monto Recarga": v.montoRecarga ?? '',
+                            "Monto Equipo": v.montoEquipo ?? '',
+                            "Vinculación": v.vinculacion || ''
+                        });
+                    });
+                });
+                if (rows.length === 0) return alert("No hay ventas registradas para exportar con los filtros actuales.");
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Registro Ventas");
+                XLSX.writeFile(wb, `Registro_Ventas_${getCurrentMonthStr()}.xlsx`);
+            };
+
+            const renderCarpetaAuditoria = (downloadHandler) => (
+                <div className="bg-white p-5 rounded-[1.5rem] shadow-sm border flex flex-col gap-3">
+                    <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center border-b pb-2">Herramientas de Auditoría</h3>
+                    <div className="flex gap-2 flex-col sm:flex-row">
+                        <input type="text" placeholder="🔍 BUSCAR TIENDA O ID..." value={searchStoreCarpeta} onChange={e => setSearchStoreCarpeta(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border focus:border-movistar-blue uppercase"/>
+                        {userRole === "ADMIN" && (
+                            <select className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border focus:border-movistar-blue uppercase" value={supFilterCarpeta} onChange={e => setSupFilterCarpeta(e.target.value)}>
+                                <option value="TODOS">SUPERVISOR (TODOS)</option>
+                                {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        )}
+                    </div>
+                    <select className="w-full bg-blue-50 text-movistar-blue p-4 rounded-xl font-black text-[10px] outline-none border border-blue-200 uppercase" value={viewStoreId} onChange={e => setViewStoreId(e.target.value)}>
+                        <option value="">-- SELECCIONA TIENDA --</option>
+                        {carpetaStoresFiltered.map(d => (
+                            <option key={d.id} value={d.id}>{d.id} - {d.tienda}</option>
+                        ))}
+                    </select>
+                    <button onClick={downloadHandler} className="w-full bg-movistar-green text-white p-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform">📥 DESCARGAR EXCEL FILTRADO</button>
+                </div>
+            );
 
             const startQuiz = (type) => {
                 if(!colaboradorName) return alert("Selecciona un perfil primero.");
@@ -1443,6 +1619,7 @@
                                     <button onClick={()=>setSubTabCarpeta("BOLETA")} className={`subtab-btn ${subTabCarpeta==="BOLETA"?'subtab-active':'subtab-inactive'}`}>BOLETA SEMANAL</button>
                                     <button onClick={()=>setSubTabCarpeta("ESTACIONALIDAD")} className={`subtab-btn ${subTabCarpeta==="ESTACIONALIDAD"?'subtab-active':'subtab-inactive'}`}>ESTACIONALIDAD</button>
                                     <button onClick={()=>setSubTabCarpeta("SHARE")} className={`subtab-btn ${subTabCarpeta==="SHARE"?'subtab-active':'subtab-inactive'}`}>SHARE DE TIENDA</button>
+                                    <button onClick={()=>setSubTabCarpeta("VENTAS")} className={`subtab-btn ${subTabCarpeta==="VENTAS"?'subtab-active':'subtab-inactive'}`}>REGISTRO DE VENTAS</button>
                                 </div>
 
                                 <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden flex justify-between items-center">
@@ -1453,29 +1630,98 @@
                                     <div className="text-4xl opacity-50 relative z-10">📁</div>
                                 </div>
 
-                                {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
-                                    <div className="bg-white p-5 rounded-[1.5rem] shadow-sm border flex flex-col gap-3">
-                                        <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center border-b pb-2">Herramientas de Auditoría</h3>
-                                        <div className="flex gap-2">
-                                            <input type="text" placeholder="🔍 BUSCAR TIENDA O ID..." value={searchStoreCarpeta} onChange={e => setSearchStoreCarpeta(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border focus:border-movistar-blue uppercase"/>
-                                            {userRole === "ADMIN" && (
-                                                <select className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border focus:border-movistar-blue uppercase" value={supFilterCarpeta} onChange={e => setSupFilterCarpeta(e.target.value)}>
-                                                    <option value="TODOS">SUPERVISOR (TODOS)</option>
-                                                    {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
-                                                </select>
-                                            )}
-                                        </div>
-                                        <select className="w-full bg-blue-50 text-movistar-blue p-4 rounded-xl font-black text-[10px] outline-none border border-blue-200 uppercase" value={viewStoreId} onChange={e => setViewStoreId(e.target.value)}>
-                                            <option value="">-- SELECCIONA TIENDA PARA AUDITAR --</option>
-                                            {carpetaStoresFiltered.map(d => (
-                                                <option key={d.id} value={d.id}>{d.id} - {d.tienda}</option>
-                                            ))}
-                                        </select>
-                                        <button onClick={downloadCarpetasExcel} className="w-full bg-movistar-green text-white p-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform">📥 DESCARGAR EXCEL FILTRADO</button>
-                                    </div>
-                                )}
+                                {(userRole === "ADMIN" || userRole === "SUPERVISOR") && subTabCarpeta !== "VENTAS" && renderCarpetaAuditoria(downloadCarpetasExcel)}
 
-                                {!localCarpeta ? (
+                                {subTabCarpeta === "VENTAS" && renderCarpetaAuditoria(downloadVentasExcel)}
+
+                                {subTabCarpeta === "VENTAS" ? (
+                                    !viewStoreId ? (
+                                        <div className="text-center p-8 bg-white rounded-[1.5rem] border shadow-sm text-gray-400 font-bold text-xs uppercase">Selecciona una tienda para registrar ventas.</div>
+                                    ) : !localRegistroVentas ? (
+                                        <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">Cargando registro de ventas...</div>
+                                    ) : (
+                                        <div className="bg-white p-4 rounded-[1.5rem] shadow-xl border animate-pop">
+                                            <div className="flex justify-between items-start mb-4 border-b pb-3 gap-2">
+                                                <div>
+                                                    <p className="text-[10px] font-black text-movistar-blue uppercase tracking-widest">Registro de Ventas</p>
+                                                    <p className="text-[10px] font-bold text-movistar-dark uppercase">IDPDV: {localRegistroVentas.idpdv} — {getStoreName(localRegistroVentas.idpdv)}</p>
+                                                    <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase">{ventasFilledCount} / {VENTAS_MAX_ROWS} ventas · Mes {localRegistroVentas.mes}</p>
+                                                </div>
+                                                <button onClick={saveRegistroVentas} disabled={isSavingVentas} className="bg-movistar-blue text-white px-4 py-2 rounded-xl font-black text-[9px] shadow-md active:scale-95 disabled:opacity-50 shrink-0">💾 GUARDAR</button>
+                                            </div>
+
+                                            <div className="space-y-1 max-h-[65vh] overflow-y-auto pr-1">
+                                                {ventaVisibleIndices.map(idx => {
+                                                    const row = localRegistroVentas.ventas[idx];
+                                                    const isActive = activeVentaIdx === idx;
+                                                    const filled = isVentaRowFilled(row);
+                                                    if (isActive) {
+                                                        return (
+                                                            <div key={idx} className="venta-row venta-row-active">
+                                                                <div className="flex justify-between items-center mb-3">
+                                                                    <p className="text-[9px] font-black text-movistar-blue uppercase">Venta #{idx + 1} · Editando</p>
+                                                                    {filled && <span className="text-[8px] font-bold text-movistar-green bg-green-50 px-2 py-0.5 rounded">Registrada</span>}
+                                                                </div>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                    <div className="venta-field sm:col-span-2">
+                                                                        <label>Fecha de venta</label>
+                                                                        <input type="date" value={row.fecha || ''} onChange={e => updateVentaRow(idx, 'fecha', e.target.value)} />
+                                                                    </div>
+                                                                    <div className="venta-field">
+                                                                        <label>DN</label>
+                                                                        <input type="text" inputMode="numeric" placeholder="Número DN" value={row.dn || ''} onChange={e => updateVentaRow(idx, 'dn', e.target.value)} />
+                                                                    </div>
+                                                                    <div className="venta-field">
+                                                                        <label>Producto</label>
+                                                                        <select value={row.producto || ''} onChange={e => updateVentaRow(idx, 'producto', e.target.value)}>
+                                                                            <option value="">— Seleccionar —</option>
+                                                                            {VENTAS_PRODUCTOS.map(p => <option key={p} value={p}>{p}</option>)}
+                                                                        </select>
+                                                                    </div>
+                                                                    <div className="venta-field">
+                                                                        <label>Monto recarga</label>
+                                                                        <input type="number" min="0" step="0.01" placeholder="0.00" value={row.montoRecarga ?? ''} onChange={e => updateVentaRow(idx, 'montoRecarga', e.target.value)} />
+                                                                    </div>
+                                                                    <div className="venta-field">
+                                                                        <label>Monto equipo</label>
+                                                                        <input type="number" min="0" step="0.01" placeholder="0.00" value={row.montoEquipo ?? ''} onChange={e => updateVentaRow(idx, 'montoEquipo', e.target.value)} />
+                                                                    </div>
+                                                                    <div className="venta-field sm:col-span-2">
+                                                                        <label>Vinculación</label>
+                                                                        <select value={row.vinculacion || ''} onChange={e => updateVentaRow(idx, 'vinculacion', e.target.value)}>
+                                                                            <option value="">— Seleccionar —</option>
+                                                                            {VENTAS_VINCULACION.map(v => <option key={v} value={v}>{v}</option>)}
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                                {idx < VENTAS_MAX_ROWS - 1 && filled && (
+                                                                    <button type="button" onClick={() => {
+                                                                        const next = localRegistroVentas.ventas.findIndex((r, i) => i > idx && !isVentaRowFilled(r));
+                                                                        setActiveVentaIdx(next >= 0 ? next : Math.min(idx + 1, VENTAS_MAX_ROWS - 1));
+                                                                    }} className="mt-4 w-full bg-gray-100 text-movistar-dark py-3 rounded-xl font-black text-[9px] uppercase">Siguiente venta →</button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <div key={idx} role="button" tabIndex={0} onClick={() => setActiveVentaIdx(idx)} onKeyDown={e => e.key === 'Enter' && setActiveVentaIdx(idx)} className="venta-row venta-row-compact flex items-center justify-between gap-2">
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-[8px] font-black text-gray-400 uppercase">#{idx + 1} · {row.fecha || 'Sin fecha'}</p>
+                                                                <p className="text-[10px] font-black text-movistar-dark truncate">{row.producto || 'Sin producto'} · DN {row.dn || '—'}</p>
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                <p className="text-[8px] font-bold text-gray-500">Rec: ${row.montoRecarga || '0'}</p>
+                                                                <p className="text-[8px] font-bold text-gray-500">Eq: ${row.montoEquipo || '0'} · {row.vinculacion || '—'}</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <button onClick={saveRegistroVentas} disabled={isSavingVentas} className="w-full bg-movistar-blue text-white mt-4 py-4 rounded-xl font-black text-[10px] shadow-lg active:scale-95 transition-transform uppercase disabled:opacity-50">GUARDAR REGISTRO DE VENTAS 📤</button>
+                                        </div>
+                                    )
+                                ) : !localCarpeta ? (
                                     <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">Cargando formato...</div>
                                 ) : (
                                     <div className="bg-white p-4 rounded-[1.5rem] shadow-xl border">
