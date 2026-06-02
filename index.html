@@ -241,6 +241,47 @@
             if(!name) return "";
             return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
         };
+
+        const normalizeCadena = (val, fallbackTienda = "") => {
+            const raw = String(val || fallbackTienda || "").trim();
+            const t = raw.toUpperCase();
+            if (t.includes("COPPEL")) return "COPPEL";
+            if (t.includes("EKT") || t.includes("ELEKTRA")) return "ELEKTRA";
+            if (t.includes("SUBURBIA")) return "SUBURBIA";
+            return raw ? raw.toUpperCase() : "SUBURBIA";
+        };
+
+        const parseSegDiarioRow = (row) => {
+            const idRaw = String(row["H"] || "").trim();
+            if (!idRaw) return null;
+            return {
+                id: idRaw.replace(/^0+/, ''),
+                tienda: String(row["I"] || "").trim(),
+                plaza: String(row["J"] || "").trim().toUpperCase(),
+                lider: String(row["A"] || "").trim(),
+                sup: String(row["B"] || "").trim(),
+                estatus: String(row["G"] || "").trim().toUpperCase() || "ACTIVO",
+                cad: normalizeCadena(row["K"], row["I"]),
+                altas: Math.round(Number(row["Q"]) || 0),
+                cuota: Math.round(Number(row["R"]) || 0),
+                altas_total: Math.round(Number(row["M"]) || 0),
+                cuota_total: Math.round(Number(row["N"]) || 0),
+                altas_porta: Math.round(Number(row["U"]) || 0),
+                cuota_porta: Math.round(Number(row["V"]) || 0),
+                altas_voz: Math.round(Number(row["Y"]) || 0),
+                cuota_voz: Math.round(Number(row["Z"]) || 0)
+            };
+        };
+
+        const parseSegDiarioSheet = (wsSegDiario) => {
+            let diaAct = "Desconocido";
+            if (wsSegDiario['F3']) diaAct = wsSegDiario['F3'].w || wsSegDiario['F3'].v;
+            const jData = XLSX.utils.sheet_to_json(wsSegDiario, { header: "A", defval: "" });
+            const list = jData.slice(5)
+                .map(parseSegDiarioRow)
+                .filter(Boolean);
+            return { list, diaAct };
+        };
         
         const getBadgeLabel = (b) => {
             if (!b) return '';
@@ -294,6 +335,8 @@
             const [subTabPortal, setSubTabPortal] = useState("COMUNICADOS");
             const [subTabEquipo, setSubTabEquipo] = useState("PERFIL");
             const [subTabOp, setSubTabOp] = useState("GENERAL");
+            const [seedTapCount, setSeedTapCount] = useState(0);
+            const [isSeedingCatalog, setIsSeedingCatalog] = useState(false);
             
             const [dataTEMM, setDataTEMM] = useState([]);
             const [dataINV, setDataINV] = useState([]);
@@ -889,37 +932,63 @@
             const toggleInv = (id) => { setExpandedInvStores(prev => ({...prev, [id]: !prev[id]})); };
             const toggleRosters = (id) => { setExpandedStoreRosters(prev => ({...prev, [id]: !prev[id]})); };
 
+            const saveInChunks = async (prefix, dataList, extra = {}) => {
+                if (!db) throw new Error("Sin conexión a Firebase");
+                const CHUNK_SIZE = 1500;
+                const chunks = [];
+                for (let i = 0; i < dataList.length; i += CHUNK_SIZE) {
+                    chunks.push(dataList.slice(i, i + CHUNK_SIZE));
+                }
+                const snap = await getDbPath("operacion_v2").get();
+                for (let doc of snap.docs) {
+                    if (doc.id.startsWith(`${prefix}_chunk_`) || doc.id === prefix) {
+                        await doc.ref.delete();
+                    }
+                }
+                if (chunks.length === 0) {
+                    await getDbPath("operacion_v2").doc(`${prefix}_chunk_0`).set({ list: [], ...extra });
+                } else {
+                    for (let i = 0; i < chunks.length; i++) {
+                        await getDbPath("operacion_v2").doc(`${prefix}_chunk_${i}`).set(
+                            i === 0 ? { list: chunks[i], ...extra } : { list: chunks[i] }
+                        );
+                    }
+                }
+            };
+
+            const bulkSeedCatalog106 = async () => {
+                if (!db || userRole !== "ADMIN") return;
+                if (!window.confirm("¿Subir las 106 tiendas del catálogo a Firebase? Esto reemplazará el arreglo temm actual (p. ej. las 43 viejas).")) return;
+                setIsSeedingCatalog(true);
+                try {
+                    const res = await fetch("catalogo_tiendas_106.json", { cache: "no-store" });
+                    if (!res.ok) throw new Error("No se encontró catalogo_tiendas_106.json en el servidor.");
+                    const payload = await res.json();
+                    const list = Array.isArray(payload?.list) ? payload.list : payload;
+                    if (!Array.isArray(list) || list.length === 0) throw new Error("El catálogo JSON está vacío o mal formado.");
+                    await saveInChunks("temm", list, { actualizado_al: payload.actualizado_al || "Catálogo 106" });
+                    alert(`Catálogo sincronizado: ${list.length} tiendas en operacion_v2/temm.`);
+                } catch (err) {
+                    alert("Error al subir catálogo: " + (err.message || err));
+                    console.error(err);
+                } finally {
+                    setIsSeedingCatalog(false);
+                    setSeedTapCount(0);
+                }
+            };
+
+            const handleVersionBannerTap = () => {
+                if (userRole !== "ADMIN") return;
+                setSeedTapCount(c => {
+                    const next = c + 1;
+                    if (next >= 5) bulkSeedCatalog106();
+                    return next >= 5 ? 0 : next;
+                });
+            };
+
             const uploadFile = async (type, e) => {
                 if (!db) return alert("Sin red"); const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
-                
-                const saveInChunks = async (prefix, dataList, extra = {}) => {
-                    const CHUNK_SIZE = 1500;
-                    const chunks = [];
-                    for (let i = 0; i < dataList.length; i += CHUNK_SIZE) {
-                        chunks.push(dataList.slice(i, i + CHUNK_SIZE));
-                    }
-                    
-                    const snap = await getDbPath("operacion_v2").get();
-                    
-                    // 1. Eliminar chunks anteriores secuencialmente para evitar sobrecarga del batch
-                    for (let doc of snap.docs) {
-                        if (doc.id.startsWith(`${prefix}_chunk_`) || doc.id === prefix) {
-                            await doc.ref.delete();
-                        }
-                    }
-                    
-                    // 2. Escribir nuevos chunks de forma secuencial para evitar el límite de payload (10MB por request)
-                    if (chunks.length === 0) {
-                        await getDbPath("operacion_v2").doc(`${prefix}_chunk_0`).set({ list: [], ...extra });
-                    } else {
-                        for (let i = 0; i < chunks.length; i++) {
-                            await getDbPath("operacion_v2").doc(`${prefix}_chunk_${i}`).set(
-                                i === 0 ? { list: chunks[i], ...extra } : { list: chunks[i] }
-                            );
-                        }
-                    }
-                };
 
                 reader.onload = async (evt) => {
                     try {
@@ -928,28 +997,9 @@
                         if (type === "temm") {
                             const wsSegDiarioName = wb.SheetNames.find(n => n.toLowerCase().includes("seg diario"));
                             if (!wsSegDiarioName) return alert("Pestaña 'Seg Diario' no encontrada en el archivo.");
-                            const wsSegDiario = wb.Sheets[wsSegDiarioName];
-                            if (wsSegDiario['F3']) diaAct = wsSegDiario['F3'].w || wsSegDiario['F3'].v;
-                            const jData = XLSX.utils.sheet_to_json(wsSegDiario, { header: "A", defval: "" });
-                            const validRows = jData.slice(5, 48); // Fila 6 a 48
-                            list = validRows.filter(row => String(row["H"] || "").trim().length > 0).map(row => {
-                                let cadena = "SUBURBIA"; let tUpper = String(row["K"] || "").toUpperCase();
-                                if (tUpper.includes("EKT") || tUpper.includes("ELEKTRA")) cadena = "ELEKTRA";
-                                else if (tUpper.includes("COPPEL")) cadena = "COPPEL";
-                                return {
-                                    id: String(row["H"] || "").trim().replace(/^0+/, ''), 
-                                    tienda: String(row["I"] || "").trim(), 
-                                    plaza: String(row["J"] || "").trim().toUpperCase(),
-                                    lider: String(row["A"] || "").trim(), 
-                                    sup: String(row["B"] || "").trim(), 
-                                    estatus: String(row["G"] || "").trim().toUpperCase(),
-                                    cad: cadena, 
-                                    altas: Math.round(Number(row["Q"]) || 0), cuota: Math.round(Number(row["R"]) || 0),
-                                    altas_total: Math.round(Number(row["M"]) || 0), cuota_total: Math.round(Number(row["N"]) || 0),
-                                    altas_porta: Math.round(Number(row["U"]) || 0), cuota_porta: Math.round(Number(row["V"]) || 0),
-                                    altas_voz: Math.round(Number(row["Y"]) || 0), cuota_voz: Math.round(Number(row["Z"]) || 0)
-                                };
-                            });
+                            const parsed = parseSegDiarioSheet(wb.Sheets[wsSegDiarioName]);
+                            list = parsed.list;
+                            diaAct = parsed.diaAct;
                             await saveInChunks("temm", list, { actualizado_al: diaAct });
                             alert(`Sincronizado Múltiples Productos (${list.length} Tiendas | Fecha: ${diaAct})`);
                         } else if (type === "inv") {
@@ -1186,18 +1236,28 @@
                 }
             };
 
+            const opCatalogBase = useMemo(() => {
+                if (!Array.isArray(dataTEMM)) return [];
+                if (userRole === "PROMOTOR") {
+                    const cl = userId.trim().replace(/^0+/, '');
+                    return dataTEMM.filter(d => (d.id || "") === cl);
+                }
+                if (userRole === "SUPERVISOR") {
+                    return dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userId)));
+                }
+                return dataTEMM;
+            }, [dataTEMM, userRole, userId]);
+
             const filteredData = useMemo(() => {
-                if (!Array.isArray(dataTEMM)) return []; let f = dataTEMM;
-                if (userRole === "PROMOTOR") { const cl = userId.trim().replace(/^0+/, ''); f = dataTEMM.filter(d => (d.id || "") === cl); } 
-                else if (userRole === "SUPERVISOR") { f = dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userId))); } 
-                else {
+                let f = opCatalogBase;
+                if (userRole === "ADMIN") {
                     if (supFilter !== "TODOS") f = f.filter(d => (d?.sup || "") === supFilter);
                     if (cadFilter !== "TODAS") f = f.filter(d => (d?.cad || "") === cadFilter);
                     if (estatusOpFilter !== "TODOS") f = f.filter(d => (d?.estatus || "SIN ESTATUS") === estatusOpFilter);
                 }
                 if (searchStore) f = f.filter(d => d.id.includes(searchStore) || (d.tienda || "").toUpperCase().includes(searchStore.toUpperCase()));
                 return f;
-            }, [dataTEMM, userRole, userId, supFilter, cadFilter, estatusOpFilter, searchStore]);
+            }, [opCatalogBase, userRole, supFilter, cadFilter, estatusOpFilter, searchStore]);
 
             const summary = useMemo(() => {
                 let a=0, c=0, s=0;
@@ -1606,10 +1666,18 @@
                         {activeTab === 'OPERACION' && (
                             <div className="space-y-4">
                                 {actualizadoAl !== "Desconocido" && (
-                                    <div className="bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-5 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between">
+                                    <div
+                                        role={userRole === "ADMIN" ? "button" : undefined}
+                                        onClick={handleVersionBannerTap}
+                                        className={`bg-gradient-to-r from-blue-500 to-movistar-blue text-white p-5 rounded-2xl shadow-lg relative overflow-hidden flex items-center justify-between ${userRole === "ADMIN" ? "cursor-pointer select-none" : ""}`}
+                                        title={userRole === "ADMIN" ? "Admin: 5 toques para sincronizar catálogo 106 tiendas" : undefined}
+                                    >
                                         <div className="relative z-10">
-                                            <p className="text-[10px] font-medium opacity-80 mb-1">Versión V30.2</p>
+                                            <p className="text-[10px] font-medium opacity-80 mb-1">Versión V30.2 {isSeedingCatalog ? "· sincronizando…" : ""}</p>
                                             <p className="text-xl font-black mt-1 text-white leading-tight">Actualizado al:<br/><span className="text-yellow-300 text-2xl">{actualizadoAl}</span></p>
+                                            {userRole === "ADMIN" && opCatalogBase.length > 0 && (
+                                                <p className="text-[8px] font-bold opacity-70 mt-2 uppercase">Catálogo Firebase: {opCatalogBase.length} tiendas</p>
+                                            )}
                                         </div>
                                         <div className="absolute right-2 opacity-20 text-6xl">📊</div>
                                     </div>
@@ -1649,6 +1717,9 @@
                                             <div className="bg-white p-4 rounded-3xl border shadow-sm">
                                                 <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Tiendas</p>
                                                 <p className="text-2xl font-black text-movistar-dark tabular-nums">{filteredData.length}</p>
+                                                {filteredData.length !== opCatalogBase.length && (
+                                                    <p className="text-[7px] font-bold text-gray-400 mt-0.5">de {opCatalogBase.length} en catálogo</p>
+                                                )}
                                             </div>
                                             <div className="bg-white p-4 rounded-3xl border shadow-sm">
                                                 <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Inventario Fís.</p>
@@ -1688,6 +1759,15 @@
                                                         CARGAR INV.<input type="file" className="hidden" accept=".xlsx, .csv" onChange={(e) => uploadFile("inv", e)}/>
                                                     </label>
                                                 </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={bulkSeedCatalog106}
+                                                    disabled={isSeedingCatalog}
+                                                    className="w-full opacity-[0.04] hover:opacity-100 focus:opacity-100 text-[7px] font-black text-gray-500 py-1 rounded transition-opacity disabled:opacity-30"
+                                                    aria-label="Sincronizar 106 tiendas a Firebase"
+                                                >
+                                                    SYNC CATÁLOGO 106
+                                                </button>
                                             </div>
                                         )}
 
