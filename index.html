@@ -158,6 +158,19 @@
         ];
 
         const COURSES_LIST = ['BASICO', 'EXPERTO', 'VENTAS', 'COMISIONES', 'SUELDO_FIELDWY'];
+        const MEDALLA_CATEGORIAS = ['Oro', 'Plata', 'Bronce'];
+        const MEDALLA_CAT_EMOJI = { Oro: '🥇', Plata: '🥈', Bronce: '🥉' };
+        const EXAM_TIMER_SECONDS = 180;
+        const EXAM_MAX_STRIKES = 3;
+        const EXAM_PASS_RATIO = 0.8;
+
+        const getEmptyCertPregunta = () => ({
+            q: '',
+            options: [
+                { t: '', isC: false }, { t: '', isC: false },
+                { t: '', isC: false }, { t: '', isC: false }
+            ]
+        });
 
         const EXAMS_DATA = {
             BASICO: [
@@ -293,8 +306,10 @@
             return { list, diaAct };
         };
         
-        const getBadgeLabel = (b) => {
+        const getBadgeLabel = (b, dynamicExamsList = []) => {
             if (!b) return '';
+            const dyn = dynamicExamsList.find(e => e.id === b);
+            if (dyn) return dyn.titulo;
             const bStr = String(b).toUpperCase();
             if (bStr === 'BASICO') return 'PORTA BÁSICA';
             if (bStr === 'EXPERTO') return 'PORTA EXPERTA';
@@ -645,6 +660,18 @@
             const [newExamTitle, setNewExamTitle] = useState("");
             const [newExamId, setNewExamId] = useState("");
             const [newExamJson, setNewExamJson] = useState("");
+            const [certPreguntas, setCertPreguntas] = useState([getEmptyCertPregunta()]);
+
+            const [medallasCatalogo, setMedallasCatalogo] = useState([]);
+            const [medallasAsignadas, setMedallasAsignadas] = useState([]);
+            const [medNombre, setMedNombre] = useState("");
+            const [medFoto, setMedFoto] = useState("");
+            const [medFechaIntro, setMedFechaIntro] = useState(() => new Date().toISOString().slice(0, 10));
+            const [medDesc, setMedDesc] = useState("");
+            const [medCategoria, setMedCategoria] = useState("Oro");
+            const [assignMedallaId, setAssignMedallaId] = useState("");
+            const [assignPromotorNombre, setAssignPromotorNombre] = useState("");
+            const [selectedMedalDetail, setSelectedMedalDetail] = useState(null);
 
             const [calcCadena, setCalcCadena] = useState("ELEKTRA");
             const [cuotaTotal, setCuotaTotal] = useState("");
@@ -786,6 +813,42 @@
             }, [cuotasAltasScopeStores, userRole, userId]);
 
             const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(cuotasMesSeleccionado), [cuotasMesSeleccionado]);
+
+            const medallasAprobadas = useMemo(() =>
+                medallasCatalogo.filter(m => m.estado === 'aprobada'),
+            [medallasCatalogo]);
+
+            const medallasPendientes = useMemo(() =>
+                medallasCatalogo.filter(m => m.estado === 'pendiente'),
+            [medallasCatalogo]);
+
+            const promotoresAsignables = useMemo(() => {
+                let list = rosters.filter(r => r.estatus !== 'INACTIVO' && r.rol === 'PROMOTOR');
+                if (userRole === 'SUPERVISOR') {
+                    list = list.filter(r => r.supervisor && r.supervisor.toUpperCase().includes(userId));
+                }
+                return list.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+            }, [rosters, userRole, userId]);
+
+            const getMedallasPromotor = (nombre) => {
+                const n = normalizeName(nombre);
+                return medallasAsignadas
+                    .filter(a => normalizeName(a.promotorNombre) === n)
+                    .map(a => {
+                        const medalla = medallasCatalogo.find(m => m.id === a.medallaId);
+                        if (!medalla || medalla.estado !== 'aprobada') return null;
+                        return { ...a, medalla };
+                    })
+                    .filter(Boolean);
+            };
+
+            const getMedallaConteo = (nombre) => {
+                const counts = { Oro: 0, Plata: 0, Bronce: 0 };
+                getMedallasPromotor(nombre).forEach(i => {
+                    if (counts[i.medalla.categoria] !== undefined) counts[i.medalla.categoria]++;
+                });
+                return counts;
+            };
 
             const encStats = useMemo(() => {
                 if (!encuestas.length) return { total: 0, idx: 0, tops: [], bots: [], qMot: {a:0, b:0, c:0, d:0} };
@@ -929,6 +992,14 @@
                     // EXAMENES DINAMICOS
                     unsubs.push(getDbPath("examenes").onSnapshot(s => {
                         setDynamicExams(s.docs.map(d => ({...d.data(), id: d.id})));
+                    }));
+
+                    unsubs.push(getDbPath("medallas_catalogo").onSnapshot(s => {
+                        setMedallasCatalogo(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (b.creadoEn?.seconds || 0) - (a.creadoEn?.seconds || 0)));
+                    }));
+
+                    unsubs.push(getDbPath("medallas_asignadas").onSnapshot(s => {
+                        setMedallasAsignadas(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (b.fechaOtorgada?.seconds || 0) - (a.fechaOtorgada?.seconds || 0)));
                     }));
 
                     // CARPETA DIGITAL — filtrado por mes seleccionado
@@ -1338,13 +1409,13 @@
                 }));
                 
                 setQuestions(shuffledQ);
-                setCurQ(0); setAnswers([]); setTimer(examData.length * 18); // 18 segundos por pregunta aprox
+                setCurQ(0); setAnswers([]); setTimer(EXAM_TIMER_SECONDS);
                 setQuizState('PLAY');
             };
 
             const finishQuiz = async (finalAnswers, finalTimer) => {
                 const finalScore = finalAnswers.filter(Boolean).length;
-                const finalPassed = finalScore >= Math.ceil(questions.length * 0.8);
+                const finalPassed = finalScore >= Math.ceil(questions.length * EXAM_PASS_RATIO);
                 const finalPts = (finalScore * 5) + (finalPassed ? finalTimer : 0);
                 setQuizPassed(finalPassed);
                 setQuizState('RESULT');
@@ -1353,10 +1424,10 @@
                     const selectedProfile = rosters.find(r => (r.nombre || "").toUpperCase() === colaboradorName.trim().toUpperCase());
                     if (selectedProfile && db) {
                         const currentAttempts = selectedProfile.examAttempts || {};
-                        const courseAtt = currentAttempts[curType] || { count: 0, blockedUntil: 0 };
+                        const courseAtt = currentAttempts[curType] || { count: 0, blockedUntil: 0, blocked: false };
 
                         if (finalPassed) {
-                            currentAttempts[curType] = { count: 0, blockedUntil: 0 };
+                            currentAttempts[curType] = { count: 0, blockedUntil: 0, blocked: false };
                             await getDbPath("roster").doc(selectedProfile.id).update({ examAttempts: currentAttempts });
                             
                             const name = colaboradorName.trim().toUpperCase();
@@ -1369,8 +1440,11 @@
                                 await getDbPath("ranking").add({ name: name, score: finalPts, badges: [curType], courseScores: { [curType]: finalPts } }); 
                             }
                         } else {
-                            courseAtt.count += 1;
-                            if (courseAtt.count >= 2) { courseAtt.blockedUntil = Date.now() + (24 * 60 * 60 * 1000); courseAtt.count = 0; }
+                            courseAtt.count = (courseAtt.count || 0) + 1;
+                            if (courseAtt.count >= EXAM_MAX_STRIKES) {
+                                courseAtt.blocked = true;
+                                courseAtt.blockedUntil = 0;
+                            }
                             currentAttempts[curType] = courseAtt;
                             await getDbPath("roster").doc(selectedProfile.id).update({ examAttempts: currentAttempts });
                         }
@@ -1783,6 +1857,143 @@
                 }
             };
 
+            const handleCreateCertificacionForm = async () => {
+                if (!newExamTitle.trim()) return alert("Ingresa el título de la certificación.");
+                if (!certPreguntas.length) return alert("Agrega al menos una pregunta.");
+                for (let i = 0; i < certPreguntas.length; i++) {
+                    const p = certPreguntas[i];
+                    if (!String(p.q || '').trim()) return alert(`La pregunta #${i + 1} está vacía.`);
+                    const opts = (p.options || []).filter(o => String(o.t || '').trim());
+                    if (opts.length < 2) return alert(`La pregunta #${i + 1} necesita al menos 2 opciones.`);
+                    if (!opts.some(o => o.isC)) return alert(`Marca la respuesta correcta en la pregunta #${i + 1}.`);
+                }
+                const certId = (newExamId.trim() || newExamTitle.trim().toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '')) + '_' + Date.now().toString(36).slice(-4);
+                const preguntas = certPreguntas.map(p => ({
+                    q: p.q.trim(),
+                    options: p.options.filter(o => String(o.t || '').trim()).map(o => ({ t: o.t.trim(), isC: !!o.isC }))
+                }));
+                try {
+                    await getDbPath("examenes").doc(certId).set({
+                        titulo: newExamTitle.trim().toUpperCase(),
+                        preguntas,
+                        fecha: firebase.firestore.FieldValue.serverTimestamp(),
+                        creadoPor: userId,
+                        origen: 'formulario'
+                    });
+                    alert(`Certificación "${newExamTitle}" publicada (${preguntas.length} preguntas).`);
+                    setNewExamId(""); setNewExamTitle(""); setCertPreguntas([getEmptyCertPregunta()]);
+                } catch (e) {
+                    alert("Error al publicar: " + e.message);
+                }
+            };
+
+            const updateCertPregunta = (idx, field, value) => {
+                setCertPreguntas(prev => {
+                    const next = [...prev];
+                    next[idx] = { ...next[idx], [field]: value };
+                    return next;
+                });
+            };
+
+            const updateCertOpcion = (pIdx, oIdx, value) => {
+                setCertPreguntas(prev => {
+                    const next = [...prev];
+                    const opts = [...next[pIdx].options];
+                    opts[oIdx] = { ...opts[oIdx], t: value };
+                    next[pIdx] = { ...next[pIdx], options: opts };
+                    return next;
+                });
+            };
+
+            const setCertOpcionCorrecta = (pIdx, oIdx) => {
+                setCertPreguntas(prev => {
+                    const next = [...prev];
+                    next[pIdx] = {
+                        ...next[pIdx],
+                        options: next[pIdx].options.map((o, i) => ({ ...o, isC: i === oIdx }))
+                    };
+                    return next;
+                });
+            };
+
+            const handleCreateMedalla = async (e) => {
+                e.preventDefault();
+                if (!db) return alert("Sin conexión.");
+                if (!medNombre.trim() || !medDesc.trim()) return alert("Nombre y descripción son obligatorios.");
+                if (!medFoto) return alert("Sube una foto para la medalla.");
+                const estado = userRole === "ADMIN" ? "aprobada" : "pendiente";
+                try {
+                    await getDbPath("medallas_catalogo").add({
+                        nombre: medNombre.trim().toUpperCase(),
+                        foto: medFoto,
+                        fechaIntroduccion: medFechaIntro,
+                        descripcion: medDesc.trim(),
+                        categoria: medCategoria,
+                        estado,
+                        creadoPor: userId,
+                        creadoPorRol: userRole,
+                        creadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+                        ...(estado === 'aprobada' ? { revisadoPor: userId, revisadoEn: firebase.firestore.FieldValue.serverTimestamp() } : {})
+                    });
+                    alert(estado === 'aprobada' ? "Medalla creada y aprobada." : "Medalla enviada para aprobación del Líder.");
+                    setMedNombre(""); setMedFoto(""); setMedDesc(""); setMedCategoria("Oro");
+                    setMedFechaIntro(new Date().toISOString().slice(0, 10));
+                } catch (err) {
+                    alert("Error al crear medalla: " + err.message);
+                }
+            };
+
+            const handleMedallaDecision = async (medallaId, decision) => {
+                if (userRole !== "ADMIN" || !db) return;
+                try {
+                    await getDbPath("medallas_catalogo").doc(medallaId).update({
+                        estado: decision,
+                        revisadoPor: userId,
+                        revisadoEn: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (err) {
+                    alert("Error: " + err.message);
+                }
+            };
+
+            const handleAssignMedalla = async (e) => {
+                e.preventDefault();
+                if (!db || !esLiderOSupervisor) return;
+                if (!assignMedallaId || !assignPromotorNombre) return alert("Selecciona medalla y promotor.");
+                const medalla = medallasAprobadas.find(m => m.id === assignMedallaId);
+                if (!medalla) return alert("Medalla no válida o no aprobada.");
+                const promotor = promotoresAsignables.find(r => r.nombre === assignPromotorNombre);
+                if (!promotor) return alert("Promotor fuera de tu alcance.");
+                const dupe = medallasAsignadas.some(a =>
+                    a.medallaId === assignMedallaId && normalizeName(a.promotorNombre) === normalizeName(assignPromotorNombre)
+                );
+                if (dupe) return alert("Este promotor ya tiene esa medalla asignada.");
+                try {
+                    await getDbPath("medallas_asignadas").add({
+                        medallaId: assignMedallaId,
+                        medallaNombre: medalla.nombre,
+                        medallaCategoria: medalla.categoria,
+                        medallaFoto: medalla.foto,
+                        promotorNombre: promotor.nombre,
+                        promotorRosterId: promotor.id,
+                        promotorIdpdv: promotor.idpdv || '',
+                        fechaOtorgada: firebase.firestore.FieldValue.serverTimestamp(),
+                        otorgadoPor: userId,
+                        otorgadoPorRol: userRole
+                    });
+                    alert(`Medalla "${medalla.nombre}" otorgada a ${promotor.nombre}.`);
+                    setAssignMedallaId(""); setAssignPromotorNombre("");
+                } catch (err) {
+                    alert("Error al asignar: " + err.message);
+                }
+            };
+
+            const formatMedallaFecha = (ts) => {
+                if (!ts) return '—';
+                const d = ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
+                return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+            };
+
             const opCatalogBase = useMemo(() => {
                 if (!Array.isArray(dataTEMM)) return [];
                 if (userRole === "PROMOTOR") {
@@ -1881,12 +2092,53 @@
                 let lockedText = ""; let isDisabled = userRole === "PROMOTOR" && myRosters.filter(r => r.estatus !== 'INACTIVO').length === 0;
                 if (selProf && selProf.examAttempts && selProf.examAttempts[type]) {
                     const att = selProf.examAttempts[type];
-                    if (att.blockedUntil > Date.now()) { const hrs = Math.ceil((att.blockedUntil - Date.now()) / 3600000); lockedText = `(🔒 Bloqueado ${hrs}h)`; isDisabled = true; }
+                    if (att.blocked) { lockedText = `(🔒 Bloqueado · ${EXAM_MAX_STRIKES} intentos)`; isDisabled = true; }
+                    else if (att.blockedUntil > Date.now()) { const hrs = Math.ceil((att.blockedUntil - Date.now()) / 3600000); lockedText = `(🔒 Bloqueado ${hrs}h)`; isDisabled = true; }
+                    else if ((att.count || 0) > 0) { lockedText = `(Intento ${att.count}/${EXAM_MAX_STRIKES})`; }
                 }
                 return (
                     <button onClick={() => startQuiz(type)} disabled={isDisabled} className={`w-full ${styleClass} p-4 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform flex justify-between`}>
-                        <span>{label}</span>{lockedText && <span className="text-red-200">{lockedText}</span>}
+                        <span>{label}</span>{lockedText && <span className="text-red-200 text-[8px]">{lockedText}</span>}
                     </button>
+                );
+            };
+
+            const renderMedalleroSection = (nombre, compact = false) => {
+                const items = getMedallasPromotor(nombre);
+                const counts = getMedallaConteo(nombre);
+                return (
+                    <div className={compact ? '' : 'pt-2'}>
+                        <p className="text-[10px] font-black text-gray-400 uppercase mb-2 text-center">Medallero</p>
+                        <div className="flex justify-center gap-3 mb-3">
+                            {MEDALLA_CATEGORIAS.map(cat => (
+                                <div key={cat} className="bg-gray-50 px-3 py-1.5 rounded-xl border text-center">
+                                    <span className="text-sm">{MEDALLA_CAT_EMOJI[cat]}</span>
+                                    <span className="text-[10px] font-black text-movistar-dark ml-1">{counts[cat]}</span>
+                                </div>
+                            ))}
+                        </div>
+                        {items.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 justify-center">
+                                {items.map(item => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setSelectedMedalDetail(item); }}
+                                        className="w-12 h-12 rounded-full overflow-hidden border-2 border-yellow-300 shadow-md active:scale-95 transition-transform bg-white"
+                                        title={item.medalla.nombre}
+                                    >
+                                        {item.medalla.foto ? (
+                                            <img src={item.medalla.foto} alt={item.medalla.nombre} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="text-xl flex items-center justify-center h-full">{MEDALLA_CAT_EMOJI[item.medalla.categoria] || '🏅'}</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-[9px] font-bold text-gray-400 text-center uppercase">Sin medallas aún</p>
+                        )}
+                    </div>
                 );
             };
 
@@ -1945,11 +2197,40 @@
                                         <div className="flex flex-wrap gap-2 justify-center">
                                             {ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre))?.badges?.map(b => (
                                                 <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[8px] font-black px-2 py-1.5 rounded-lg shadow-sm">
-                                                    {getBadgeLabel(b)}
+                                                    {getBadgeLabel(b, dynamicExams)}
                                                 </span>
                                             ))}
                                             {(!ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre))?.badges || ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre)).badges.length === 0) && <span className="text-[10px] text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-lg">Sin certificaciones ❌</span>}
                                         </div>
+                                    </div>
+                                    <div className="border-t pt-4">
+                                        {renderMedalleroSection(selectedProfileModal.nombre)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {selectedMedalDetail && (
+                        <div className="fixed inset-0 bg-black bg-opacity-85 z-[110] flex justify-center items-center p-4 animate-pop" onClick={() => setSelectedMedalDetail(null)}>
+                            <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl p-6 relative" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setSelectedMedalDetail(null)} className="absolute top-4 right-4 bg-gray-100 text-movistar-dark rounded-full w-8 h-8 flex items-center justify-center font-black z-10">X</button>
+                                <div className="flex flex-col items-center text-center">
+                                    <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-yellow-400 shadow-xl mb-4 bg-gray-50">
+                                        {selectedMedalDetail.medalla?.foto ? (
+                                            <img src={selectedMedalDetail.medalla.foto} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="text-5xl flex items-center justify-center h-full">{MEDALLA_CAT_EMOJI[selectedMedalDetail.medalla?.categoria] || '🏅'}</span>
+                                        )}
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full mb-2">
+                                        {MEDALLA_CAT_EMOJI[selectedMedalDetail.medalla?.categoria]} {selectedMedalDetail.medalla?.categoria}
+                                    </span>
+                                    <h3 className="text-lg font-black text-movistar-dark uppercase leading-tight">{selectedMedalDetail.medalla?.nombre}</h3>
+                                    <p className="text-[10px] font-bold text-gray-500 mt-3 leading-relaxed px-2">{selectedMedalDetail.medalla?.descripcion}</p>
+                                    <div className="mt-4 w-full bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                        <p className="text-[8px] font-black text-gray-400 uppercase">Fecha otorgada</p>
+                                        <p className="text-sm font-black text-movistar-blue">{formatMedallaFecha(selectedMedalDetail.fechaOtorgada)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -2704,7 +2985,7 @@
                                                                                     <div className="flex flex-wrap gap-1 mt-1.5">
                                                                                         {uRank.badges.map(b => (
                                                                                             <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
-                                                                                                {getBadgeLabel(b)}
+                                                                                                {getBadgeLabel(b, dynamicExams)}
                                                                                             </span>
                                                                                         ))}
                                                                                     </div>
@@ -2838,7 +3119,7 @@
                                 <div className="flex bg-gray-200 p-1 rounded-2xl">
                                     <button onClick={()=>setSubTabAcademia("EXAMENES")} className={`subtab-btn ${subTabAcademia==="EXAMENES"?'subtab-active':'subtab-inactive'}`}>EXÁMENES</button>
                                     <button onClick={()=>setSubTabAcademia("REPOSITORIO")} className={`subtab-btn ${subTabAcademia==="REPOSITORIO"?'subtab-active':'subtab-inactive'}`}>DOCUMENTOS</button>
-                                    {userRole === "ADMIN" && <button onClick={()=>setSubTabAcademia("CREADOR")} className={`subtab-btn ${subTabAcademia==="CREADOR"?'subtab-active':'subtab-inactive'}`}>⚙️ CREADOR</button>}
+                                    {userRole === "ADMIN" && <button onClick={()=>setSubTabAcademia("CREADOR")} className={`subtab-btn ${subTabAcademia==="CREADOR"?'subtab-active':'subtab-inactive'}`}>📜 CREAR CERTIFICACIÓN</button>}
                                 </div>
 
                                 {subTabAcademia === "EXAMENES" ? (
@@ -2918,7 +3199,7 @@
                                                                                     <div className="flex flex-wrap gap-1">
                                                                                         {missing.map(m => (
                                                                                             <span key={m} className="bg-red-50 text-movistar-red border border-red-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
-                                                                                                {getBadgeLabel(m)}
+                                                                                                {getBadgeLabel(m, dynamicExams)}
                                                                                             </span>
                                                                                         ))}
                                                                                     </div>
@@ -2935,54 +3216,16 @@
                                         </div>
                                     ) : quizState === 'PLAY' ? (
                                         <div className="bg-white p-8 rounded-[2rem] shadow-xl border">
-                                            <div className="flex justify-between mb-8 border-b pb-4">
+                                            <div className="flex justify-between mb-2 border-b pb-4">
                                                 <span className="text-[10px] font-black text-gray-300">P. {curQ+1}/{questions.length}</span>
-                                                <div className={`font-black text-2xl ${timer<30?'text-red-500':''}`}>{Math.floor(timer/60)}:{(timer%60).toString().padStart(2,'0')}</div>
+                                                <div className={`font-black text-2xl ${timer<30?'text-red-500 animate-pulse':''}`}>{Math.floor(timer/60)}:{(timer%60).toString().padStart(2,'0')}</div>
                                             </div>
+                                            <p className="text-[8px] font-bold text-gray-400 uppercase mb-4">⏱️ Cronómetro estricto · 3 min · 80% para aprobar</p>
                                             <h3 className="text-sm font-bold mb-10 leading-relaxed text-movistar-dark">{questions[curQ]?.q}</h3>
                                             <div className="grid gap-4">
                                                 {questions[curQ]?.options.map((o,i) => (
                                                     <button key={i} onClick={()=>handleAns(o.isC)} className="text-left p-4 rounded-2xl border-2 border-gray-100 font-bold text-[11px] leading-tight active:bg-blue-50 hover:border-movistar-blue transition-colors">{o.t}</button>
                                                 ))}
-                                            </div>
-                                        </div>
-                                    ) : subTabAcademia === "CREADOR" && userRole === "ADMIN" ? (
-                                        <div className="space-y-4">
-                                            <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
-                                                <h2 className="font-black text-lg italic uppercase">Creador de Exámenes</h2>
-                                                <p className="text-[9px] font-bold text-gray-400 mt-1">Sube nuevos cuestionarios creados con Inteligencia Artificial.</p>
-                                            </div>
-                                            <div className="bg-white p-6 rounded-[2rem] shadow-xl border space-y-4">
-                                                <h3 className="font-black text-[11px] text-movistar-dark uppercase">1. Datos del Examen</h3>
-                                                <input type="text" placeholder="ID Único corto (Ej. PLANES_ILIMITADOS)" value={newExamId} onChange={e=>setNewExamId(e.target.value.toUpperCase().replace(/\s+/g, '_'))} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
-                                                <input type="text" placeholder="Título para el Certificado (Ej. Certificación Planes Ilimitados)" value={newExamTitle} onChange={e=>setNewExamTitle(e.target.value.toUpperCase())} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
-                                                
-                                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mt-4">
-                                                    <h3 className="font-black text-[11px] text-movistar-blue uppercase mb-2">2. Cargar Preguntas (Formato IA)</h3>
-                                                    <p className="text-[9px] font-bold text-gray-500 mb-3 leading-relaxed">
-                                                        Copia este texto y pídeselo a la IA (ChatGPT/Gemini):<br/>
-                                                        <span className="bg-white p-2 rounded block mt-1 text-movistar-dark border select-all">
-                                                            "Crea un examen sobre [PON TU TEMA AQUI] con 10 preguntas. Devuelve SOLO un arreglo JSON puro con esta estructura exacta: [{"{"} "q": "Pregunta 1", "options": [{"{"}"t": "Respuesta correcta", "isC": true{"}"}, {"{"}"t": "Mala", "isC": false{"}"}] {"}"}]"
-                                                        </span>
-                                                    </p>
-                                                    <textarea rows="6" value={newExamJson} onChange={e=>setNewExamJson(e.target.value)} placeholder='Pega aquí el código JSON que te dio la IA...' className="w-full bg-white p-3 rounded-xl text-[9px] font-mono outline-none border border-blue-200 resize-none"></textarea>
-                                                </div>
-                                                
-                                                <button onClick={handleCreateDynamicExam} className="w-full bg-movistar-green text-white py-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform mt-2">PUBLICAR EXAMEN AL EQUIPO 🚀</button>
-                                                
-                                                <div className="mt-8 border-t pt-6">
-                                                    <h4 className="font-black text-[10px] text-gray-400 uppercase mb-4">Exámenes Publicados Dinámicamente</h4>
-                                                    {dynamicExams.map(ex => (
-                                                        <div key={ex.id} className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100 mb-2">
-                                                            <div>
-                                                                <p className="font-black text-[10px] text-movistar-dark uppercase">{ex.titulo}</p>
-                                                                <p className="text-[8px] font-bold text-movistar-blue mt-1">ID: {ex.id} | {ex.preguntas?.length || 0} Preguntas</p>
-                                                            </div>
-                                                            <button onClick={() => deleteDoc("examenes", ex.id)} className="bg-red-50 text-red-500 p-3 rounded-xl font-black text-[9px] active:scale-90 shadow-sm border border-red-100">X</button>
-                                                        </div>
-                                                    ))}
-                                                    {dynamicExams.length === 0 && <p className="text-center text-[9px] font-bold text-gray-400">Sin exámenes dinámicos creados aún.</p>}
-                                                </div>
                                             </div>
                                         </div>
                                     ) : (
@@ -3000,12 +3243,75 @@
                                                 <div className="mb-6 animate-pop">
                                                     <div className="text-6xl mb-2">❌</div>
                                                     <p className="text-sm font-bold text-movistar-red">No has alcanzado el 80% requerido.</p>
-                                                    <p className="text-[10px] text-gray-500 mt-1">Revisa el material de estudio y vuelve a intentarlo.</p>
+                                                    <p className="text-[10px] text-gray-500 mt-1">3 intentos fallidos bloquean esta certificación.</p>
                                                 </div>
                                             )}
                                             <button onClick={() => setQuizState('MENU')} className="bg-movistar-dark text-white w-full py-5 rounded-2xl font-black text-xs active:scale-95 transition-transform uppercase">Volver al Menú</button>
                                         </div>
                                     )
+                                ) : subTabAcademia === "CREADOR" && userRole === "ADMIN" ? (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Crear Nueva Certificación</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Diseña exámenes dinámicos · 3 min · puntos al Top Ranked al aprobar.</p>
+                                        </div>
+
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border space-y-4">
+                                            <h3 className="font-black text-[11px] text-movistar-dark uppercase">Datos de la certificación</h3>
+                                            <input type="text" placeholder="ID opcional (Ej. PLANES_ILIMITADOS)" value={newExamId} onChange={e=>setNewExamId(e.target.value.toUpperCase().replace(/\s+/g, '_'))} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                            <input type="text" placeholder="Título para el Certificado *" value={newExamTitle} onChange={e=>setNewExamTitle(e.target.value.toUpperCase())} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+
+                                            <div className="border-t pt-4">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <h3 className="font-black text-[11px] text-movistar-blue uppercase">Preguntas ({certPreguntas.length})</h3>
+                                                    <button type="button" onClick={() => setCertPreguntas(p => [...p, getEmptyCertPregunta()])} className="bg-movistar-blue text-white px-3 py-2 rounded-xl font-black text-[9px]">+ PREGUNTA</button>
+                                                </div>
+                                                <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
+                                                    {certPreguntas.map((preg, pIdx) => (
+                                                        <div key={pIdx} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                                            <div className="flex justify-between items-center mb-2">
+                                                                <span className="text-[9px] font-black text-movistar-dark uppercase">Pregunta #{pIdx + 1}</span>
+                                                                {certPreguntas.length > 1 && (
+                                                                    <button type="button" onClick={() => setCertPreguntas(p => p.filter((_, i) => i !== pIdx))} className="text-red-500 font-black text-[9px]">Eliminar</button>
+                                                                )}
+                                                            </div>
+                                                            <input type="text" placeholder="Texto de la pregunta..." value={preg.q} onChange={e => updateCertPregunta(pIdx, 'q', e.target.value)} className="w-full bg-white p-3 rounded-xl font-bold text-[10px] outline-none border mb-3" />
+                                                            <div className="space-y-2">
+                                                                {preg.options.map((opt, oIdx) => (
+                                                                    <div key={oIdx} className="flex items-center gap-2">
+                                                                        <input type="radio" name={`cert-correct-${pIdx}`} checked={!!opt.isC} onChange={() => setCertOpcionCorrecta(pIdx, oIdx)} className="accent-movistar-blue shrink-0" title="Marcar como correcta" />
+                                                                        <input type="text" placeholder={`Opción ${oIdx + 1}`} value={opt.t} onChange={e => updateCertOpcion(pIdx, oIdx, e.target.value)} className="flex-1 bg-white p-2 rounded-lg font-bold text-[9px] outline-none border" />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <button onClick={handleCreateCertificacionForm} className="w-full bg-movistar-green text-white py-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform">PUBLICAR CERTIFICACIÓN 🚀</button>
+                                        </div>
+
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border space-y-4">
+                                            <h3 className="font-black text-[11px] text-gray-400 uppercase">Importar vía JSON (IA)</h3>
+                                            <textarea rows="4" value={newExamJson} onChange={e=>setNewExamJson(e.target.value)} placeholder='Pega JSON de preguntas...' className="w-full bg-gray-50 p-3 rounded-xl text-[9px] font-mono outline-none border resize-none"></textarea>
+                                            <button onClick={handleCreateDynamicExam} className="w-full bg-gray-200 text-movistar-dark py-3 rounded-xl font-black text-[9px] uppercase">Publicar desde JSON</button>
+                                        </div>
+
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
+                                            <h4 className="font-black text-[10px] text-gray-400 uppercase mb-4">Certificaciones publicadas</h4>
+                                            {dynamicExams.map(ex => (
+                                                <div key={ex.id} className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100 mb-2">
+                                                    <div>
+                                                        <p className="font-black text-[10px] text-movistar-dark uppercase">{ex.titulo}</p>
+                                                        <p className="text-[8px] font-bold text-movistar-blue mt-1">ID: {ex.id} · {ex.preguntas?.length || 0} preguntas</p>
+                                                    </div>
+                                                    <button onClick={() => deleteDoc("examenes", ex.id)} className="bg-red-50 text-red-500 p-3 rounded-xl font-black text-[9px] active:scale-90 shadow-sm border border-red-100">X</button>
+                                                </div>
+                                            ))}
+                                            {dynamicExams.length === 0 && <p className="text-center text-[9px] font-bold text-gray-400">Sin certificaciones dinámicas aún.</p>}
+                                        </div>
+                                    </div>
                                 ) : (
                                     <div className="space-y-4">
                                         <div className="bg-movistar-dark p-6 rounded-[2rem] text-white flex justify-between items-center shadow-xl">
@@ -3046,6 +3352,9 @@
                                     <button onClick={()=>setSubTabEquipo("PERFIL")} className={`subtab-btn ${subTabEquipo==="PERFIL"?'subtab-active':'subtab-inactive'}`}>MI ROSTER</button>
                                     <button onClick={()=>setSubTabEquipo("PROMOTOR_MES")} className={`subtab-btn ${subTabEquipo==="PROMOTOR_MES"?'subtab-active':'subtab-inactive'}`}>PROMOTOR MES</button>
                                     <button onClick={()=>setSubTabEquipo("RANKING")} className={`subtab-btn ${subTabEquipo==="RANKING"?'subtab-active':'subtab-inactive'}`}>TOP RANK</button>
+                                    {esLiderOSupervisor && (
+                                        <button onClick={()=>setSubTabEquipo("MEDALLAS")} className={`subtab-btn ${subTabEquipo==="MEDALLAS"?'subtab-active':'subtab-inactive'}`}>🏅 MEDALLAS</button>
+                                    )}
                                 </div>
 
                                 {subTabEquipo === "PERFIL" && (
@@ -3142,7 +3451,7 @@
                                                                     <div className="flex flex-wrap gap-1">
                                                                         {uRank.badges.map(b => (
                                                                             <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
-                                                                                {getBadgeLabel(b)}
+                                                                                {getBadgeLabel(b, dynamicExams)}
                                                                             </span>
                                                                         ))}
                                                                     </div>
@@ -3193,6 +3502,110 @@
                                     </div>
                                 )}
 
+                                {subTabEquipo === "MEDALLAS" && esLiderOSupervisor && (
+                                    <div className="space-y-4">
+                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <h2 className="font-black text-lg italic uppercase">Sistema de Medallas</h2>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Crea, aprueba y otorga medallas a promotores.</p>
+                                        </div>
+
+                                        <form onSubmit={handleCreateMedalla} className="bg-white p-6 rounded-[2rem] shadow-xl border space-y-3">
+                                            <h3 className="font-black text-[11px] text-movistar-dark uppercase">Crear medalla</h3>
+                                            <input type="text" placeholder="Nombre de la medalla *" value={medNombre} onChange={e => setMedNombre(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase" />
+                                            <textarea placeholder="Descripción *" value={medDesc} onChange={e => setMedDesc(e.target.value)} required rows="3" className="w-full bg-gray-50 p-4 rounded-xl font-bold text-[10px] outline-none resize-none" />
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-400 uppercase ml-1">Fecha introducción</label>
+                                                    <input type="date" value={medFechaIntro} onChange={e => setMedFechaIntro(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-xs outline-none mt-1" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-400 uppercase ml-1">Categoría</label>
+                                                    <select value={medCategoria} onChange={e => setMedCategoria(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-xs outline-none mt-1">
+                                                        {MEDALLA_CATEGORIAS.map(c => <option key={c} value={c}>{MEDALLA_CAT_EMOJI[c]} {c}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <label className="flex items-center justify-center gap-2 bg-blue-50 text-movistar-blue p-4 rounded-xl font-black text-[9px] cursor-pointer border border-blue-100">
+                                                {medFoto ? "✓ FOTO CARGADA" : "📷 SUBIR FOTO DE MEDALLA *"}
+                                                <input type="file" accept="image/*" className="hidden" onChange={handleImageUploadGen(setMedFoto)} />
+                                            </label>
+                                            {medFoto && <div className="flex justify-center"><img src={medFoto} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-yellow-300" /></div>}
+                                            <button type="submit" className="w-full bg-movistar-blue text-white py-4 rounded-xl font-black text-[10px] uppercase active:scale-95 shadow-md">
+                                                {userRole === "ADMIN" ? "CREAR Y APROBAR MEDALLA" : "ENVIAR PARA APROBACIÓN"}
+                                            </button>
+                                        </form>
+
+                                        {userRole === "ADMIN" && medallasPendientes.length > 0 && (
+                                            <div className="bg-white p-5 rounded-[2rem] shadow-xl border">
+                                                <h3 className="font-black text-[11px] text-orange-500 uppercase mb-3">Pendientes de aprobación ({medallasPendientes.length})</h3>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left text-[9px] font-bold">
+                                                        <thead>
+                                                            <tr className="bg-gray-50 text-gray-500 uppercase">
+                                                                <th className="p-2">Medalla</th><th className="p-2">Cat.</th><th className="p-2">Creador</th><th className="p-2 text-right">Acción</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {medallasPendientes.map(m => (
+                                                                <tr key={m.id} className="border-b">
+                                                                    <td className="p-2">
+                                                                        <div className="flex items-center gap-2">
+                                                                            {m.foto && <img src={m.foto} alt="" className="w-8 h-8 rounded-full object-cover" />}
+                                                                            <span className="uppercase text-movistar-dark">{m.nombre}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-2">{MEDALLA_CAT_EMOJI[m.categoria]} {m.categoria}</td>
+                                                                    <td className="p-2 text-gray-500">{m.creadoPor} ({m.creadoPorRol})</td>
+                                                                    <td className="p-2 text-right">
+                                                                        <div className="flex gap-1 justify-end">
+                                                                            <button type="button" onClick={() => handleMedallaDecision(m.id, 'aprobada')} className="bg-green-50 text-movistar-green px-2 py-1 rounded-lg font-black">✓</button>
+                                                                            <button type="button" onClick={() => handleMedallaDecision(m.id, 'rechazada')} className="bg-red-50 text-movistar-red px-2 py-1 rounded-lg font-black">✗</button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <form onSubmit={handleAssignMedalla} className="bg-white p-6 rounded-[2rem] shadow-xl border space-y-3">
+                                            <h3 className="font-black text-[11px] text-movistar-green uppercase">Otorgar medalla a promotor</h3>
+                                            <select value={assignMedallaId} onChange={e => setAssignMedallaId(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none">
+                                                <option value="">— Seleccionar medalla aprobada —</option>
+                                                {medallasAprobadas.map(m => (
+                                                    <option key={m.id} value={m.id}>{MEDALLA_CAT_EMOJI[m.categoria]} {m.nombre}</option>
+                                                ))}
+                                            </select>
+                                            <select value={assignPromotorNombre} onChange={e => setAssignPromotorNombre(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase">
+                                                <option value="">— Seleccionar promotor —</option>
+                                                {promotoresAsignables.map(r => (
+                                                    <option key={r.id} value={r.nombre}>{r.nombre} · {getStoreName(r.idpdv)}</option>
+                                                ))}
+                                            </select>
+                                            <button type="submit" disabled={medallasAprobadas.length === 0} className="w-full bg-movistar-green text-white py-4 rounded-xl font-black text-[10px] uppercase active:scale-95 shadow-md disabled:opacity-50">
+                                                OTORGAR MEDALLA 🏅
+                                            </button>
+                                        </form>
+
+                                        <div className="bg-white p-5 rounded-[2rem] shadow-sm border">
+                                            <h4 className="font-black text-[10px] text-gray-400 uppercase mb-3">Catálogo aprobado ({medallasAprobadas.length})</h4>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {medallasAprobadas.map(m => (
+                                                    <div key={m.id} className="bg-gray-50 p-3 rounded-xl border flex items-center gap-2">
+                                                        {m.foto ? <img src={m.foto} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" /> : <span className="text-xl">{MEDALLA_CAT_EMOJI[m.categoria]}</span>}
+                                                        <div className="min-w-0">
+                                                            <p className="text-[9px] font-black uppercase truncate">{m.nombre}</p>
+                                                            <p className="text-[7px] font-bold text-gray-400">{m.categoria}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {subTabEquipo === "RANKING" && (
                                     <div className="space-y-4">
                                         <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
@@ -3222,11 +3635,23 @@
                                                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                                                     {u.badges.map(b => (
                                                                                         <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[6px] font-black px-1.5 py-0.5 rounded shadow-sm">
-                                                                                            {getBadgeLabel(b)}
+                                                                                            {getBadgeLabel(b, dynamicExams)}
                                                                                         </span>
                                                                                     ))}
                                                                                 </div>
                                                                             )}
+                                                                            {(() => {
+                                                                                const mc = getMedallaConteo(u.name);
+                                                                                const totalMed = mc.Oro + mc.Plata + mc.Bronce;
+                                                                                if (!totalMed) return null;
+                                                                                return (
+                                                                                    <div className="flex gap-1 mt-1">
+                                                                                        {MEDALLA_CATEGORIAS.map(cat => mc[cat] > 0 && (
+                                                                                            <span key={cat} className="text-[7px] font-black text-gray-500">{MEDALLA_CAT_EMOJI[cat]}{mc[cat]}</span>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
                                                                             
                                                                         </div>
                                                                     </div>
