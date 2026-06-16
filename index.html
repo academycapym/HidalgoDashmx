@@ -265,6 +265,32 @@
             return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
         };
 
+        const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
+
+        /** Supervisor: incluye tiendas de su zona Y su propio idpdv si coincide con el login */
+        const supervisorMatchesStore = (record, userId) => {
+            const uid = String(userId || '').trim().toUpperCase();
+            if (!uid) return false;
+            const storeId = cleanStoreId(record?.id ?? record?.idpdv);
+            if (storeId && storeId.toUpperCase() === cleanStoreId(uid).toUpperCase()) return true;
+            const sup = String(record?.sup || '').toUpperCase();
+            return sup.includes(uid);
+        };
+
+        const roundCuotaCell = (cell) => {
+            const cuota = Math.round(Number(cell?.cuota) || 0);
+            const altas = Math.round(Number(cell?.altas) || 0);
+            return { cuota, altas, gap: altas - cuota };
+        };
+
+        const formatCuotaInt = (n) => Math.round(Number(n) || 0);
+
+        const cuotaAlcancePct = (altas, cuota) => {
+            const c = Math.round(Number(cuota) || 0);
+            const a = Math.round(Number(altas) || 0);
+            return c > 0 ? Math.round((a / c) * 100) : 0;
+        };
+
         const normalizeCadena = (val, fallbackTienda = "") => {
             const raw = String(val || fallbackTienda || "").trim();
             const t = raw.toUpperCase();
@@ -373,8 +399,8 @@
                     if (!agg[day]) agg[day] = emptyDiaProductos();
                     PRODUCTOS_CUOTA.forEach(p => {
                         const cell = prods[p] || {};
-                        const c = Number(cell.cuota) || 0;
-                        const a = Number(cell.altas) || 0;
+                        const c = Math.round(Number(cell.cuota) || 0);
+                        const a = Math.round(Number(cell.altas) || 0);
                         agg[day][p].cuota += c;
                         agg[day][p].altas += a;
                         agg[day][p].gap += a - c;
@@ -383,12 +409,32 @@
             });
             Object.keys(agg).forEach(day => {
                 PRODUCTOS_CUOTA.forEach(p => {
-                    agg[day][p].cuota = Math.round(agg[day][p].cuota * 10000) / 10000;
-                    agg[day][p].altas = Math.round(agg[day][p].altas * 10000) / 10000;
-                    agg[day][p].gap = Math.round(agg[day][p].gap * 10000) / 10000;
+                    agg[day][p].cuota = Math.round(agg[day][p].cuota);
+                    agg[day][p].altas = Math.round(agg[day][p].altas);
+                    agg[day][p].gap = Math.round(agg[day][p].gap);
                 });
             });
             return agg;
+        };
+
+        const aggregateSemanasCuotas = (diasAgg, weeks) => {
+            return (weeks || []).map(week => {
+                const totals = emptyDiaProductos();
+                (week.days || []).forEach(({ day }) => {
+                    const prods = diasAgg[String(day)] || emptyDiaProductos();
+                    PRODUCTOS_CUOTA.forEach(p => {
+                        totals[p].cuota += Math.round(Number(prods[p]?.cuota) || 0);
+                        totals[p].altas += Math.round(Number(prods[p]?.altas) || 0);
+                    });
+                });
+                PRODUCTOS_CUOTA.forEach(p => {
+                    totals[p].cuota = Math.round(totals[p].cuota);
+                    totals[p].altas = Math.round(totals[p].altas);
+                    totals[p].gap = totals[p].altas - totals[p].cuota;
+                    totals[p].alcance = cuotaAlcancePct(totals[p].altas, totals[p].cuota);
+                });
+                return { weekNum: week.weekNum, weekLabel: week.days.length ? `Semana ${week.weekNum} · Día ${week.days[0].day} al ${week.days[week.days.length - 1].day}` : `Semana ${week.weekNum}`, totals };
+            });
         };
 
         const parseCuotaAltasFromWorkbook = (wb, mesStr) => {
@@ -440,16 +486,17 @@
                 const dias = {};
                 for (let d = 1; d <= 31; d++) {
                     const dk = String(d);
-                    const cuotaPorta = Number(row[colPorta[dk]]) || 0;
-                    const cuotaTemm = Number(row[colTemm[dk]]) || 0;
-                    const cuotaPrep = Number(row[colGral[dk]]) || 0;
-                    const altaPorta = portaAltas[idpv]?.[dk] || 0;
-                    const altaTemm = temmAltas[idpv]?.[dk] || 0;
-                    const altaPrep = prepagoAltas[idpv]?.[dk] || 0;
+                    const altaPorta = Math.round(Number(portaAltas[idpv]?.[dk]) || 0);
+                    const altaTemm = Math.round(Number(temmAltas[idpv]?.[dk]) || 0);
+                    const altaPrep = Math.round(Number(prepagoAltas[idpv]?.[dk]) || 0);
+                    const cuotaPorta = Math.round(Number(row[colPorta[dk]]) || 0);
+                    const cuotaTemm = Math.round(Number(row[colTemm[dk]]) || 0);
+                    const cuotaPrep = Math.round(Number(row[colGral[dk]]) || 0);
+                    const altaTotal = altaPorta + altaTemm + altaPrep;
                     dias[dk] = {
                         PORTA: { cuota: cuotaPorta, altas: altaPorta, gap: altaPorta - cuotaPorta },
                         TEMM: { cuota: cuotaTemm, altas: altaTemm, gap: altaTemm - cuotaTemm },
-                        PREPAGO: { cuota: cuotaPrep, altas: altaPrep, gap: altaPrep - cuotaPrep }
+                        PREPAGO: { cuota: cuotaPrep, altas: altaTotal, gap: altaTotal - cuotaPrep }
                     };
                 }
                 tiendas.push({
@@ -701,7 +748,7 @@
                     const cl = userId.trim().replace(/^0+/, '');
                     f = f.filter(d => String(d.id || '').replace(/^0+/, '') === cl);
                 } else if (userRole === "SUPERVISOR") {
-                    f = f.filter(d => (d.sup || "").toUpperCase().includes(userId));
+                    f = f.filter(d => supervisorMatchesStore(d, userId));
                 } else if (userRole === "ADMIN") {
                     if (supFilterCarpeta !== "TODOS") f = f.filter(d => (d.sup || "") === supFilterCarpeta);
                 }
@@ -782,13 +829,10 @@
                     const cl = userId.trim().replace(/^0+/, '');
                     records = records.filter(r => String(r.idpdv).replace(/^0+/, '') === cl);
                 } else if (userRole === "SUPERVISOR") {
-                    const supUpper = userId.toUpperCase();
-                    records = records.filter(r => {
-                        const supRec = (r.sup || "").toUpperCase();
-                        if (supRec.includes(supUpper)) return true;
-                        const temm = dataTEMM.find(d => String(d.id).replace(/^0+/, '') === String(r.idpdv).replace(/^0+/, ''));
-                        return temm && (temm.sup || "").toUpperCase().includes(supUpper);
-                    });
+                    records = records.filter(r => supervisorMatchesStore(r, userId) || supervisorMatchesStore(
+                        dataTEMM.find(d => cleanStoreId(d.id) === cleanStoreId(r.idpdv)) || r,
+                        userId
+                    ));
                 } else if (userRole === "ADMIN" && supFilter !== "TODOS") {
                     records = records.filter(r => {
                         const temm = dataTEMM.find(d => String(d.id).replace(/^0+/, '') === String(r.idpdv).replace(/^0+/, ''));
@@ -814,6 +858,23 @@
 
             const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(cuotasMesSeleccionado), [cuotasMesSeleccionado]);
 
+            const cuotasResumenSemanal = useMemo(() =>
+                aggregateSemanasCuotas(cuotasAltasVista.dias, cuotasMonthWeeks),
+            [cuotasAltasVista.dias, cuotasMonthWeeks]);
+
+            const top3ModelosVendidos = useMemo(() => {
+                const counts = {};
+                ventasPorDia.forEach(v => {
+                    const key = [v.marca, v.modelo].filter(Boolean).join(' ').trim();
+                    if (!key) return;
+                    counts[key] = (counts[key] || 0) + 1;
+                });
+                return Object.entries(counts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3)
+                    .map(([label, count]) => ({ label, count }));
+            }, [ventasPorDia]);
+
             const medallasAprobadas = useMemo(() =>
                 medallasCatalogo.filter(m => m.estado === 'aprobada'),
             [medallasCatalogo]);
@@ -825,7 +886,7 @@
             const promotoresAsignables = useMemo(() => {
                 let list = rosters.filter(r => r.estatus !== 'INACTIVO' && r.rol === 'PROMOTOR');
                 if (userRole === 'SUPERVISOR') {
-                    list = list.filter(r => r.supervisor && r.supervisor.toUpperCase().includes(userId));
+                    list = list.filter(r => r.supervisor && r.supervisor.toUpperCase().includes(String(userId).toUpperCase()));
                 }
                 return list.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
             }, [rosters, userRole, userId]);
@@ -876,7 +937,7 @@
                 if(userRole === "PROMOTOR") {
                     r = rosters.filter(x => (x.idpdv || "").replace(/^0+/, '').toUpperCase() === (userId || "").replace(/^0+/, '').toUpperCase());
                 } else if (userRole === "SUPERVISOR") {
-                    r = rosters.filter(x => x.supervisor && x.supervisor.toUpperCase().includes(userId));
+                    r = rosters.filter(x => x.supervisor && x.supervisor.toUpperCase().includes(String(userId).toUpperCase()));
                 } else {
                     if (supFilterRoster !== "TODOS") r = rosters.filter(x => x.supervisor === supFilterRoster);
                 }
@@ -940,21 +1001,30 @@
 
                 try {
                     unsubs.push(getDbPath("operacion_v2").onSnapshot(s => {
-                        let tmChunks = []; let ivChunks = []; let actAl = "Desconocido";
+                        const tmChunkDocs = [];
+                        const ivChunkDocs = [];
+                        let actAl = "Desconocido";
                         s.forEach(d => {
                             const obj = d.data();
                             if (d.id.startsWith("temm_chunk_") || d.id === "temm") {
-                                if (Array.isArray(obj.list)) tmChunks.push(obj.list);
+                                if (Array.isArray(obj.list)) tmChunkDocs.push({ id: d.id, list: obj.list });
                                 if (obj.actualizado_al) actAl = obj.actualizado_al;
                             }
                             if (d.id.startsWith("inv_chunk_") || d.id === "inv") {
-                                if (Array.isArray(obj.list)) ivChunks.push(obj.list);
+                                if (Array.isArray(obj.list)) ivChunkDocs.push({ id: d.id, list: obj.list });
                             }
                         });
-                        
-                        let tm = []; tmChunks.forEach(c => tm = tm.concat(c));
-                        let iv = []; ivChunks.forEach(c => iv = iv.concat(c));
-                        
+                        const chunkSortKey = (id) => {
+                            if (id === 'temm' || id === 'inv') return -1;
+                            const m = id.match(/_chunk_(\d+)$/);
+                            return m ? parseInt(m[1], 10) : 9999;
+                        };
+                        tmChunkDocs.sort((a, b) => chunkSortKey(a.id) - chunkSortKey(b.id));
+                        ivChunkDocs.sort((a, b) => chunkSortKey(a.id) - chunkSortKey(b.id));
+                        let tm = [];
+                        tmChunkDocs.forEach(c => { tm = tm.concat(c.list); });
+                        let iv = [];
+                        ivChunkDocs.forEach(c => { iv = iv.concat(c.list); });
                         setDataTEMM(tm); setDataINV(iv); setActualizadoAl(actAl);
                     }));
                     unsubs.push(getDbPath("ranking").onSnapshot(s => {
@@ -1024,7 +1094,9 @@
                 if (userRole === "PROMOTOR") {
                     setViewStoreId((userId || "").replace(/^0+/, '').toUpperCase());
                 } else if (dataTEMM.length > 0 && !viewStoreId && (userRole === "ADMIN" || userRole === "SUPERVISOR")) {
-                    const available = userRole === "SUPERVISOR" ? dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userId))) : dataTEMM;
+                    const available = userRole === "SUPERVISOR"
+                        ? dataTEMM.filter(d => supervisorMatchesStore(d, userId))
+                        : dataTEMM;
                     if(available.length > 0) setViewStoreId(available[0].id);
                 }
             }, [userRole, userId, dataTEMM]);
@@ -1370,6 +1442,26 @@
                 XLSX.writeFile(wb, `Registro_Ventas_${carpetaMesSeleccionado}.xlsx`);
             };
 
+            const downloadResumenVentasExcel = () => {
+                if (ventasPorDia.length === 0) return alert("No hay ventas para exportar en la fecha seleccionada.");
+                const rows = ventasPorDia.map(v => ({
+                    "Fecha": v.fecha || '',
+                    "IDPDV": v.idpdv || '',
+                    "Tienda": v.tienda || getStoreName(v.idpdv),
+                    "DN": v.dn || '',
+                    "Producto": v.producto || '',
+                    "Marca": v.marca || '',
+                    "Modelo": v.modelo || '',
+                    "Monto Recarga": v.montoRecarga ?? '',
+                    "Monto Equipo": v.montoEquipo ?? '',
+                    "Vinculación": v.vinculacion || '',
+                    "Mes": v.mes || carpetaMesSeleccionado
+                }));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Resumen Ventas");
+                XLSX.writeFile(wb, `Resumen_Ventas_${resumenFecha || 'todas'}_${carpetaMesSeleccionado}.xlsx`);
+            };
+
             const renderCarpetaAuditoria = (downloadHandler) => (
                 <div className="bg-white p-5 rounded-[1.5rem] shadow-sm border flex flex-col gap-3">
                     <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center border-b pb-2">Herramientas de Auditoría</h3>
@@ -1424,10 +1516,10 @@
                     const selectedProfile = rosters.find(r => (r.nombre || "").toUpperCase() === colaboradorName.trim().toUpperCase());
                     if (selectedProfile && db) {
                         const currentAttempts = selectedProfile.examAttempts || {};
-                        const courseAtt = currentAttempts[curType] || { count: 0, blockedUntil: 0, blocked: false };
+                        const courseAtt = currentAttempts[curType] || { count: 0, blockedUntil: 0 };
 
                         if (finalPassed) {
-                            currentAttempts[curType] = { count: 0, blockedUntil: 0, blocked: false };
+                            currentAttempts[curType] = { count: 0, blockedUntil: 0 };
                             await getDbPath("roster").doc(selectedProfile.id).update({ examAttempts: currentAttempts });
                             
                             const name = colaboradorName.trim().toUpperCase();
@@ -1442,8 +1534,8 @@
                         } else {
                             courseAtt.count = (courseAtt.count || 0) + 1;
                             if (courseAtt.count >= EXAM_MAX_STRIKES) {
-                                courseAtt.blocked = true;
-                                courseAtt.blockedUntil = 0;
+                                courseAtt.blockedUntil = Date.now() + (24 * 60 * 60 * 1000);
+                                courseAtt.count = EXAM_MAX_STRIKES;
                             }
                             currentAttempts[curType] = courseAtt;
                             await getDbPath("roster").doc(selectedProfile.id).update({ examAttempts: currentAttempts });
@@ -1997,11 +2089,11 @@
             const opCatalogBase = useMemo(() => {
                 if (!Array.isArray(dataTEMM)) return [];
                 if (userRole === "PROMOTOR") {
-                    const cl = userId.trim().replace(/^0+/, '');
-                    return dataTEMM.filter(d => (d.id || "") === cl);
+                    const cl = cleanStoreId(userId);
+                    return dataTEMM.filter(d => cleanStoreId(d.id) === cl);
                 }
                 if (userRole === "SUPERVISOR") {
-                    return dataTEMM.filter(d => ((d.sup || "").toUpperCase().includes(userId)));
+                    return dataTEMM.filter(d => supervisorMatchesStore(d, userId));
                 }
                 return dataTEMM;
             }, [dataTEMM, userRole, userId]);
@@ -2028,7 +2120,7 @@
                     });
                     if (Array.isArray(dataINV)) { const ids = filteredData.map(d => d.id || ""); s = dataINV.filter(i => ids.includes(i.id || "")).reduce((acc, cur) => acc + (Number(cur?.q) || 0), 0); }
                 }
-                return { a, c, s };
+                return { a: Math.round(a), c: Math.round(c), s: Math.round(s) };
             }, [filteredData, dataINV, opProductFilter]);
 
             const invStoreIdsAllowed = useMemo(() => filteredData.map(d => d.id || ""), [filteredData]);
@@ -2087,14 +2179,32 @@
                 return total.toFixed(2);
             };
 
+            const isExamBlocked = (att) => {
+                if (!att) return false;
+                if (att.blockedUntil > Date.now()) return true;
+                if (att.blocked && !att.blockedUntil) return true;
+                return false;
+            };
+
+            const getExamBlockLabel = (att) => {
+                if (!att) return '';
+                if (att.blockedUntil > Date.now()) {
+                    const hrs = Math.ceil((att.blockedUntil - Date.now()) / 3600000);
+                    return `(🔒 Bloqueado · ${hrs}h restantes)`;
+                }
+                if ((att.count || 0) > 0 && (att.count || 0) < EXAM_MAX_STRIKES) {
+                    return `(Intento ${att.count}/${EXAM_MAX_STRIKES})`;
+                }
+                return '';
+            };
+
             const renderExamBtn = (type, label, styleClass) => {
                 const selProf = rosters.find(r => normalizeName(r.nombre) === normalizeName(colaboradorName));
                 let lockedText = ""; let isDisabled = userRole === "PROMOTOR" && myRosters.filter(r => r.estatus !== 'INACTIVO').length === 0;
                 if (selProf && selProf.examAttempts && selProf.examAttempts[type]) {
                     const att = selProf.examAttempts[type];
-                    if (att.blocked) { lockedText = `(🔒 Bloqueado · ${EXAM_MAX_STRIKES} intentos)`; isDisabled = true; }
-                    else if (att.blockedUntil > Date.now()) { const hrs = Math.ceil((att.blockedUntil - Date.now()) / 3600000); lockedText = `(🔒 Bloqueado ${hrs}h)`; isDisabled = true; }
-                    else if ((att.count || 0) > 0) { lockedText = `(Intento ${att.count}/${EXAM_MAX_STRIKES})`; }
+                    if (isExamBlocked(att)) { lockedText = getExamBlockLabel(att); isDisabled = true; }
+                    else lockedText = getExamBlockLabel(att);
                 }
                 return (
                     <button onClick={() => startQuiz(type)} disabled={isDisabled} className={`w-full ${styleClass} p-4 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-black text-[10px] shadow-sm text-left active:scale-95 transition-transform flex justify-between`}>
@@ -2322,6 +2432,32 @@
                                             <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase">
                                                 Mes consulta: {formatMesLabel(carpetaMesSeleccionado)} · {ventasScopeAllowed.length} PDV en alcance
                                             </p>
+                                            <button
+                                                type="button"
+                                                onClick={downloadResumenVentasExcel}
+                                                className="w-full mt-3 bg-movistar-green text-white p-3 rounded-xl font-black text-[9px] uppercase active:scale-95 shadow-md"
+                                            >
+                                                📥 Descargar Ventas en Excel
+                                            </button>
+                                        </div>
+
+                                        <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border">
+                                            <h3 className="font-black text-sm italic uppercase text-movistar-dark mb-1">Top 3 Modelos Más Vendidos</h3>
+                                            <p className="text-[9px] font-bold text-gray-400 mb-4">{resumenFecha}</p>
+                                            {top3ModelosVendidos.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {top3ModelosVendidos.map((item, i) => (
+                                                        <div key={item.label} className="flex justify-between items-center bg-gradient-to-r from-blue-50 to-white p-3 rounded-xl border border-blue-100">
+                                                            <span className="text-[10px] font-black uppercase text-movistar-dark">
+                                                                #{i + 1} · {item.label}
+                                                            </span>
+                                                            <span className="text-sm font-black text-movistar-blue">{item.count} ventas</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-center text-[10px] font-bold text-gray-400 uppercase py-4">Sin modelos registrados para esta fecha</p>
+                                            )}
                                         </div>
 
                                         <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border">
@@ -2621,8 +2757,8 @@
                                                                 acCuotaTot += Number(d.cTot) || 0; acAltaTot += Number(d.aTot) || 0;
                                                                 acCuotaTemm += Number(d.cTem) || 0; acAltaTemm += Number(d.aTem) || 0;
                                                                 
-                                                                const gapTot = acAltaTot - acCuotaTot;
-                                                                const gapTemm = acAltaTemm - acCuotaTemm;
+                                                                const gapTot = Math.round(acAltaTot - acCuotaTot);
+                                                                const gapTemm = Math.round(acAltaTemm - acCuotaTemm);
 
                                                                 const isEmptyPastDayTot = dayNum < today && (Number(d.aTot) || 0) === 0;
                                                                 const isEmptyPastDayTemm = dayNum < today && (Number(d.aTem) || 0) === 0;
@@ -2632,14 +2768,14 @@
                                                                         <td className="font-bold bg-gray-50">{dayNum}</td>
                                                                         <td><input type="number" value={d.cTot} onChange={e => updateEstac(i, 'cTot', e.target.value)} disabled={!puedeEditarCarpeta} /></td>
                                                                         <td className={isEmptyPastDayTot ? 'bg-red-100' : ''}><input type="number" value={d.aTot} onChange={e => updateEstac(i, 'aTot', e.target.value)} disabled={!puedeEditarCarpeta} /></td>
-                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{acCuotaTot}</td>
-                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{acAltaTot}</td>
+                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{Math.round(acCuotaTot)}</td>
+                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{Math.round(acAltaTot)}</td>
                                                                         <td className={`font-black ${gapTot >= 0 ? 'bg-green-50 text-movistar-green' : 'bg-red-50 text-movistar-red'}`}>{gapTot > 0 ? '+'+gapTot : gapTot}</td>
 
                                                                         <td><input type="number" value={d.cTem} onChange={e => updateEstac(i, 'cTem', e.target.value)} disabled={!puedeEditarCarpeta} /></td>
                                                                         <td className={isEmptyPastDayTemm ? 'bg-red-100' : ''}><input type="number" value={d.aTem} onChange={e => updateEstac(i, 'aTem', e.target.value)} disabled={!puedeEditarCarpeta} /></td>
-                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{acCuotaTemm}</td>
-                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{acAltaTemm}</td>
+                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{Math.round(acCuotaTemm)}</td>
+                                                                        <td className="bg-gray-50 text-gray-500 font-bold">{Math.round(acAltaTemm)}</td>
                                                                         <td className={`font-black ${gapTemm >= 0 ? 'bg-green-50 text-movistar-green' : 'bg-red-50 text-movistar-red'}`}>{gapTemm > 0 ? '+'+gapTemm : gapTemm}</td>
                                                                     </tr>
                                                                 )
@@ -2785,6 +2921,7 @@
                                         ) : (
                                             <div className="space-y-3">
                                                 {cuotasMonthWeeks.map(week => {
+                                                    const semResumen = cuotasResumenSemanal.find(s => s.weekNum === week.weekNum);
                                                     const isOpen = expandedCuotaWeeks[week.weekNum] !== false;
                                                     const weekLabel = week.days.length
                                                         ? `Semana ${week.weekNum} · Día ${week.days[0].day} al ${week.days[week.days.length - 1].day}`
@@ -2801,6 +2938,28 @@
                                                             </button>
                                                             {isOpen && (
                                                                 <div className="p-3 space-y-3">
+                                                                    {semResumen && (
+                                                                        <div className="bg-gradient-to-r from-movistar-dark to-movistar-blue p-4 rounded-xl text-white shadow-md">
+                                                                            <p className="text-[8px] font-black uppercase mb-2 opacity-90">Resumen semanal · {semResumen.weekLabel}</p>
+                                                                            <div className="grid grid-cols-1 gap-2">
+                                                                                {PRODUCTOS_CUOTA.map(prod => {
+                                                                                    const cell = semResumen.totals[prod] || { cuota: 0, altas: 0, gap: 0, alcance: 0 };
+                                                                                    const prodLabel = prod === 'PREPAGO' ? 'TOTAL / PREPAGO' : prod;
+                                                                                    return (
+                                                                                        <div key={prod} className="bg-white/10 rounded-lg p-2 backdrop-blur-sm">
+                                                                                            <p className="text-[7px] font-black uppercase mb-1 opacity-80">{prodLabel}</p>
+                                                                                            <div className="grid grid-cols-4 gap-1 text-center text-[8px]">
+                                                                                                <div><p className="opacity-70">Cuota</p><p className="font-black">{formatCuotaInt(cell.cuota)}</p></div>
+                                                                                                <div><p className="opacity-70">Altas</p><p className="font-black">{formatCuotaInt(cell.altas)}</p></div>
+                                                                                                <div><p className="opacity-70">GAP</p><p className={`font-black ${cell.gap >= 0 ? 'text-green-300' : 'text-red-300'}`}>{cell.gap >= 0 ? '+' : ''}{formatCuotaInt(cell.gap)}</p></div>
+                                                                                                <div><p className="opacity-70">Alcance</p><p className="font-black">{cell.alcance}%</p></div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
                                                                     {week.days.map(({ day, label }) => {
                                                                         const prods = cuotasAltasVista.dias[String(day)] || emptyDiaProductos();
                                                                         return (
@@ -2808,25 +2967,28 @@
                                                                                 <p className="text-[9px] font-black text-movistar-blue uppercase mb-2">{label} {day} · {formatMesLabel(cuotasMesSeleccionado)}</p>
                                                                                 <div className="grid grid-cols-1 gap-2">
                                                                                     {PRODUCTOS_CUOTA.map(prod => {
-                                                                                        const cell = prods[prod] || { cuota: 0, altas: 0, gap: 0 };
-                                                                                        const gap = Number(cell.gap) || 0;
+                                                                                        const cell = roundCuotaCell(prods[prod] || {});
+                                                                                        const gap = cell.gap;
                                                                                         const gapClass = gap >= 0 ? 'text-movistar-green bg-green-50' : 'text-movistar-red bg-red-50';
                                                                                         const prodColors = prod === 'TEMM' ? 'border-l-movistar-blue' : prod === 'PORTA' ? 'border-l-purple-500' : 'border-l-amber-500';
+                                                                                        const prodLabel = prod === 'TEMM' ? 'TEMM · Altas vs Cuota TEMM'
+                                                                                            : prod === 'PORTA' ? 'PORTA · Altas vs Cuota PORTA'
+                                                                                            : 'TOTAL · Altas vs Cuota PREPAGO';
                                                                                         return (
                                                                                             <div key={prod} className={`bg-white rounded-lg p-3 border-l-4 ${prodColors} shadow-sm`}>
-                                                                                                <p className="text-[8px] font-black text-gray-500 uppercase mb-2">{prod === 'PREPAGO' ? 'PREPAGO (Total)' : prod}</p>
+                                                                                                <p className="text-[8px] font-black text-gray-500 uppercase mb-2">{prodLabel}</p>
                                                                                                 <div className="grid grid-cols-3 gap-2 text-center">
                                                                                                     <div>
                                                                                                         <p className="text-[7px] font-bold text-gray-400 uppercase">Cuota</p>
-                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{Number(cell.cuota).toFixed(2)}</p>
+                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{cell.cuota}</p>
                                                                                                     </div>
                                                                                                     <div>
                                                                                                         <p className="text-[7px] font-bold text-gray-400 uppercase">Altas</p>
-                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{Number(cell.altas).toFixed(2)}</p>
+                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{cell.altas}</p>
                                                                                                     </div>
                                                                                                     <div className={`rounded-lg py-1 ${gapClass}`}>
                                                                                                         <p className="text-[7px] font-bold uppercase opacity-80">GAP</p>
-                                                                                                        <p className="text-sm font-black tabular-nums">{gap >= 0 ? '+' : ''}{gap.toFixed(2)}</p>
+                                                                                                        <p className="text-sm font-black tabular-nums">{gap >= 0 ? '+' : ''}{gap}</p>
                                                                                                     </div>
                                                                                                 </div>
                                                                                             </div>
@@ -2881,7 +3043,7 @@
                                             </div>
                                             <div className="bg-white p-4 rounded-3xl border shadow-sm col-span-2 md:col-span-1">
                                                 <p className="text-[8px] font-black text-movistar-blue uppercase mb-1">Alcance {opProductFilter}</p>
-                                                <p className="text-2xl font-black text-movistar-blue tabular-nums">{summary.c > 0 ? ((summary.a / summary.c) * 100).toFixed(1) : 0}%</p>
+                                                <p className="text-2xl font-black text-movistar-blue tabular-nums">{summary.c > 0 ? Math.round((summary.a / summary.c) * 100) : 0}%</p>
                                             </div>
                                         </div>
 
@@ -3243,7 +3405,7 @@
                                                 <div className="mb-6 animate-pop">
                                                     <div className="text-6xl mb-2">❌</div>
                                                     <p className="text-sm font-bold text-movistar-red">No has alcanzado el 80% requerido.</p>
-                                                    <p className="text-[10px] text-gray-500 mt-1">3 intentos fallidos bloquean esta certificación.</p>
+                                                    <p className="text-[10px] text-gray-500 mt-1">3 intentos fallidos bloquean la certificación por 24 horas.</p>
                                                 </div>
                                             )}
                                             <button onClick={() => setQuizState('MENU')} className="bg-movistar-dark text-white w-full py-5 rounded-2xl font-black text-xs active:scale-95 transition-transform uppercase">Volver al Menú</button>
