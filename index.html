@@ -33,6 +33,7 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -466,13 +467,38 @@
         const VENTAS_PRODUCTOS = ['Portabilidad', 'Temm', 'Pospago', 'Prepago Voz'];
         const VENTAS_VINCULACION = ['Sí', 'No'];
 
+        const INVENTARIO_CATALOGO_EJEMPLO = [
+            { mar: 'Samsung', mod: 'Galaxy A15' },
+            { mar: 'Samsung', mod: 'Galaxy A05' },
+            { mar: 'Motorola', mod: 'Moto G04' },
+            { mar: 'Motorola', mod: 'Moto G54' },
+            { mar: 'Xiaomi', mod: 'Redmi 13C' },
+            { mar: 'Apple', mod: 'iPhone 13' },
+            { mar: 'OPPO', mod: 'A78' },
+            { mar: 'Honor', mod: 'X7b' },
+        ];
+
+        const getInventarioFuente = (dataINV) =>
+            (Array.isArray(dataINV) && dataINV.length > 0) ? dataINV : INVENTARIO_CATALOGO_EJEMPLO;
+
+        const getModelosPorMarca = (dataINV, marca) => {
+            const src = getInventarioFuente(dataINV);
+            const m = String(marca || '').trim().toLowerCase();
+            return [...new Set(
+                src.filter(i => !m || String(i.mar || '').toLowerCase() === m)
+                   .map(i => i.mod).filter(Boolean)
+            )].sort();
+        };
+
         const getEmptyVentaRow = () => ({
-            fecha: '', dn: '', producto: '', montoRecarga: '', montoEquipo: '', vinculacion: ''
+            fecha: '', dn: '', producto: '', marca: '', modelo: '',
+            montoRecarga: '', montoEquipo: '', vinculacion: ''
         });
 
         const isVentaRowFilled = (row) => {
             if (!row) return false;
             return !!(String(row.fecha || '').trim() || String(row.dn || '').trim() || String(row.producto || '').trim()
+                || String(row.marca || '').trim() || String(row.modelo || '').trim()
                 || String(row.montoRecarga ?? '').trim() || String(row.montoEquipo ?? '').trim() || String(row.vinculacion || '').trim());
         };
 
@@ -547,6 +573,11 @@
             const [localRegistroVentas, setLocalRegistroVentas] = useState(null);
             const [activeVentaIdx, setActiveVentaIdx] = useState(0);
             const [isSavingVentas, setIsSavingVentas] = useState(false);
+            const [resumenFecha, setResumenFecha] = useState(() => new Date().toISOString().slice(0, 10));
+            const temmPieRef = useRef(null);
+            const temmChartInstance = useRef(null);
+
+            const esLiderOSupervisor = userRole === "ADMIN" || userRole === "SUPERVISOR";
 
             // Search and filters
             const [searchStore, setSearchStore] = useState("");
@@ -659,6 +690,64 @@
                 const s = dataTEMM.find(d => String(d.id || '').replace(/^0+/, '') === cleanId);
                 return s ? s.tienda : "PDV DESCONOCIDO";
             };
+
+            const inventarioMarcas = useMemo(() => {
+                const src = getInventarioFuente(dataINV);
+                return [...new Set(src.map(i => i.mar).filter(Boolean))].sort();
+            }, [dataINV]);
+
+            const ventasScopeAllowed = useMemo(() =>
+                carpetaStoresFiltered.map(d => String(d.id).replace(/^0+/, '')),
+            [carpetaStoresFiltered]);
+
+            const ventasConsolidadas = useMemo(() => {
+                const flat = [];
+                registrosVentas
+                    .filter(r => ventasScopeAllowed.includes(String(r.idpdv).replace(/^0+/, '')))
+                    .forEach(doc => {
+                        (doc.ventas || []).forEach(v => {
+                            if (!isVentaRowFilled(v)) return;
+                            flat.push({
+                                ...v,
+                                idpdv: doc.idpdv,
+                                tienda: getStoreName(doc.idpdv),
+                                mes: doc.mes
+                            });
+                        });
+                    });
+                return flat;
+            }, [registrosVentas, ventasScopeAllowed, dataTEMM]);
+
+            const ventasPorDia = useMemo(() => {
+                if (!resumenFecha) return ventasConsolidadas;
+                return ventasConsolidadas.filter(v => v.fecha === resumenFecha);
+            }, [ventasConsolidadas, resumenFecha]);
+
+            const resumenGlobalVentas = useMemo(() => {
+                const porProducto = {};
+                ventasPorDia.forEach(v => {
+                    const p = v.producto || 'Sin producto';
+                    porProducto[p] = (porProducto[p] || 0) + 1;
+                });
+                return {
+                    total: ventasPorDia.length,
+                    porProducto,
+                    tiendasActivas: new Set(ventasPorDia.map(v => v.idpdv)).size
+                };
+            }, [ventasPorDia]);
+
+            const resumenTemmEquipos = useMemo(() => {
+                const temm = ventasPorDia.filter(v => String(v.producto || '').toLowerCase() === 'temm');
+                const porMarcaModelo = {};
+                temm.forEach(v => {
+                    const key = `${v.marca || 'Sin marca'} · ${v.modelo || 'Sin modelo'}`;
+                    porMarcaModelo[key] = (porMarcaModelo[key] || 0) + 1;
+                });
+                const ranking = Object.entries(porMarcaModelo)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([label, count]) => ({ label, count }));
+                return { total: temm.length, ranking, porMarcaModelo };
+            }, [ventasPorDia]);
 
             const cuotasAltasScopeStores = useMemo(() => {
                 let records = [...cuotasAltasRecords];
@@ -1113,6 +1202,49 @@
                 });
             };
 
+            useEffect(() => {
+                if (!esLiderOSupervisor || subTabCarpeta !== "RESUMEN_VENTAS") return;
+                if (!temmPieRef.current || typeof Chart === 'undefined') return;
+
+                const labels = Object.keys(resumenTemmEquipos.porMarcaModelo);
+                const data = Object.values(resumenTemmEquipos.porMarcaModelo);
+
+                if (temmChartInstance.current) {
+                    temmChartInstance.current.destroy();
+                    temmChartInstance.current = null;
+                }
+
+                if (labels.length === 0) return;
+
+                temmChartInstance.current = new Chart(temmPieRef.current, {
+                    type: 'pie',
+                    data: {
+                        labels,
+                        datasets: [{
+                            data,
+                            backgroundColor: ['#019DF4', '#5CB615', '#E63780', '#0B2739', '#94a3b8', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { size: 10, weight: '600' }, boxWidth: 12 }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (temmChartInstance.current) {
+                        temmChartInstance.current.destroy();
+                        temmChartInstance.current = null;
+                    }
+                };
+            }, [resumenTemmEquipos, subTabCarpeta, esLiderOSupervisor, resumenFecha]);
+
             const saveRegistroVentas = async () => {
                 if (!db || !localRegistroVentas?.idpdv) return alert("Selecciona una tienda primero.");
                 if (!puedeEditarCarpeta) return alert("Este mes está en modo consulta. Solo puedes editar el mes actual (o eres Admin).");
@@ -1153,6 +1285,8 @@
                             "Fecha Venta": v.fecha || '',
                             "DN": v.dn || '',
                             "Producto": v.producto || '',
+                            "Marca": v.marca || '',
+                            "Modelo": v.modelo || '',
                             "Monto Recarga": v.montoRecarga ?? '',
                             "Monto Equipo": v.montoEquipo ?? '',
                             "Vinculación": v.vinculacion || ''
@@ -1857,6 +1991,9 @@
                                     <button onClick={()=>setSubTabCarpeta("ESTACIONALIDAD")} className={`subtab-btn ${subTabCarpeta==="ESTACIONALIDAD"?'subtab-active':'subtab-inactive'}`}>ESTACIONALIDAD</button>
                                     <button onClick={()=>setSubTabCarpeta("SHARE")} className={`subtab-btn ${subTabCarpeta==="SHARE"?'subtab-active':'subtab-inactive'}`}>SHARE DE TIENDA</button>
                                     <button onClick={()=>setSubTabCarpeta("VENTAS")} className={`subtab-btn ${subTabCarpeta==="VENTAS"?'subtab-active':'subtab-inactive'}`}>REGISTRO DE VENTAS</button>
+                                    {esLiderOSupervisor && (
+                                        <button onClick={()=>setSubTabCarpeta("RESUMEN_VENTAS")} className={`subtab-btn ${subTabCarpeta==="RESUMEN_VENTAS"?'subtab-active':'subtab-inactive'}`}>RESUMEN VENTAS</button>
+                                    )}
                                 </div>
 
                                 <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
@@ -1887,11 +2024,89 @@
                                     </div>
                                 </div>
 
-                                {(userRole === "ADMIN" || userRole === "SUPERVISOR") && subTabCarpeta !== "VENTAS" && renderCarpetaAuditoria(downloadCarpetasExcel)}
+                                {(userRole === "ADMIN" || userRole === "SUPERVISOR") && subTabCarpeta !== "VENTAS" && subTabCarpeta !== "RESUMEN_VENTAS" && renderCarpetaAuditoria(downloadCarpetasExcel)}
 
                                 {subTabCarpeta === "VENTAS" && renderCarpetaAuditoria(downloadVentasExcel)}
 
-                                {subTabCarpeta === "VENTAS" ? (
+                                {subTabCarpeta === "RESUMEN_VENTAS" && esLiderOSupervisor ? (
+                                    <div className="space-y-4 animate-pop">
+                                        <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border">
+                                            <label className="text-[8px] font-black text-gray-400 uppercase">Filtrar por día</label>
+                                            <input
+                                                type="date"
+                                                value={resumenFecha}
+                                                onChange={e => setResumenFecha(e.target.value)}
+                                                className="w-full mt-2 bg-gray-50 p-3 rounded-xl font-bold text-xs outline-none border focus:border-movistar-blue"
+                                            />
+                                            <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase">
+                                                Mes consulta: {formatMesLabel(carpetaMesSeleccionado)} · {ventasScopeAllowed.length} PDV en alcance
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border">
+                                            <h3 className="font-black text-sm italic uppercase text-movistar-dark mb-1">Resumen Global de Ventas</h3>
+                                            <p className="text-[9px] font-bold text-gray-400 mb-4">
+                                                Total consolidado · {resumenFecha || 'Todos los días'}
+                                            </p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                                                <div className="bg-blue-50 p-4 rounded-xl text-center">
+                                                    <p className="text-[8px] font-black text-gray-500 uppercase">Total ventas</p>
+                                                    <p className="text-2xl font-black text-movistar-blue">{resumenGlobalVentas.total}</p>
+                                                </div>
+                                                <div className="bg-green-50 p-4 rounded-xl text-center">
+                                                    <p className="text-[8px] font-black text-gray-500 uppercase">Tiendas activas</p>
+                                                    <p className="text-2xl font-black text-movistar-green">{resumenGlobalVentas.tiendasActivas}</p>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {Object.entries(resumenGlobalVentas.porProducto).map(([prod, count]) => (
+                                                    <div key={prod} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                                                        <span className="text-[10px] font-black uppercase">{prod}</span>
+                                                        <span className="text-sm font-black text-movistar-blue">{count}</span>
+                                                    </div>
+                                                ))}
+                                                {resumenGlobalVentas.total === 0 && (
+                                                    <p className="text-center text-[10px] font-bold text-gray-400 uppercase py-4">
+                                                        Sin ventas registradas para esta fecha
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border">
+                                            <h3 className="font-black text-sm italic uppercase text-movistar-dark mb-1">Resumen TEMM (Equipos)</h3>
+                                            <p className="text-[9px] font-bold text-gray-400 mb-4">
+                                                Equipos vendidos · {resumenFecha}
+                                            </p>
+                                            <div className="bg-movistar-dark text-white p-4 rounded-xl mb-4 text-center">
+                                                <p className="text-[8px] font-bold opacity-70 uppercase">Total TEMM del día</p>
+                                                <p className="text-3xl font-black">{resumenTemmEquipos.total}</p>
+                                            </div>
+
+                                            {resumenTemmEquipos.total > 0 ? (
+                                                <>
+                                                    <div className="relative w-full max-w-md mx-auto mb-4" style={{ minHeight: '260px' }}>
+                                                        <canvas ref={temmPieRef} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {resumenTemmEquipos.ranking.map((item, i) => (
+                                                            <div key={item.label} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                                                                <span className="text-[10px] font-bold truncate flex-1">
+                                                                    #{i + 1} · {item.label}
+                                                                </span>
+                                                                <span className="text-sm font-black text-movistar-blue ml-2">{item.count}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <p className="text-center text-[10px] font-bold text-gray-400 uppercase py-6">
+                                                    No hay ventas TEMM para este día
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : subTabCarpeta === "VENTAS" ? (
                                     !viewStoreId ? (
                                         <div className="text-center p-8 bg-white rounded-[1.5rem] border shadow-sm text-gray-400 font-bold text-xs uppercase">Selecciona una tienda para registrar ventas.</div>
                                     ) : !localRegistroVentas ? (
@@ -1906,6 +2121,10 @@
                                                 </div>
                                                 <button onClick={saveRegistroVentas} disabled={!puedeEditarCarpeta || isSavingVentas} className="bg-movistar-blue text-white px-4 py-2 rounded-xl font-black text-[9px] shadow-md active:scale-95 disabled:opacity-50 shrink-0">💾 GUARDAR</button>
                                             </div>
+
+                                            <datalist id="ventas-marcas-datalist">
+                                                {inventarioMarcas.map(m => <option key={m} value={m} />)}
+                                            </datalist>
 
                                             <div className="space-y-1 max-h-[65vh] overflow-y-auto pr-1">
                                                 {ventaVisibleIndices.map(idx => {
@@ -1936,6 +2155,46 @@
                                                                         </select>
                                                                     </div>
                                                                     <div className="venta-field">
+                                                                        <label>Marca</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            list="ventas-marcas-datalist"
+                                                                            placeholder="Buscar marca..."
+                                                                            value={row.marca || ''}
+                                                                            onChange={e => {
+                                                                                const nuevaMarca = e.target.value;
+                                                                                const modelos = getModelosPorMarca(dataINV, nuevaMarca);
+                                                                                setLocalRegistroVentas(prev => {
+                                                                                    if (!prev) return prev;
+                                                                                    const ventas = [...prev.ventas];
+                                                                                    const updated = { ...ventas[idx], marca: nuevaMarca };
+                                                                                    if (ventas[idx].modelo && !modelos.includes(ventas[idx].modelo)) {
+                                                                                        updated.modelo = '';
+                                                                                    }
+                                                                                    ventas[idx] = updated;
+                                                                                    return { ...prev, ventas };
+                                                                                });
+                                                                            }}
+                                                                            disabled={!puedeEditarCarpeta}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="venta-field">
+                                                                        <label>Modelo</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            list={`ventas-modelos-datalist-${idx}`}
+                                                                            placeholder="Buscar modelo..."
+                                                                            value={row.modelo || ''}
+                                                                            onChange={e => updateVentaRow(idx, 'modelo', e.target.value)}
+                                                                            disabled={!puedeEditarCarpeta}
+                                                                        />
+                                                                        <datalist id={`ventas-modelos-datalist-${idx}`}>
+                                                                            {getModelosPorMarca(dataINV, row.marca).map(m => (
+                                                                                <option key={m} value={m} />
+                                                                            ))}
+                                                                        </datalist>
+                                                                    </div>
+                                                                    <div className="venta-field">
                                                                         <label>Monto recarga</label>
                                                                         <input type="number" min="0" step="0.01" placeholder="0.00" value={row.montoRecarga ?? ''} onChange={e => updateVentaRow(idx, 'montoRecarga', e.target.value)} disabled={!puedeEditarCarpeta} />
                                                                     </div>
@@ -1964,7 +2223,10 @@
                                                         <div key={idx} role="button" tabIndex={0} onClick={() => setActiveVentaIdx(idx)} onKeyDown={e => e.key === 'Enter' && setActiveVentaIdx(idx)} className="venta-row venta-row-compact flex items-center justify-between gap-2">
                                                             <div className="min-w-0 flex-1">
                                                                 <p className="text-[8px] font-black text-gray-400 uppercase">#{idx + 1} · {row.fecha || 'Sin fecha'}</p>
-                                                                <p className="text-[10px] font-black text-movistar-dark truncate">{row.producto || 'Sin producto'} · DN {row.dn || '—'}</p>
+                                                                <p className="text-[10px] font-black text-movistar-dark truncate">
+                                                                    {row.producto || 'Sin producto'} · DN {row.dn || '—'}
+                                                                    {(row.marca || row.modelo) && ` · ${[row.marca, row.modelo].filter(Boolean).join(' ')}`}
+                                                                </p>
                                                             </div>
                                                             <div className="text-right shrink-0">
                                                                 <p className="text-[8px] font-bold text-gray-500">Rec: ${row.montoRecarga || '0'}</p>
