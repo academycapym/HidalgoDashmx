@@ -267,6 +267,59 @@
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
+        const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
+        const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+        const AUTH_USERS = {
+            ADMIN: { pass: '2024', role: 'ADMIN' },
+            ADMIN1: { pass: 'Capym2026-A1', role: 'ADMIN' },
+            ADMIN2: { pass: 'Capym2026-A2', role: 'ADMIN' },
+            ADMIN3: { pass: 'Capym2026-A3', role: 'ADMIN' },
+            ADMIN4: { pass: 'Capym2026-A4', role: 'ADMIN' },
+            ADMIN5: { pass: 'Capym2026-A5', role: 'ADMIN' },
+        };
+
+        const authenticateUser = (username, password) => {
+            const u = String(username || '').trim().toUpperCase();
+            const entry = AUTH_USERS[u];
+            if (entry && entry.pass === password) {
+                return { role: entry.role, userId: u };
+            }
+            if (password === 'Supervisor1' && String(username || '').trim().length >= 3) {
+                return { role: 'SUPERVISOR', userId: String(username).trim().toUpperCase() };
+            }
+            if (password === 'Movistar1' && String(username || '').trim().length >= 3) {
+                return { role: 'PROMOTOR', userId: String(username).trim().toUpperCase() };
+            }
+            return null;
+        };
+
+        const readStoredSession = () => {
+            try {
+                const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+                if (!raw) return null;
+                const session = JSON.parse(raw);
+                if (session?.role && session.expiresAt > Date.now()) return session;
+                localStorage.removeItem(SESSION_STORAGE_KEY);
+            } catch (e) { /* ignore */ }
+            return null;
+        };
+
+        const persistSession = (session) => {
+            try {
+                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+                    ...session,
+                    expiresAt: Date.now() + SESSION_TTL_MS
+                }));
+            } catch (e) { /* ignore */ }
+        };
+
+        const clearStoredSession = () => {
+            try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch (e) { /* ignore */ }
+        };
+
+        const isRosterActivo = (r) => r && (r.estatus || 'ACTIVO') !== 'INACTIVO';
+
         /** Supervisor: incluye tiendas de su zona Y su propio idpdv si coincide con el login */
         const supervisorMatchesStore = (record, userId) => {
             const uid = String(userId || '').trim().toUpperCase();
@@ -581,6 +634,7 @@
         };
 
         const App = () => {
+            const _bootSession = useMemo(() => readStoredSession(), []);
             const [userAuth, setUserAuth] = useState(null);
             const isCanvasEnv = typeof __firebase_config !== 'undefined';
             
@@ -593,10 +647,10 @@
                 return db.collection(name);
             };
 
-            const [view, setView] = useState("LOGIN");
-            const [userRole, setUserRole] = useState("");
-            const [userId, setUserId] = useState("");
-            const [userCluster, setUserCluster] = useState("");
+            const [view, setView] = useState(_bootSession ? "APP" : "LOGIN");
+            const [userRole, setUserRole] = useState(_bootSession?.role || "");
+            const [userId, setUserId] = useState(_bootSession?.userId || "");
+            const [userCluster, setUserCluster] = useState(_bootSession?.userCluster || "");
             const [pass, setPass] = useState("");
             
             const [activeTab, setActiveTab] = useState("CARPETA"); // V30.2 DEFAULT TAB
@@ -946,6 +1000,28 @@
 
             const getRosterMatch = (name) => {
                 return rosters.find(r => normalizeName(r.nombre) === normalizeName(name));
+            };
+
+            const rankingActivos = useMemo(() => {
+                if (!Array.isArray(ranking)) return [];
+                return ranking.filter(u => {
+                    const match = rosters.find(r => normalizeName(r.nombre) === normalizeName(u.name));
+                    return !match || isRosterActivo(match);
+                });
+            }, [ranking, rosters]);
+
+            const supervisorCanDeactivatePromotor = (r) => {
+                if (!r || (r.rol || 'PROMOTOR') !== 'PROMOTOR') return false;
+                if (!r.supervisor || !r.supervisor.toUpperCase().includes(String(userId).toUpperCase())) return false;
+                const storeMeta = dataTEMM.find(d => cleanStoreId(d.id) === cleanStoreId(r.idpdv));
+                if (storeMeta) return supervisorMatchesStore(storeMeta, userId);
+                return true;
+            };
+
+            const canManageRosterStatus = (r) => {
+                if (userRole === 'ADMIN') return true;
+                if (userRole === 'SUPERVISOR') return supervisorCanDeactivatePromotor(r);
+                return false;
             };
 
             const filteredRosters = useMemo(() => {
@@ -1629,11 +1705,25 @@
             };
 
             const handleLogin = (e) => {
-                e.preventDefault(); const u = userId.trim().toUpperCase();
-                if (u === "ADMIN" && pass === "2024") { setUserRole("ADMIN"); setView("APP"); } 
-                else if (pass === "Supervisor1" && u.length >= 3) { setUserRole("SUPERVISOR"); setUserId(u); setView("APP"); } 
-                else if (pass === "Movistar1" && u.length >= 3) { setUserRole("PROMOTOR"); setUserId(u); setView("APP"); } 
-                else { alert("ID o Contraseña incorrectos."); }
+                e.preventDefault();
+                const authResult = authenticateUser(userId, pass);
+                if (!authResult) {
+                    alert("ID o Contraseña incorrectos.");
+                    return;
+                }
+                setUserRole(authResult.role);
+                setUserId(authResult.userId);
+                setView("APP");
+                persistSession({
+                    role: authResult.role,
+                    userId: authResult.userId,
+                    userCluster: userCluster || ''
+                });
+            };
+
+            const handleLogout = () => {
+                clearStoredSession();
+                location.reload();
             };
 
             const toggleInv = (id) => { setExpandedInvStores(prev => ({...prev, [id]: !prev[id]})); };
@@ -1809,8 +1899,17 @@
             };
 
             const toggleRosterStatus = async (id, current) => {
-                if(userRole !== "ADMIN" || !db) return;
-                try { await getDbPath("roster").doc(id).update({ estatus: current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO' }); } catch(e) { alert("Error al cambiar estatus"); }
+                if (!db) return;
+                const roster = rosters.find(r => r.id === id);
+                if (!roster) return alert("Perfil no encontrado.");
+                if (!canManageRosterStatus(roster)) {
+                    return alert("No tienes permiso para cambiar el estatus de este promotor.");
+                }
+                try {
+                    await getDbPath("roster").doc(id).update({ estatus: current === 'INACTIVO' ? 'ACTIVO' : 'INACTIVO' });
+                } catch (e) {
+                    alert("Error al cambiar estatus");
+                }
             };
 
             const addCandidate = async (e) => {
@@ -2362,7 +2461,7 @@
                         </div>
                         <div className="text-right text-[9px] font-black w-1/4">
                             <div className="truncate w-full">{userRole === "ADMIN" ? "LÍDER" : userRole === "SUPERVISOR" ? `HOLA ${userId}` : `ID: ${userId} - ${getStoreName(userId)}`}</div>
-                            <button onClick={() => location.reload()} className="text-movistar-red font-bold uppercase mt-1 active:scale-90">Salir</button>
+                            <button onClick={handleLogout} className="text-movistar-red font-bold uppercase mt-1 active:scale-90">Salir</button>
                         </div>
                     </div>
 
@@ -3094,7 +3193,10 @@
 
                                             const storeInv = Array.isArray(dataINV) ? dataINV.filter(i => (i?.id || "") === (d?.id || "")) : [];
                                             const totalStoreInv = storeInv.reduce((acc, cur) => acc + (Number(cur.q) || 0), 0);
-                                            const storeRosters = rosters.filter(r => String(r.idpdv || "").replace(/^0+/, '').toUpperCase() === String(d.id || "").replace(/^0+/, '').toUpperCase());
+                                            const storeRosters = rosters.filter(r =>
+                                                String(r.idpdv || "").replace(/^0+/, '').toUpperCase() === String(d.id || "").replace(/^0+/, '').toUpperCase()
+                                                && isRosterActivo(r)
+                                            );
                                             
                                             return (
                                                 <div key={d.id} className="bg-white p-5 rounded-[2rem] shadow-xl border-l-[10px] border-movistar-blue relative animate-pop mb-4">
@@ -3625,9 +3727,11 @@
                                                                 <button onClick={() => handleEditRoster(r)} className="flex-1 bg-blue-50 text-movistar-blue py-2 rounded-xl text-[9px] font-black uppercase active:scale-95">✏️ Editar</button>
                                                                 {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
                                                                     <>
-                                                                        <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95">
-                                                                            {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Baja'}
-                                                                        </button>
+                                                                        {canManageRosterStatus(r) && (
+                                                                            <button onClick={() => toggleRosterStatus(r.id, r.estatus || 'ACTIVO')} className="flex-1 bg-orange-50 text-orange-500 py-2 rounded-xl text-[9px] font-black uppercase active:scale-95">
+                                                                                {r.estatus === 'INACTIVO' ? '✅ Activar' : '🚫 Baja'}
+                                                                            </button>
+                                                                        )}
                                                                         {userRole === "ADMIN" && <button onClick={() => handleDeleteRoster(r)} className="flex-1 bg-red-50 text-movistar-red py-2 rounded-xl text-[9px] font-black uppercase active:scale-95">🗑️ Borrar</button>}
                                                                     </>
                                                                 )}
@@ -3780,7 +3884,7 @@
                                                     <tr className="text-[9px] font-black text-gray-400"><th className="p-4 text-center">#</th><th className="p-4">PROMOTOR</th><th className="p-4 text-right">SCORE</th></tr>
                                                 </thead>
                                                 <tbody>
-                                                    {Array.isArray(ranking) && ranking.map((u, i) => {
+                                                    {Array.isArray(rankingActivos) && rankingActivos.map((u, i) => {
                                                         const rMatch = getRosterMatch(u.name);
                                                         const photoUrl = rMatch && rMatch.foto && rMatch.foto.startsWith("data:image") ? rMatch.foto : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
                                                         return (
