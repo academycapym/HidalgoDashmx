@@ -690,11 +690,6 @@
             const [localRegistroVentas, setLocalRegistroVentas] = useState(null);
             const [activeVentaIdx, setActiveVentaIdx] = useState(0);
             const [isSavingVentas, setIsSavingVentas] = useState(false);
-            const [resumenFecha, setResumenFecha] = useState(() => new Date().toISOString().slice(0, 10));
-            const temmPieRef = useRef(null);
-            const temmChartInstance = useRef(null);
-
-            const esLiderOSupervisor = userRole === "ADMIN" || userRole === "SUPERVISOR";
 
             // Search and filters
             const [searchStore, setSearchStore] = useState("");
@@ -774,6 +769,9 @@
             const [assignMedallaId, setAssignMedallaId] = useState("");
             const [assignPromotorNombre, setAssignPromotorNombre] = useState("");
             const [selectedMedalDetail, setSelectedMedalDetail] = useState(null);
+            const [resumenFecha, setResumenFecha] = useState(() => new Date().toISOString().slice(0, 10));
+            const temmPieRef = useRef(null);
+            const temmChartInstance = useRef(null);
 
             const [calcCadena, setCalcCadena] = useState("ELEKTRA");
             const [cuotaTotal, setCuotaTotal] = useState("");
@@ -795,6 +793,11 @@
             const estatusUnicos = useMemo(() => {
                 return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.estatus || "SIN ESTATUS"))].filter(Boolean).sort();
             }, [dataTEMM]);
+
+            const esLiderOSupervisor = useMemo(
+                () => userRole === "ADMIN" || userRole === "SUPERVISOR",
+                [userRole]
+            );
 
             const carpetaStoresFiltered = useMemo(() => {
                 if (!Array.isArray(dataTEMM)) return [];
@@ -1141,13 +1144,15 @@
                         setDynamicExams(s.docs.map(d => ({...d.data(), id: d.id})));
                     }));
 
-                    unsubs.push(getDbPath("medallas_catalogo").onSnapshot(s => {
-                        setMedallasCatalogo(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (b.creadoEn?.seconds || 0) - (a.creadoEn?.seconds || 0)));
-                    }));
+                    unsubs.push(getDbPath("medallas_catalogo").onSnapshot(
+                        s => setMedallasCatalogo(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (b.creadoEn?.seconds || 0) - (a.creadoEn?.seconds || 0))),
+                        err => console.warn("medallas_catalogo:", err.message)
+                    ));
 
-                    unsubs.push(getDbPath("medallas_asignadas").onSnapshot(s => {
-                        setMedallasAsignadas(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (b.fechaOtorgada?.seconds || 0) - (a.fechaOtorgada?.seconds || 0)));
-                    }));
+                    unsubs.push(getDbPath("medallas_asignadas").onSnapshot(
+                        s => setMedallasAsignadas(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (b.fechaOtorgada?.seconds || 0) - (a.fechaOtorgada?.seconds || 0))),
+                        err => console.warn("medallas_asignadas:", err.message)
+                    ));
 
                     // CARPETA DIGITAL — filtrado por mes seleccionado
                     unsubs.push(getDbPath("carpeta_digital").where("mes", "==", carpetaMesSeleccionado).onSnapshot(s => {
@@ -1424,8 +1429,9 @@
 
             useEffect(() => {
                 if (!esLiderOSupervisor || subTabCarpeta !== "RESUMEN_VENTAS") return;
-                if (!temmPieRef.current || !Chart) return;
+                if (!temmPieRef.current || typeof window.Chart === 'undefined') return;
 
+                const ChartLib = window.Chart;
                 const labels = Object.keys(resumenTemmEquipos.porMarcaModelo);
                 const data = Object.values(resumenTemmEquipos.porMarcaModelo);
 
@@ -1436,7 +1442,7 @@
 
                 if (labels.length === 0) return;
 
-                temmChartInstance.current = new Chart(temmPieRef.current, {
+                temmChartInstance.current = new ChartLib(temmPieRef.current, {
                     type: 'pie',
                     data: {
                         labels,
@@ -4296,8 +4302,22 @@
     <script>
         (function () {
             if (window.__HIDALGODASH_BOOTED__) return;
-            window.__HIDALGODASH_BOOTED__ = true;
             var loader = document.getElementById('emergency-loader');
+            var showBootError = function (msg) {
+                window.__HIDALGODASH_BOOTED__ = false;
+                if (loader) {
+                    loader.style.display = 'flex';
+                    loader.innerHTML = '<div style="padding:20px;text-align:center;color:#E63780;font-family:sans-serif;">'
+                        + '<h2 style="font-size:20px;font-weight:800;">⚠️ ERROR</h2>'
+                        + '<div style="background:#fce4ec;padding:10px;font-family:monospace;font-size:11px;text-align:left;border-radius:8px;">'
+                        + msg
+                        + '</div>'
+                        + '<p style="font-size:10px;color:#64748b;margin-top:12px;">Verifica conexión a internet (React, Babel y Firebase se cargan desde CDN).</p>'
+                        + '<button onclick="location.reload();" style="margin-top:20px;background:#019DF4;color:white;padding:12px;border-radius:10px;border:none;font-weight:bold;">REINICIAR</button>'
+                        + '</div>';
+                }
+                console.error(msg);
+            };
             try {
                 if (typeof React === 'undefined' || typeof ReactDOM === 'undefined' || typeof Babel === 'undefined') {
                     throw new Error('No se cargaron React, ReactDOM o Babel desde el CDN.');
@@ -4309,17 +4329,10 @@
                     sourceType: 'script'
                 }).code;
                 (0, eval)(compiled);
+                window.__HIDALGODASH_BOOTED__ = true;
+                if (loader) loader.style.display = 'none';
             } catch (err) {
-                if (loader) {
-                    loader.innerHTML = '<div style="padding:20px;text-align:center;color:#E63780;font-family:sans-serif;">'
-                        + '<h2 style="font-size:20px;font-weight:800;">⚠️ ERROR</h2>'
-                        + '<div style="background:#fce4ec;padding:10px;font-family:monospace;font-size:11px;text-align:left;border-radius:8px;">'
-                        + (err && err.message ? err.message : String(err))
-                        + '</div>'
-                        + '<button onclick="location.reload();" style="margin-top:20px;background:#019DF4;color:white;padding:12px;border-radius:10px;border:none;font-weight:bold;">REINICIAR</button>'
-                        + '</div>';
-                }
-                console.error(err);
+                showBootError(err && err.message ? err.message : String(err));
             }
         })();
     </script>
