@@ -107,8 +107,7 @@
 
     <script id="app-babel-source" type="text/plain">
         const { useState, useEffect, useMemo, useRef } = React;
-        const XLSX = window.XLSX;
-        const Chart = window.Chart;
+        /* XLSX y Chart vienen como globals del CDN (no redeclarar const) */
 
         const MOTIVATIONAL_QUOTES = [
             "El éxito es la suma de pequeños esfuerzos repetidos día tras día.",
@@ -4296,6 +4295,8 @@
     </script>
     <script>
         (function () {
+            if (window.__HIDALGODASH_BOOTED__) return;
+            window.__HIDALGODASH_BOOTED__ = true;
             var loader = document.getElementById('emergency-loader');
             try {
                 if (typeof React === 'undefined' || typeof ReactDOM === 'undefined' || typeof Babel === 'undefined') {
@@ -4307,9 +4308,7 @@
                     presets: ['react'],
                     sourceType: 'script'
                 }).code;
-                var runner = document.createElement('script');
-                runner.text = compiled;
-                document.body.appendChild(runner);
+                (0, eval)(compiled);
             } catch (err) {
                 if (loader) {
                     loader.innerHTML = '<div style="padding:20px;text-align:center;color:#E63780;font-family:sans-serif;">'
