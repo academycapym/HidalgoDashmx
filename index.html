@@ -843,7 +843,7 @@
             // Search and filters
             const [searchStore, setSearchStore] = useState("");
             const [opProductFilter, setOpProductFilter] = useState("TOTAL");
-            const [searchRoster, setSearchRoster] = useState("");
+            const [searchEquipo, setSearchEquipo] = useState("");
             const [searchStoreCarpeta, setSearchStoreCarpeta] = useState("");
             const [supFilterCarpeta, setSupFilterCarpeta] = useState("TODOS");
             const [rosterTab, setRosterTab] = useState("ACTIVOS");
@@ -1108,6 +1108,28 @@
                 return list.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
             }, [rosters, userRole, userId]);
 
+            const promotoresAsignablesFiltrados = useMemo(() => {
+                if (!searchEquipo.trim()) return promotoresAsignables;
+                const q = searchEquipo.trim().toUpperCase();
+                return promotoresAsignables.filter(r => (r.nombre || '').toUpperCase().includes(q));
+            }, [promotoresAsignables, searchEquipo]);
+
+            const medallasAsignadasVisibles = useMemo(() => {
+                let list = medallasAsignadas;
+                if (userRole === 'SUPERVISOR') {
+                    const allowed = new Set(promotoresAsignables.map(r => normalizeName(r.nombre)));
+                    list = list.filter(a => allowed.has(normalizeName(a.promotorNombre)));
+                }
+                if (searchEquipo.trim()) {
+                    const q = searchEquipo.trim().toUpperCase();
+                    list = list.filter(a =>
+                        (a.promotorNombre || '').toUpperCase().includes(q) ||
+                        (a.medallaNombre || '').toUpperCase().includes(q)
+                    );
+                }
+                return list;
+            }, [medallasAsignadas, userRole, promotoresAsignables, searchEquipo]);
+
             const getMedallasPromotor = (nombre) => {
                 const n = normalizeName(nombre);
                 return medallasAsignadas
@@ -1173,6 +1195,12 @@
                 });
             }, [ranking, rosters]);
 
+            const filteredRankingActivos = useMemo(() => {
+                if (!searchEquipo.trim()) return rankingActivos;
+                const q = searchEquipo.trim().toUpperCase();
+                return rankingActivos.filter(u => (u.name || '').toUpperCase().includes(q));
+            }, [rankingActivos, searchEquipo]);
+
             const supervisorCanDeactivatePromotor = (r) => {
                 if (!r || (r.rol || 'PROMOTOR') !== 'PROMOTOR') return false;
                 if (!r.supervisor || !r.supervisor.toUpperCase().includes(String(userId).toUpperCase())) return false;
@@ -1189,7 +1217,7 @@
 
             const filteredRosters = useMemo(() => {
                 let f = myRosters;
-                if (searchRoster) f = f.filter(r => r.nombre.toUpperCase().includes(searchRoster.toUpperCase()));
+                if (searchEquipo) f = f.filter(r => r.nombre.toUpperCase().includes(searchEquipo.toUpperCase()));
                 if (rosterTab === "ACTIVOS") f = f.filter(r => r.estatus !== 'INACTIVO');
                 else f = f.filter(r => r.estatus === 'INACTIVO');
 
@@ -1204,7 +1232,7 @@
                     });
                 }
                 return f;
-            }, [myRosters, searchRoster, rosterTab, rostFilterInfo, rostFilterCourse, ranking]);
+            }, [myRosters, searchEquipo, rosterTab, rostFilterInfo, rostFilterCourse, ranking]);
 
             useEffect(() => {
                 const loader = document.getElementById('emergency-loader');
@@ -2392,6 +2420,31 @@
                 }
             };
 
+            const canRevokeMedallaAsignacion = (asignacion) => {
+                if (!esLiderOSupervisor || !asignacion) return false;
+                if (userRole === 'ADMIN') return true;
+                if (userRole === 'SUPERVISOR') {
+                    const promotor = rosters.find(r => normalizeName(r.nombre) === normalizeName(asignacion.promotorNombre));
+                    return promotor ? supervisorCanDeactivatePromotor(promotor) : false;
+                }
+                return false;
+            };
+
+            const handleRevokeMedalla = async (asignacionId, promotorNombre, medallaNombre) => {
+                if (!db || !esLiderOSupervisor) return;
+                const asignacion = medallasAsignadas.find(a => a.id === asignacionId);
+                if (!asignacion) return alert("Asignación no encontrada.");
+                if (!canRevokeMedallaAsignacion(asignacion)) return alert("No tienes permiso para quitar esta medalla.");
+                if (!window.confirm(`¿Quitar la medalla "${medallaNombre || asignacion.medallaNombre}" de ${promotorNombre || asignacion.promotorNombre}?`)) return;
+                try {
+                    await getDbPath("medallas_asignadas").doc(asignacionId).delete();
+                    if (selectedMedalDetail?.id === asignacionId) setSelectedMedalDetail(null);
+                    alert("Medalla retirada del promotor.");
+                } catch (err) {
+                    alert("Error al quitar medalla: " + err.message);
+                }
+            };
+
             const formatMedallaFecha = (ts) => {
                 if (!ts) return '—';
                 const d = ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
@@ -2654,6 +2707,15 @@
                                         <p className="text-[8px] font-black text-gray-400 uppercase">Fecha otorgada</p>
                                         <p className="text-sm font-black text-movistar-blue">{formatMedallaFecha(selectedMedalDetail.fechaOtorgada)}</p>
                                     </div>
+                                    {canRevokeMedallaAsignacion(selectedMedalDetail) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRevokeMedalla(selectedMedalDetail.id, selectedMedalDetail.promotorNombre, selectedMedalDetail.medalla?.nombre || selectedMedalDetail.medallaNombre)}
+                                            className="mt-5 w-full bg-red-50 text-movistar-red py-3 rounded-xl font-black text-[10px] uppercase active:scale-95 border border-red-100"
+                                        >
+                                            Quitar medalla de {selectedMedalDetail.promotorNombre}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -3859,15 +3921,26 @@
                                     )}
                                 </div>
 
+                                {(subTabEquipo === "PERFIL" || subTabEquipo === "RANKING" || subTabEquipo === "MEDALLAS") && (
+                                    <div className="bg-white p-4 rounded-[1.5rem] border shadow-sm flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="🔍 Buscar promotor por nombre..."
+                                            value={searchEquipo}
+                                            onChange={e => setSearchEquipo(e.target.value)}
+                                            className="w-full bg-gray-50 p-4 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase"
+                                        />
+                                        {searchEquipo && (
+                                            <button type="button" onClick={() => setSearchEquipo("")} className="shrink-0 bg-gray-100 text-gray-500 px-3 py-3 rounded-xl font-black text-[9px] uppercase active:scale-95">✕</button>
+                                        )}
+                                    </div>
+                                )}
+
                                 {subTabEquipo === "PERFIL" && (
                                     <div className="space-y-4">
                                         <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
                                             <h2 className="font-black text-base italic uppercase">Mi Roster</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Crea, edita o inactiva tu perfil y el de tus compañeros.</p>
-                                        </div>
-
-                                        <div className="bg-white p-4 rounded-[1.5rem] border shadow-sm flex items-center gap-2">
-                                            <input type="text" placeholder="🔍 BUSCAR POR NOMBRE..." value={searchRoster} onChange={e => setSearchRoster(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase"/>
                                         </div>
 
                                         {(userRole === "ADMIN" || userRole === "SUPERVISOR") && (
@@ -4084,14 +4157,50 @@
                                             </select>
                                             <select value={assignPromotorNombre} onChange={e => setAssignPromotorNombre(e.target.value)} required className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none uppercase">
                                                 <option value="">— Seleccionar promotor —</option>
-                                                {promotoresAsignables.map(r => (
+                                                {promotoresAsignablesFiltrados.map(r => (
                                                     <option key={r.id} value={r.nombre}>{r.nombre} · {getStoreName(r.idpdv)}</option>
                                                 ))}
                                             </select>
+                                            {searchEquipo && promotoresAsignablesFiltrados.length === 0 && (
+                                                <p className="text-[9px] font-bold text-orange-500 uppercase">Ningún promotor coincide con la búsqueda.</p>
+                                            )}
                                             <button type="submit" disabled={medallasAprobadas.length === 0} className="w-full bg-movistar-green text-white py-4 rounded-xl font-black text-[10px] uppercase active:scale-95 shadow-md disabled:opacity-50">
                                                 OTORGAR MEDALLA 🏅
                                             </button>
                                         </form>
+
+                                        <div className="bg-white p-5 rounded-[2rem] shadow-sm border space-y-3">
+                                            <h4 className="font-black text-[10px] text-movistar-red uppercase">Medallas otorgadas ({medallasAsignadasVisibles.length})</h4>
+                                            {medallasAsignadasVisibles.length === 0 ? (
+                                                <p className="text-[9px] font-bold text-gray-400 uppercase text-center py-4">No hay medallas otorgadas{searchEquipo ? ' para esta búsqueda' : ''}.</p>
+                                            ) : (
+                                                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                                                    {medallasAsignadasVisibles.map(a => (
+                                                        <div key={a.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border">
+                                                            {a.medallaFoto ? (
+                                                                <img src={a.medallaFoto} alt="" className="w-10 h-10 rounded-full object-cover shrink-0 border-2 border-yellow-300" />
+                                                            ) : (
+                                                                <span className="text-xl shrink-0">{MEDALLA_CAT_EMOJI[a.medallaCategoria] || '🏅'}</span>
+                                                            )}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-[9px] font-black text-movistar-dark uppercase truncate">{a.promotorNombre}</p>
+                                                                <p className="text-[8px] font-bold text-movistar-blue truncate">{MEDALLA_CAT_EMOJI[a.medallaCategoria]} {a.medallaNombre}</p>
+                                                                <p className="text-[7px] font-bold text-gray-400">{formatMedallaFecha(a.fechaOtorgada)} · por {a.otorgadoPor || '—'}</p>
+                                                            </div>
+                                                            {canRevokeMedallaAsignacion(a) && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRevokeMedalla(a.id, a.promotorNombre, a.medallaNombre)}
+                                                                    className="shrink-0 bg-red-50 text-movistar-red px-3 py-2 rounded-lg font-black text-[8px] uppercase active:scale-95"
+                                                                >
+                                                                    Quitar
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
 
                                         <div className="bg-white p-5 rounded-[2rem] shadow-sm border">
                                             <h4 className="font-black text-[10px] text-gray-400 uppercase mb-3">Catálogo aprobado ({medallasAprobadas.length})</h4>
@@ -4115,6 +4224,9 @@
                                         <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
                                             <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Toca a un promotor para abrir su perfil completo.</p>
+                                            {searchEquipo && (
+                                                <p className="text-[8px] font-bold text-yellow-300 mt-2 uppercase">{filteredRankingActivos.length} resultado(s) para "{searchEquipo}"</p>
+                                            )}
                                         </div>
                                         <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border ui-lift">
                                             <table className="w-full text-left">
@@ -4122,12 +4234,20 @@
                                                     <tr className="text-[9px] font-black text-gray-400"><th className="p-4 text-center">#</th><th className="p-4">PROMOTOR</th><th className="p-4 text-right">SCORE</th></tr>
                                                 </thead>
                                                 <tbody>
-                                                    {Array.isArray(rankingActivos) && rankingActivos.map((u, i) => {
+                                                    {Array.isArray(filteredRankingActivos) && filteredRankingActivos.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan="3" className="p-8 text-center text-gray-400 font-bold text-xs uppercase">
+                                                                {searchEquipo ? `Sin promotores que coincidan con "${searchEquipo}"` : 'Sin promotores en el ranking'}
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                    {Array.isArray(filteredRankingActivos) && filteredRankingActivos.map((u, i) => {
                                                         const rMatch = getRosterMatch(u.name);
+                                                        const rankPos = rankingActivos.findIndex(x => x.id === u.id) + 1;
                                                         const photoUrl = rMatch && rMatch.foto && rMatch.foto.startsWith("data:image") ? rMatch.foto : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
                                                         return (
                                                             <tr key={u.id} onClick={() => { if(rMatch) setSelectedProfileModal(rMatch); }} className="border-b rank-row-hover cursor-pointer">
-                                                                <td className="p-3 text-center font-black text-movistar-dark">#{i+1}</td>
+                                                                <td className="p-3 text-center font-black text-movistar-dark">#{rankPos > 0 ? rankPos : i + 1}</td>
                                                                 <td className="p-3">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-white"><img src={photoUrl} className="w-full h-full object-cover" /></div>
