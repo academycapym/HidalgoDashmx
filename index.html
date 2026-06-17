@@ -158,6 +158,30 @@
         .dash-banner-emoji { font-size: 2rem; margin-bottom: 6px; position: relative; z-index: 1; }
         .dash-banner-title { font-size: 15px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.2; position: relative; z-index: 1; }
         .dash-banner-sub { font-size: 10px; font-weight: 700; opacity: 0.92; margin-top: 6px; max-width: 92%; position: relative; z-index: 1; }
+        .dash-banner-slide--image {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .dash-banner-slide--image::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(11, 39, 57, 0.82) 0%, rgba(11, 39, 57, 0.15) 55%, transparent 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .dash-banner-slide--image .dash-banner-title {
+            margin-top: auto;
+        }
+        .banner-admin-thumb {
+            width: 72px;
+            height: 48px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid #e2e8f0;
+            flex-shrink: 0;
+        }
         .dashboard-swiper .swiper-button-next,
         .dashboard-swiper .swiper-button-prev {
             --swiper-navigation-size: 26px;
@@ -734,29 +758,16 @@
             return base;
         };
 
-        const DASHBOARD_BANNERS = [
-            {
-                id: 1,
-                emoji: '🎯',
-                title: 'Meta del mes: rompe tu récord TEMM',
-                subtitle: 'Cada equipo vendido te acerca al top del ranking CAPYM.',
-                gradient: 'linear-gradient(135deg, #0B2739 0%, #019DF4 55%, #5CB615 100%)'
-            },
-            {
-                id: 2,
-                emoji: '🚀',
-                title: 'Resultados que se sienten en piso',
-                subtitle: 'Portabilidad + prepago + TEMM: hoy es día de cerrar ventas.',
-                gradient: 'linear-gradient(135deg, #312e81 0%, #019DF4 45%, #E63780 100%)'
-            },
-            {
-                id: 3,
-                emoji: '🏆',
-                title: 'Tu esfuerzo construye el podio',
-                subtitle: 'Certificaciones, medallas y cuotas: el equipo que actúa, gana.',
-                gradient: 'linear-gradient(135deg, #0B2739 0%, #5CB615 40%, #019DF4 100%)'
-            }
-        ];
+        const DEFAULT_CARRUSEL_BANNER = {
+            id: 'default',
+            titulo: 'Meta del mes: rompe tu récord TEMM',
+            subtitle: 'Cada equipo vendido te acerca al top del ranking CAPYM.',
+            emoji: '🎯',
+            gradient: 'linear-gradient(135deg, #0B2739 0%, #019DF4 55%, #5CB615 100%)',
+            imgBase64: null
+        };
+
+        const MAX_BANNERS_CARRUSEL = 4;
 
         const getVideoEmbedUrl = (url) => {
             if (!url || !String(url).trim()) return null;
@@ -889,6 +900,9 @@
             const [comTexto, setComTexto] = useState("");
             const [comImgBase64, setComImgBase64] = useState("");
             const [comVideoUrl, setComVideoUrl] = useState("");
+            const [bannersCarrusel, setBannersCarrusel] = useState([]);
+            const [bannerTitulo, setBannerTitulo] = useState("");
+            const [bannerImgBase64, setBannerImgBase64] = useState("");
 
             // --- NUEVOS ESTADOS PARA EXÁMENES DINÁMICOS ---
             const [dynamicExams, setDynamicExams] = useState([]);
@@ -938,6 +952,11 @@
                 () => userRole === "ADMIN" || userRole === "SUPERVISOR",
                 [userRole]
             );
+
+            const carouselSlides = useMemo(() => {
+                if (!bannersCarrusel.length) return [DEFAULT_CARRUSEL_BANNER];
+                return bannersCarrusel.slice(0, MAX_BANNERS_CARRUSEL);
+            }, [bannersCarrusel]);
 
             const carpetaStoresFiltered = useMemo(() => {
                 if (!Array.isArray(dataTEMM)) return [];
@@ -1269,6 +1288,10 @@
                         let docs = s.docs.map(d => ({...d.data(), id: d.id}));
                         setComunicados(docs.sort(sortByFechaDesc));
                     }));
+                    unsubs.push(getDbPath("banners_carrusel").onSnapshot(s => {
+                        let docs = s.docs.map(d => ({ ...d.data(), id: d.id }));
+                        setBannersCarrusel(docs.sort(sortByFechaDesc));
+                    }, err => console.warn("banners_carrusel:", err.message)));
                     unsubs.push(getDbPath("encuestas").onSnapshot(s => {
                         let docs = s.docs.map(d => ({...d.data(), id: d.id}));
                         setEncuestas(docs.sort(sortByFechaDesc));
@@ -1624,8 +1647,8 @@
                     swiperBannerInst.current = null;
                 }
                 swiperBannerInst.current = new window.Swiper(swiperBannerRef.current, {
-                    loop: true,
-                    autoplay: { delay: 5000, disableOnInteraction: false },
+                    loop: carouselSlides.length > 1,
+                    autoplay: carouselSlides.length > 1 ? { delay: 5000, disableOnInteraction: false } : false,
                     speed: 800,
                     navigation: { nextEl: '.dash-banner-next', prevEl: '.dash-banner-prev' },
                     pagination: { el: '.dash-banner-pagination', clickable: true }
@@ -1636,7 +1659,7 @@
                         swiperBannerInst.current = null;
                     }
                 };
-            }, [view]);
+            }, [view, carouselSlides]);
 
             const saveRegistroVentas = async () => {
                 if (!db || !localRegistroVentas?.idpdv) return alert("Selecciona una tienda primero.");
@@ -2125,6 +2148,28 @@
                 e.preventDefault(); if(!db) return;
                 if(!comTexto.trim() && !comImgBase64 && !comVideoUrl) return alert("Vacío.");
                 try { await getDbPath("comunicados").add({ texto: comTexto, imgBase64: comImgBase64, videoUrl: comVideoUrl, likes: [], fecha: firebase.firestore.FieldValue.serverTimestamp() }); setComTexto(""); setComImgBase64(""); setComVideoUrl(""); alert("Publicado!"); } catch (err) { alert("Error."); }
+            };
+
+            const submitBannerCarrusel = async (e) => {
+                e.preventDefault();
+                if (userRole !== "ADMIN" || !db) return;
+                if (!bannerImgBase64) return alert("Selecciona una imagen para el banner.");
+                if (bannersCarrusel.length >= MAX_BANNERS_CARRUSEL) {
+                    alert("Límite alcanzado. Borra un banner primero.");
+                    return;
+                }
+                try {
+                    await getDbPath("banners_carrusel").add({
+                        titulo: bannerTitulo.trim(),
+                        imgBase64: bannerImgBase64,
+                        fecha: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    setBannerTitulo("");
+                    setBannerImgBase64("");
+                    alert("Banner publicado en el carrusel.");
+                } catch (err) {
+                    alert("Error al guardar el banner.");
+                }
             };
 
             const toggleLike = async (comId) => {
@@ -2644,13 +2689,19 @@
                     <div className="dashboard-banner-wrap">
                         <div ref={swiperBannerRef} className="swiper dashboard-swiper">
                             <div className="swiper-wrapper">
-                                {DASHBOARD_BANNERS.map(b => (
+                                {carouselSlides.map(b => (
                                     <div key={b.id} className="swiper-slide">
-                                        <div className="dash-banner-slide" style={{ background: b.gradient }}>
-                                            <span className="dash-banner-emoji">{b.emoji}</span>
-                                            <p className="dash-banner-title">{b.title}</p>
-                                            <p className="dash-banner-sub">{b.subtitle}</p>
-                                        </div>
+                                        {b.imgBase64 ? (
+                                            <div className="dash-banner-slide dash-banner-slide--image" style={{ backgroundImage: `url(${b.imgBase64})` }}>
+                                                {b.titulo && <p className="dash-banner-title">{b.titulo}</p>}
+                                            </div>
+                                        ) : (
+                                            <div className="dash-banner-slide" style={{ background: b.gradient }}>
+                                                {b.emoji && <span className="dash-banner-emoji">{b.emoji}</span>}
+                                                <p className="dash-banner-title">{b.titulo || b.title}</p>
+                                                {b.subtitle && <p className="dash-banner-sub">{b.subtitle}</p>}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -4134,6 +4185,45 @@
 
                                 {subTabPortal === "COMUNICADOS" && (
                                     <div className="space-y-5">
+                                        {userRole === "ADMIN" && (
+                                            <div className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-4 ui-lift">
+                                                <div className="flex justify-between items-start gap-3">
+                                                    <div>
+                                                        <h3 className="font-black text-sm text-movistar-dark uppercase">Gestionar Banners</h3>
+                                                        <p className="text-[9px] font-bold text-gray-400 mt-1">Carrusel superior · máximo {MAX_BANNERS_CARRUSEL} banners activos</p>
+                                                    </div>
+                                                    <span className="text-[10px] font-black bg-blue-50 text-movistar-blue px-3 py-1 rounded-full">{bannersCarrusel.length}/{MAX_BANNERS_CARRUSEL}</span>
+                                                </div>
+                                                <form onSubmit={submitBannerCarrusel} className="space-y-3">
+                                                    <input type="text" placeholder="Título opcional del banner" value={bannerTitulo} onChange={e => setBannerTitulo(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border border-transparent focus:border-movistar-blue"/>
+                                                    <label className="flex bg-blue-50 text-movistar-blue p-3 rounded-xl font-black text-[9px] text-center cursor-pointer">
+                                                        {bannerImgBase64 ? "IMAGEN LISTA ✓ (toca para cambiar)" : "📷 SUBIR IMAGEN DEL BANNER"}
+                                                        <input type="file" accept="image/*" className="hidden" onChange={handleImageUploadGen(setBannerImgBase64)}/>
+                                                    </label>
+                                                    {bannerImgBase64 && (
+                                                        <img src={bannerImgBase64} alt="Vista previa" className="w-full h-24 object-cover rounded-xl border"/>
+                                                    )}
+                                                    <button type="submit" disabled={bannersCarrusel.length >= MAX_BANNERS_CARRUSEL} className="w-full bg-movistar-dark text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform ui-lift disabled:opacity-40 disabled:cursor-not-allowed">
+                                                        PUBLICAR BANNER EN CARRUSEL
+                                                    </button>
+                                                </form>
+                                                {bannersCarrusel.length > 0 && (
+                                                    <div className="space-y-2 border-t pt-3">
+                                                        <p className="text-[8px] font-black text-gray-400 uppercase">Banners activos</p>
+                                                        {bannersCarrusel.map(b => (
+                                                            <div key={b.id} className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border">
+                                                                <img src={b.imgBase64} alt="" className="banner-admin-thumb"/>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-[10px] font-black text-movistar-dark truncate uppercase">{b.titulo || "Sin título"}</p>
+                                                                    <p className="text-[8px] font-bold text-gray-400">{b.fecha?.toDate ? b.fecha.toDate().toLocaleString('es-MX') : 'Recién publicado'}</p>
+                                                                </div>
+                                                                <button type="button" onClick={() => deleteDoc("banners_carrusel", b.id)} className="bg-red-50 text-movistar-red px-3 py-2 rounded-lg font-black text-[8px] uppercase active:scale-95">Eliminar</button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                         {userRole === "ADMIN" && (
                                             <form onSubmit={submitComunicado} className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-3 ui-lift">
                                                 <textarea placeholder="¿Qué quieres informar al equipo?" rows="3" value={comTexto} onChange={e=>setComTexto(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
