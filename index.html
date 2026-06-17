@@ -33,7 +33,7 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -107,6 +107,8 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
+        const XLSX = window.XLSX;
+        const Chart = window.Chart;
 
         const MOTIVATIONAL_QUOTES = [
             "El éxito es la suma de pequeños esfuerzos repetidos día tras día.",
@@ -1423,7 +1425,7 @@
 
             useEffect(() => {
                 if (!esLiderOSupervisor || subTabCarpeta !== "RESUMEN_VENTAS") return;
-                if (!temmPieRef.current || typeof Chart === 'undefined') return;
+                if (!temmPieRef.current || !Chart) return;
 
                 const labels = Object.keys(resumenTemmEquipos.porMarcaModelo);
                 const data = Object.values(resumenTemmEquipos.porMarcaModelo);
