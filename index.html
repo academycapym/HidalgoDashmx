@@ -4328,7 +4328,8 @@
                     presets: ['react'],
                     sourceType: 'script'
                 }).code;
-                (0, eval)(compiled);
+                // Function scope evita choque con globals del CDN (var XLSX, Chart, etc.)
+                new Function(compiled)();
                 window.__HIDALGODASH_BOOTED__ = true;
                 if (loader) loader.style.display = 'none';
             } catch (err) {
