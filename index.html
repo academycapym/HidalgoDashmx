@@ -30,6 +30,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -38,6 +39,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js" crossorigin></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js" crossorigin></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -95,6 +97,104 @@
         .venta-field input:focus, .venta-field select:focus { border-color: #019DF4; background: #eff6ff; }
         
         select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
+
+        /* Micro-interacciones globales */
+        button, a, input, select, textarea, .tab-btn, .subtab-btn, .ui-lift, label.cursor-pointer {
+            transition: all 0.3s ease-in-out;
+        }
+        .ui-lift {
+            will-change: transform, box-shadow;
+        }
+        .ui-lift:hover,
+        .ui-lift:focus-visible {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px -10px rgba(11, 39, 57, 0.35);
+        }
+        @media (hover: none) {
+            .ui-lift:active {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px -8px rgba(11, 39, 57, 0.28);
+            }
+        }
+        .tab-btn:not(.tab-active):hover,
+        .subtab-inactive:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px -6px rgba(11, 39, 57, 0.18);
+        }
+        .rank-row-hover {
+            transition: all 0.3s ease-in-out;
+        }
+        .rank-row-hover:hover,
+        .rank-row-hover:focus-visible {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 24px -8px rgba(1, 157, 244, 0.25);
+            background-color: #f8fafc;
+        }
+
+        /* Carrusel superior Swiper */
+        .dashboard-banner-wrap { padding: 12px 16px 4px; }
+        .dashboard-swiper {
+            border-radius: 1.5rem;
+            overflow: hidden;
+            box-shadow: 0 14px 32px -12px rgba(11, 39, 57, 0.45);
+        }
+        .dash-banner-slide {
+            min-height: 148px;
+            padding: 22px 52px 22px 22px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+        .dash-banner-slide::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 85% 20%, rgba(255,255,255,0.22) 0%, transparent 55%);
+            pointer-events: none;
+        }
+        .dash-banner-emoji { font-size: 2rem; margin-bottom: 6px; position: relative; z-index: 1; }
+        .dash-banner-title { font-size: 15px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.2; position: relative; z-index: 1; }
+        .dash-banner-sub { font-size: 10px; font-weight: 700; opacity: 0.92; margin-top: 6px; max-width: 92%; position: relative; z-index: 1; }
+        .dashboard-swiper .swiper-button-next,
+        .dashboard-swiper .swiper-button-prev {
+            --swiper-navigation-size: 26px;
+            color: rgba(255, 255, 255, 0.85);
+            opacity: 0.65;
+            transition: all 0.3s ease-in-out;
+        }
+        .dashboard-swiper .swiper-button-next:hover,
+        .dashboard-swiper .swiper-button-prev:hover {
+            opacity: 1;
+            transform: scale(1.08);
+        }
+        .dashboard-swiper .swiper-pagination-bullet {
+            background: rgba(255, 255, 255, 0.45);
+            opacity: 1;
+            transition: all 0.3s ease-in-out;
+        }
+        .dashboard-swiper .swiper-pagination-bullet-active {
+            background: #fff;
+            width: 18px;
+            border-radius: 999px;
+        }
+
+        /* Reproductor de video en noticias */
+        .video-embed-wrap {
+            margin: 0 20px 16px;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 12px 28px -10px rgba(11, 39, 57, 0.35);
+            background: #0B2739;
+        }
+        .video-embed-frame {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border: none;
+        }
     </style>
 </head>
 <body>
@@ -634,6 +734,44 @@
             return base;
         };
 
+        const DASHBOARD_BANNERS = [
+            {
+                id: 1,
+                emoji: '🎯',
+                title: 'Meta del mes: rompe tu récord TEMM',
+                subtitle: 'Cada equipo vendido te acerca al top del ranking CAPYM.',
+                gradient: 'linear-gradient(135deg, #0B2739 0%, #019DF4 55%, #5CB615 100%)'
+            },
+            {
+                id: 2,
+                emoji: '🚀',
+                title: 'Resultados que se sienten en piso',
+                subtitle: 'Portabilidad + prepago + TEMM: hoy es día de cerrar ventas.',
+                gradient: 'linear-gradient(135deg, #312e81 0%, #019DF4 45%, #E63780 100%)'
+            },
+            {
+                id: 3,
+                emoji: '🏆',
+                title: 'Tu esfuerzo construye el podio',
+                subtitle: 'Certificaciones, medallas y cuotas: el equipo que actúa, gana.',
+                gradient: 'linear-gradient(135deg, #0B2739 0%, #5CB615 40%, #019DF4 100%)'
+            }
+        ];
+
+        const getVideoEmbedUrl = (url) => {
+            if (!url || !String(url).trim()) return null;
+            const u = String(url).trim();
+            const ytMatch = u.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
+            if (ytMatch && ytMatch[1]) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+            const driveMatch = u.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+            if (driveMatch && driveMatch[1]) return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+            const driveOpenMatch = u.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+            if (driveOpenMatch && driveOpenMatch[1]) return `https://drive.google.com/file/d/${driveOpenMatch[1]}/preview`;
+            const tiktokMatch = u.match(/tiktok\.com\/(?:@[\w.]+\/video\/|embed\/v2\/|.*\/video\/)(\d+)/);
+            if (tiktokMatch && tiktokMatch[1]) return `https://www.tiktok.com/embed/v2/${tiktokMatch[1]}`;
+            return null;
+        };
+
         const App = () => {
             const _bootSession = useMemo(() => readStoredSession(), []);
             const [userAuth, setUserAuth] = useState(null);
@@ -772,6 +910,8 @@
             const [resumenFecha, setResumenFecha] = useState(() => new Date().toISOString().slice(0, 10));
             const temmPieRef = useRef(null);
             const temmChartInstance = useRef(null);
+            const swiperBannerRef = useRef(null);
+            const swiperBannerInst = useRef(null);
 
             const [calcCadena, setCalcCadena] = useState("ELEKTRA");
             const [cuotaTotal, setCuotaTotal] = useState("");
@@ -1471,6 +1611,33 @@
                 };
             }, [resumenTemmEquipos, subTabCarpeta, esLiderOSupervisor, resumenFecha]);
 
+            useEffect(() => {
+                if (view !== 'APP' || !swiperBannerRef.current || typeof window.Swiper === 'undefined') {
+                    if (swiperBannerInst.current) {
+                        swiperBannerInst.current.destroy(true, true);
+                        swiperBannerInst.current = null;
+                    }
+                    return;
+                }
+                if (swiperBannerInst.current) {
+                    swiperBannerInst.current.destroy(true, true);
+                    swiperBannerInst.current = null;
+                }
+                swiperBannerInst.current = new window.Swiper(swiperBannerRef.current, {
+                    loop: true,
+                    autoplay: { delay: 5000, disableOnInteraction: false },
+                    speed: 800,
+                    navigation: { nextEl: '.dash-banner-next', prevEl: '.dash-banner-prev' },
+                    pagination: { el: '.dash-banner-pagination', clickable: true }
+                });
+                return () => {
+                    if (swiperBannerInst.current) {
+                        swiperBannerInst.current.destroy(true, true);
+                        swiperBannerInst.current = null;
+                    }
+                };
+            }, [view]);
+
             const saveRegistroVentas = async () => {
                 if (!db || !localRegistroVentas?.idpdv) return alert("Selecciona una tienda primero.");
                 if (!puedeEditarCarpeta) return alert("Este mes está en modo consulta. Solo puedes editar el mes actual (o eres Admin).");
@@ -2030,12 +2197,6 @@
                 if(window.confirm("¿Seguro de borrar este registro?")) { try { await getDbPath(col).doc(docId).delete(); } catch(e) { alert("Error."); } }
             };
 
-            const getYouTubeEmbedUrl = (url) => {
-                if(!url) return null; let videoId = null;
-                const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-                if (ytMatch && ytMatch[1]) videoId = ytMatch[1]; return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-            };
-
             const handleCreateDynamicExam = async () => {
                 if(!newExamId || !newExamTitle || !newExamJson) return alert("Llena todos los campos");
                 try {
@@ -2473,11 +2634,30 @@
                     </div>
 
                     <div className="bg-white flex sticky top-[68px] z-40 border-b shadow-sm overflow-x-auto hide-scrollbar p-1">
-                        <button className={`tab-btn ${activeTab==='CARPETA'?'tab-active':''}`} onClick={()=>setActiveTab('CARPETA')}>Carpeta</button>
-                        <button className={`tab-btn ${activeTab==='OPERACION'?'tab-active':''}`} onClick={()=>setActiveTab('OPERACION')}>Operación</button>
-                        <button className={`tab-btn ${activeTab==='ACADEMIA'?'tab-active':''}`} onClick={()=>setActiveTab('ACADEMIA')}>Academia</button>
-                        <button className={`tab-btn ${activeTab==='EQUIPO'?'tab-active':''}`} onClick={()=>setActiveTab('EQUIPO')}>Equipo</button>
-                        <button className={`tab-btn ${activeTab==='PORTAL'?'tab-active':''}`} onClick={()=>setActiveTab('PORTAL')}>Portal</button>
+                        <button className={`tab-btn ui-lift ${activeTab==='CARPETA'?'tab-active':''}`} onClick={()=>setActiveTab('CARPETA')}>Carpeta</button>
+                        <button className={`tab-btn ui-lift ${activeTab==='OPERACION'?'tab-active':''}`} onClick={()=>setActiveTab('OPERACION')}>Operación</button>
+                        <button className={`tab-btn ui-lift ${activeTab==='ACADEMIA'?'tab-active':''}`} onClick={()=>setActiveTab('ACADEMIA')}>Academia</button>
+                        <button className={`tab-btn ui-lift ${activeTab==='EQUIPO'?'tab-active':''}`} onClick={()=>setActiveTab('EQUIPO')}>Equipo</button>
+                        <button className={`tab-btn ui-lift ${activeTab==='PORTAL'?'tab-active':''}`} onClick={()=>setActiveTab('PORTAL')}>Portal</button>
+                    </div>
+
+                    <div className="dashboard-banner-wrap">
+                        <div ref={swiperBannerRef} className="swiper dashboard-swiper">
+                            <div className="swiper-wrapper">
+                                {DASHBOARD_BANNERS.map(b => (
+                                    <div key={b.id} className="swiper-slide">
+                                        <div className="dash-banner-slide" style={{ background: b.gradient }}>
+                                            <span className="dash-banner-emoji">{b.emoji}</span>
+                                            <p className="dash-banner-title">{b.title}</p>
+                                            <p className="dash-banner-sub">{b.subtitle}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="dash-banner-pagination swiper-pagination"></div>
+                            <div className="dash-banner-prev swiper-button-prev"></div>
+                            <div className="dash-banner-next swiper-button-next"></div>
+                        </div>
                     </div>
 
                     <div className="p-4 flex-grow overflow-y-auto pb-10">
@@ -3885,7 +4065,7 @@
                                             <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Toca a un promotor para abrir su perfil completo.</p>
                                         </div>
-                                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border">
+                                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border ui-lift">
                                             <table className="w-full text-left">
                                                 <thead className="bg-gray-50 border-b">
                                                     <tr className="text-[9px] font-black text-gray-400"><th className="p-4 text-center">#</th><th className="p-4">PROMOTOR</th><th className="p-4 text-right">SCORE</th></tr>
@@ -3895,7 +4075,7 @@
                                                         const rMatch = getRosterMatch(u.name);
                                                         const photoUrl = rMatch && rMatch.foto && rMatch.foto.startsWith("data:image") ? rMatch.foto : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
                                                         return (
-                                                            <tr key={u.id} onClick={() => { if(rMatch) setSelectedProfileModal(rMatch); }} className="border-b transition-colors cursor-pointer hover:bg-gray-50 active:bg-blue-50">
+                                                            <tr key={u.id} onClick={() => { if(rMatch) setSelectedProfileModal(rMatch); }} className="border-b rank-row-hover cursor-pointer">
                                                                 <td className="p-3 text-center font-black text-movistar-dark">#{i+1}</td>
                                                                 <td className="p-3">
                                                                     <div className="flex items-center gap-3">
@@ -3955,27 +4135,35 @@
                                 {subTabPortal === "COMUNICADOS" && (
                                     <div className="space-y-5">
                                         {userRole === "ADMIN" && (
-                                            <form onSubmit={submitComunicado} className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-3">
-                                                <textarea required placeholder="¿Qué quieres informar al equipo?" rows="3" value={comTexto} onChange={e=>setComTexto(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
-                                                <input type="url" placeholder="Link YouTube o Video (Opcional)" value={comVideoUrl} onChange={e=>setComVideoUrl(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none"/>
+                                            <form onSubmit={submitComunicado} className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-3 ui-lift">
+                                                <textarea placeholder="¿Qué quieres informar al equipo?" rows="3" value={comTexto} onChange={e=>setComTexto(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-bold text-xs outline-none resize-none"></textarea>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-400 uppercase block mb-2">Enlace de Video (YouTube/Drive/TikTok)</label>
+                                                    <input type="url" placeholder="https://youtube.com/... o Drive o TikTok (Opcional)" value={comVideoUrl} onChange={e=>setComVideoUrl(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border border-transparent focus:border-movistar-blue"/>
+                                                </div>
                                                 <div className="flex gap-2">
                                                     <label className="flex-1 bg-blue-50 text-movistar-blue p-3 rounded-xl font-black text-[9px] text-center cursor-pointer">{comImgBase64 ? "IMAGEN CARGADA ✓" : "📷 SUBIR IMAGEN"}<input type="file" accept="image/*" className="hidden" onChange={handleImageUploadGen(setComImgBase64)}/></label>
                                                 </div>
-                                                <button type="submit" className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform">PUBLICAR ANUNCIO</button>
+                                                <button type="submit" className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-transform ui-lift">PUBLICAR ANUNCIO</button>
                                             </form>
                                         )}
                                         <div className="space-y-5">
                                             {comunicados.map(com => {
                                                 const hasLiked = com.likes && com.likes.includes(userId.trim().toUpperCase());
+                                                const videoEmbed = com.videoUrl ? getVideoEmbedUrl(com.videoUrl) : null;
                                                 return (
-                                                    <div key={com.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative">
+                                                    <div key={com.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative ui-lift">
                                                         {userRole === "ADMIN" && <button onClick={() => deleteDoc("comunicados", com.id)} className="absolute top-3 right-3 bg-red-100 text-red-500 rounded-full w-7 h-7 flex items-center justify-center font-black text-[10px] z-10">X</button>}
                                                         <div className="p-5 pb-3">
                                                             <div className="flex items-center gap-2 mb-3"><div className="w-8 h-8 rounded-full bg-movistar-blue text-white flex items-center justify-center font-black">C</div><div><p className="text-[10px] font-black text-movistar-dark leading-none">CAPYM NACIONAL</p><p className="text-[8px] font-bold text-gray-400">{com.fecha?.toDate().toLocaleString('es-MX')}</p></div></div>
                                                             <p className="text-xs font-bold text-gray-700 whitespace-pre-wrap">{com.texto}</p>
                                                         </div>
-                                                        {com.imgBase64 && <img src={com.imgBase64} className="w-full h-auto object-cover border-y" />}
-                                                        {com.videoUrl && getYouTubeEmbedUrl(com.videoUrl) && <div className="relative w-full aspect-video border-y bg-black"><iframe src={getYouTubeEmbedUrl(com.videoUrl)} className="absolute top-0 left-0 w-full h-full"></iframe></div>}
+                                                        {videoEmbed && (
+                                                            <div className="video-embed-wrap">
+                                                                <iframe src={videoEmbed} className="video-embed-frame" title="Video de la noticia" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
+                                                            </div>
+                                                        )}
+                                                        {com.imgBase64 && !videoEmbed && <img src={com.imgBase64} alt="" className="w-full h-auto object-cover border-y" />}
                                                         
                                                         <div className="border-t p-3 bg-gray-50 flex items-center justify-between">
                                                             <button onClick={() => toggleLike(com.id)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
