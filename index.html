@@ -457,22 +457,18 @@
         };
 
         const roundCuotaCell = (cell) => {
-            const cuota = Math.round((Number(cell?.cuota) || 0) * 100) / 100;
-            const altas = Math.round((Number(cell?.altas) || 0) * 100) / 100;
-            const fieldwy = Math.round((Number(cell?.fieldwy) || 0) * 100) / 100;
+            const cuota = Math.round(Number(cell?.cuota) || 0);
+            const altas = Math.round(Number(cell?.altas) || 0);
+            const fieldwy = Math.round(Number(cell?.fieldwy) || 0);
             return {
                 cuota, altas, fieldwy,
-                gap: Math.round((altas - cuota) * 100) / 100,
-                gapFieldwy: Math.round((fieldwy - cuota) * 100) / 100,
-                diffAltasFw: Math.round((altas - fieldwy) * 100) / 100
+                gap: altas - cuota,
+                gapFieldwy: fieldwy - cuota,
+                diffAltasFw: altas - fieldwy
             };
         };
 
-        const formatCuotaValue = (n) => {
-            const v = Number(n) || 0;
-            if (Math.abs(v) >= 100 || (Math.abs(v - Math.round(v)) < 0.005)) return String(Math.round(v));
-            return (Math.round(v * 100) / 100).toFixed(2).replace(/\.?0+$/, '');
-        };
+        const formatCuotaValue = (n) => String(Math.round(Number(n) || 0));
 
         const formatCuotaInt = (n) => formatCuotaValue(n);
 
@@ -585,14 +581,14 @@
         const finalizeDiaProductos = (prods) => {
             const out = emptyDiaProductos();
             PRODUCTOS_CUOTA.forEach(p => {
-                const c = Math.round((Number(prods[p]?.cuota) || 0) * 100) / 100;
-                const a = Math.round((Number(prods[p]?.altas) || 0) * 100) / 100;
-                const f = Math.round((Number(prods[p]?.fieldwy) || 0) * 100) / 100;
+                const c = Math.round(Number(prods[p]?.cuota) || 0);
+                const a = Math.round(Number(prods[p]?.altas) || 0);
+                const f = Math.round(Number(prods[p]?.fieldwy) || 0);
                 out[p] = {
                     cuota: c, altas: a, fieldwy: f,
-                    gap: Math.round((a - c) * 100) / 100,
-                    gapFieldwy: Math.round((f - c) * 100) / 100,
-                    diffAltasFw: Math.round((a - f) * 100) / 100
+                    gap: a - c,
+                    gapFieldwy: f - c,
+                    diffAltasFw: a - f
                 };
             });
             return out;
@@ -712,7 +708,7 @@
                     const dias = {};
                     for (let d = 1; d <= 31; d++) {
                         const v = row[3 + d];
-                        dias[String(d)] = Math.round((Number(v) || 0) * 100) / 100;
+                        dias[String(d)] = Math.round(Number(v) || 0);
                     }
                     map[id] = dias;
                 }
@@ -732,15 +728,15 @@
                 const dias = {};
                 for (let d = 1; d <= 31; d++) {
                     const dk = String(d);
-                    const altaPorta = Math.round((Number(portaAltas[idpv]?.[dk]) || 0) * 100) / 100;
-                    const altaTemm = Math.round((Number(temmAltas[idpv]?.[dk]) || 0) * 100) / 100;
-                    const altaPrep = Math.round((Number(prepagoAltas[idpv]?.[dk]) || 0) * 100) / 100;
-                    const cuotaPorta = Math.round((Number(row[colPorta[dk]]) || 0) * 100) / 100;
-                    const cuotaTemm = Math.round((Number(row[colTemm[dk]]) || 0) * 100) / 100;
-                    const cuotaPrep = Math.round((Number(row[colGral[dk]]) || 0) * 100) / 100;
-                    const fwPorta = Math.round((Number(fieldwyMap[idpv]?.[dk]?.PORTA) || 0) * 100) / 100;
-                    const fwTemm = Math.round((Number(fieldwyMap[idpv]?.[dk]?.TEMM) || 0) * 100) / 100;
-                    const fwPrep = Math.round((Number(fieldwyMap[idpv]?.[dk]?.PREPAGO) || 0) * 100) / 100;
+                    const altaPorta = Math.round(Number(portaAltas[idpv]?.[dk]) || 0);
+                    const altaTemm = Math.round(Number(temmAltas[idpv]?.[dk]) || 0);
+                    const altaPrep = Math.round(Number(prepagoAltas[idpv]?.[dk]) || 0);
+                    const cuotaPorta = Math.round(Number(row[colPorta[dk]]) || 0);
+                    const cuotaTemm = Math.round(Number(row[colTemm[dk]]) || 0);
+                    const cuotaPrep = Math.round(Number(row[colGral[dk]]) || 0);
+                    const fwPorta = Math.round(Number(fieldwyMap[idpv]?.[dk]?.PORTA) || 0);
+                    const fwTemm = Math.round(Number(fieldwyMap[idpv]?.[dk]?.TEMM) || 0);
+                    const fwPrep = Math.round(Number(fieldwyMap[idpv]?.[dk]?.PREPAGO) || 0);
                     dias[dk] = finalizeDiaProductos({
                         PORTA: { cuota: cuotaPorta, altas: altaPorta, fieldwy: fwPorta },
                         TEMM: { cuota: cuotaTemm, altas: altaTemm, fieldwy: fwTemm },
@@ -1059,6 +1055,8 @@
             const [carpetaMesSeleccionado, setCarpetaMesSeleccionado] = useState(getCurrentMonthStr());
             const [expandedCuotaWeeks, setExpandedCuotaWeeks] = useState({ 1: true });
             const [cuotasAltasSubView, setCuotasAltasSubView] = useState('detalle');
+            const [isSyncingCuotas, setIsSyncingCuotas] = useState(false);
+            const [cuotasSyncNotice, setCuotasSyncNotice] = useState('');
             const cuotasAutoSyncRef = useRef(false);
             const invSyncAttemptedRef = useRef(false);
             const [isSyncingInventario, setIsSyncingInventario] = useState(false);
@@ -1787,24 +1785,40 @@
                 }
             };
 
-            const autoSyncCuotasAltasFromPlan = async () => {
-                if (!db || cuotasAutoSyncRef.current) return;
+            const syncCuotasAltasFromPlan = async (force = false) => {
+                if (!db || isSyncingCuotas) return false;
+                if (!force && cuotasAutoSyncRef.current) return false;
+                if (force) cuotasAutoSyncRef.current = false;
                 cuotasAutoSyncRef.current = true;
+                setIsSyncingCuotas(true);
+                if (force) setCuotasSyncNotice('');
                 const mesStr = PLAN_OPERACION_MES;
                 try {
                     const res = await fetch(PLAN_EXCEL_PATH, { cache: 'no-store' });
-                    if (!res.ok) throw new Error(`No se encontró ${PLAN_EXCEL_PATH} en el servidor.`);
+                    if (!res.ok) throw new Error(`No se encontró ${PLAN_EXCEL_PATH} en el servidor (misma carpeta que index.html).`);
                     const buf = await res.arrayBuffer();
                     const wb = XLSX.read(buf, { type: 'array' });
                     const tiendas = parseCuotaAltasFromWorkbook(wb, mesStr);
-                    if (!tiendas.length) throw new Error('Sin tiendas en pestañas Cuota/Altas.');
+                    if (!tiendas.length) throw new Error('Sin tiendas en pestañas Cuota/Altas del Excel.');
                     await uploadCuotasAltasToFirebase(tiendas, mesStr);
-                    console.info(`Cuotas/Altas auto-sync: ${tiendas.length} tiendas · ${mesStr}`);
+                    const msg = `${tiendas.length} tiendas · ${mesStr} · ${PLAN_EXCEL_PATH}`;
+                    if (force) setCuotasSyncNotice(`Sincronizado: ${msg}`);
+                    console.info(`Cuotas/Altas sync: ${msg}`);
+                    return true;
                 } catch (e) {
                     cuotasAutoSyncRef.current = false;
-                    console.warn('Auto-sync cuotas/altas:', e.message || e);
+                    const msg = e.message || String(e);
+                    if (force) setCuotasSyncNotice(`Error: ${msg}`);
+                    console.warn('Cuotas/Altas sync:', msg);
+                    return false;
+                } finally {
+                    setIsSyncingCuotas(false);
                 }
             };
+
+            const autoSyncCuotasAltasFromPlan = () => syncCuotasAltasFromPlan(false);
+
+            const resyncCuotasAltasFromPlan = () => syncCuotasAltasFromPlan(true);
 
             useEffect(() => {
                 if (!userAuth || !db || view !== 'APP') return;
@@ -3665,6 +3679,36 @@
                                                     : `${cuotasAltasVista.tiendaLabel} · ${cuotasAltasVista.count} PDV`}
                                             </p>
                                             <p className="text-[8px] font-bold text-blue-200 mt-2 uppercase">Seguimiento diario · {mesOperacionLabel} · {PLAN_EXCEL_PATH}</p>
+                                        </div>
+
+                                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl space-y-2">
+                                            <p className="text-[9px] font-black text-movistar-blue uppercase">¿De dónde salen los datos?</p>
+                                            <ul className="text-[8px] font-bold text-gray-600 space-y-1 list-disc pl-4 leading-relaxed">
+                                                <li><span className="text-movistar-dark">Cuota</span> → pestaña <b>Cuota</b> de <b>{PLAN_EXCEL_PATH}</b> (columnas <i>N porta / N temm / N gral</i> por día)</li>
+                                                <li><span className="text-movistar-dark">Altas</span> → pestaña <b>Altas</b> del mismo Excel (3 bloques: PORTA, TEMM, PREPAGO)</li>
+                                                <li><span className="text-movistar-dark">FieldWy</span> → pestaña <b>FieldWy</b> (cuenta ventas por <i>Fecha registro</i> + <i>Producto</i> + <i>ID PDV</i>)</li>
+                                                <li>Se guardan en Firebase <b>cuotas_altas_diario</b> · mes <b>{PLAN_OPERACION_MES}</b> · {cuotasAltasRecords.length} tiendas cargadas</li>
+                                                <li>Los <b>filtros de tienda</b> de arriba también aplican aquí (supervisor, cadena, estatus)</li>
+                                            </ul>
+                                            <p className="text-[8px] font-black text-movistar-dark uppercase pt-1 border-t border-blue-100">Cómo actualizar</p>
+                                            <ol className="text-[8px] font-bold text-gray-600 space-y-1 list-decimal pl-4 leading-relaxed">
+                                                <li>Edita o reemplaza <b>{PLAN_EXCEL_PATH}</b> en el servidor (junto a index.html)</li>
+                                                <li>Pulsa <b>Sincronizar desde Excel</b> o recarga la app (auto-sync al entrar)</li>
+                                                <li>Verifica en consola del navegador el mensaje <i>Cuotas/Altas sync</i></li>
+                                            </ol>
+                                            {userRole === "ADMIN" && (
+                                                <button
+                                                    type="button"
+                                                    onClick={resyncCuotasAltasFromPlan}
+                                                    disabled={isSyncingCuotas}
+                                                    className="w-full mt-2 bg-movistar-blue text-white text-[9px] font-black py-3 rounded-xl uppercase disabled:opacity-50"
+                                                >
+                                                    {isSyncingCuotas ? 'Sincronizando…' : '↻ Sincronizar desde Excel'}
+                                                </button>
+                                            )}
+                                            {cuotasSyncNotice && (
+                                                <p className={`text-[8px] font-bold pt-1 ${cuotasSyncNotice.startsWith('Error') ? 'text-red-600' : 'text-movistar-green'}`}>{cuotasSyncNotice}</p>
+                                            )}
                                         </div>
 
                                         <div className="flex bg-gray-200 p-1 rounded-2xl">
