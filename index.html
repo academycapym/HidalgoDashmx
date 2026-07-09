@@ -693,11 +693,35 @@
         const PLAN_EXCEL_PATH = 'Plan Junio 2026.xlsx';
 
         const isValidIdPdv = (val) => {
-            const id = String(val ?? '').trim().replace(/^0+/, '').split('.')[0];
+            if (val === null || val === undefined || val === '') return false;
+            const id = cleanIdPdv(val);
             return /^\d{5,}$/.test(id);
         };
 
         const cleanIdPdv = (val) => String(val ?? '').trim().replace(/^0+/, '').split('.')[0];
+
+        const storeIdsMatch = (a, b) => cleanIdPdv(a) === cleanIdPdv(b);
+
+        const filterInvByStoreIds = (invList, storeIds) => {
+            const idSet = new Set((storeIds || []).map(cleanIdPdv));
+            return (invList || []).filter(i => idSet.has(cleanIdPdv(i.id)));
+        };
+
+        const INVENTARIO_EXCEL_PATH = 'Inventario_OCCIDENTE.xlsx';
+        const INVENTARIO_JSON_PATH = 'inventario_occidente.json';
+
+        const normalizeInventarioList = (list) => {
+            if (!Array.isArray(list)) return [];
+            return list
+                .map(row => ({
+                    id: cleanIdPdv(row?.id ?? row?.idpdv ?? row?.IDPDV ?? row?.G ?? ''),
+                    mod: String(row?.mod ?? row?.modelo ?? row?.DESCRIPCION ?? row?.R ?? '').trim(),
+                    mar: String(row?.mar ?? row?.marca ?? row?.MARCA ?? row?.S ?? '').trim(),
+                    status: String(row?.status ?? row?.STATUS_SKU ?? row?.U ?? '').trim().toUpperCase(),
+                    q: parseInt(String(row?.q ?? row?.stock ?? row?.AE ?? '').trim(), 10) || Number(row?.q ?? row?.stock ?? row?.AE) || 0
+                }))
+                .filter(row => isValidIdPdv(row.id));
+        };
 
         const resolveStockColumn = (headers) => {
             const keys = Array.isArray(headers) ? headers.map(h => String(h ?? '').trim()) : Object.keys(headers || {}).map(k => String(k).trim());
@@ -711,9 +735,9 @@
             const headers = Object.keys(rows[0] || {});
             const stockCol = resolveStockColumn(headers);
             const col = (name, fallbackIdx) => {
-                const found = headers.find(h => String(h).trim().toUpperCase() === name);
-                if (found !== undefined) return found;
-                return headers[fallbackIdx] || null;
+                const idx = headers.findIndex(h => String(h).trim().toUpperCase() === name);
+                if (idx >= 0) return headers[idx];
+                return headers[fallbackIdx] ?? null;
             };
             const idKey = col('IDPDV', 3);
             const modKey = col('DESCRIPCION', 12);
@@ -728,8 +752,29 @@
                     mod: String(row[modKey] ?? '').trim(),
                     mar: String(row[marKey] ?? '').trim(),
                     status: String(row[statusKey] ?? '').trim().toUpperCase(),
-                    q: parseInt(String(row[stockKey] ?? '').trim(), 10) || 0
+                    q: parseInt(String(row[stockKey] ?? '').trim(), 10) || Number(row[stockKey]) || 0
                 }));
+        };
+
+        const loadInventarioFromServer = async () => {
+            const jsonRes = await fetch(INVENTARIO_JSON_PATH, { cache: 'no-store' });
+            if (jsonRes.ok) {
+                const payload = await jsonRes.json();
+                const raw = Array.isArray(payload?.list) ? payload.list : payload;
+                const list = normalizeInventarioList(raw);
+                if (list.length) return list;
+            }
+            const res = await fetch(INVENTARIO_EXCEL_PATH, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`No se encontró inventario (${INVENTARIO_JSON_PATH} ni ${INVENTARIO_EXCEL_PATH}) en el servidor.`);
+            const buf = await res.arrayBuffer();
+            const wb = XLSX.read(buf, { type: 'array' });
+            return parseInventarioWorkbook(wb);
+        };
+
+        const parseInventarioWorkbook = (wb) => {
+            const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('inventario')) || wb.SheetNames[0];
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
+            return parseInventarioFromObjects(rows);
         };
 
         const getEmptyCarpeta = (idpdv, mes) => ({
@@ -877,6 +922,9 @@
             const [carpetaMesSeleccionado, setCarpetaMesSeleccionado] = useState(getCurrentMonthStr());
             const [expandedCuotaWeeks, setExpandedCuotaWeeks] = useState({ 1: true });
             const cuotasAutoSyncRef = useRef(false);
+            const invSyncAttemptedRef = useRef(false);
+            const [isSyncingInventario, setIsSyncingInventario] = useState(false);
+            const [invSyncError, setInvSyncError] = useState('');
             const [viewStoreId, setViewStoreId] = useState("");
             const [localCarpeta, setLocalCarpeta] = useState(null);
             const [localRegistroVentas, setLocalRegistroVentas] = useState(null);
@@ -1336,7 +1384,7 @@
                         tmChunkDocs.forEach(c => { tm = tm.concat(c.list); });
                         let iv = [];
                         ivChunkDocs.forEach(c => { iv = iv.concat(c.list); });
-                        setDataTEMM(tm); setDataINV(iv); setActualizadoAl(actAl);
+                        setDataTEMM(tm); setDataINV(normalizeInventarioList(iv)); setActualizadoAl(actAl);
                     }));
                     unsubs.push(getDbPath("ranking").onSnapshot(s => {
                         let docs = s.docs.map(d => ({...d.data(), id: d.id}));
@@ -1507,6 +1555,33 @@
                 if (!userAuth || !db || view !== 'APP') return;
                 autoSyncCuotasAltasFromPlan();
             }, [userAuth, view]);
+
+            const autoSyncInventarioFromFile = async () => {
+                if (!db || isSyncingInventario) return;
+                setIsSyncingInventario(true);
+                setInvSyncError('');
+                try {
+                    const list = await loadInventarioFromServer();
+                    if (!list.length) throw new Error('Sin filas válidas con IDPDV en el inventario.');
+                    await saveInChunks('inv', list);
+                    console.info(`Inventario auto-sync: ${list.length} registros · stock total ${list.reduce((a, c) => a + (c.q || 0), 0)} pzs`);
+                } catch (e) {
+                    const msg = e.message || String(e);
+                    setInvSyncError(msg);
+                    console.warn('Auto-sync inventario:', msg);
+                } finally {
+                    setIsSyncingInventario(false);
+                }
+            };
+
+            useEffect(() => {
+                if (!userAuth || !db || view !== 'APP' || dataTEMM.length === 0 || invSyncAttemptedRef.current) return;
+                const matched = filterInvByStoreIds(dataINV, dataTEMM.map(d => d.id));
+                const stockTotal = matched.reduce((acc, cur) => acc + (Number(cur.q) || 0), 0);
+                if (stockTotal > 0) return;
+                invSyncAttemptedRef.current = true;
+                autoSyncInventarioFromFile();
+            }, [userAuth, view, dataINV, dataTEMM]);
 
             const downloadCarpetasExcel = () => {
                 const allowedStoreIds = carpetaStoresFiltered.map(d => String(d.id).replace(/^0+/, ''));
@@ -2065,9 +2140,10 @@
                 e.target.value = '';
 
                 const saveInvList = async (list) => {
-                    if (!list.length) return alert("No se encontraron filas válidas con IDPDV.");
-                    await saveInChunks("inv", list);
-                    alert(`¡Inventario sincronizado! (${list.length} registros guardados)`);
+                    const normalized = normalizeInventarioList(list);
+                    if (!normalized.length) return alert("No se encontraron filas válidas con IDPDV.");
+                    await saveInChunks("inv", normalized);
+                    alert(`¡Inventario sincronizado! (${normalized.length} registros guardados)`);
                 };
 
                 if (type === "inv" && file.name.toLowerCase().endsWith('.csv')) {
@@ -2104,9 +2180,7 @@
                             alert(`Sincronizado Múltiples Productos (${list.length} Tiendas | Fecha: ${diaAct})`);
                         } else if (type === "inv") {
                             const wb = XLSX.read(r, { type: 'binary', cellDates: true });
-                            const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes("inventario")) || wb.SheetNames[0];
-                            const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
-                            list = parseInventarioFromObjects(rows);
+                            list = parseInventarioWorkbook(wb);
                             await saveInvList(list);
                         }
                     } catch (error) { alert("Error procesando archivo: " + (error.message || error)); console.error(error); }
@@ -2542,16 +2616,19 @@
                         else if(opProductFilter === 'VOZ') { a += Number(d?.altas_voz) || 0; c += Number(d?.cuota_voz) || 0; }
                         else { a += Number(d?.altas) || 0; c += Number(d?.cuota) || 0; }
                     });
-                    if (Array.isArray(dataINV)) { const ids = filteredData.map(d => d.id || ""); s = dataINV.filter(i => ids.includes(i.id || "")).reduce((acc, cur) => acc + (Number(cur?.q) || 0), 0); }
+                    if (Array.isArray(dataINV)) {
+                        const invMatched = filterInvByStoreIds(dataINV, filteredData.map(d => d.id));
+                        s = invMatched.reduce((acc, cur) => acc + (Number(cur?.q) || 0), 0);
+                    }
                 }
                 return { a: Math.round(a), c: Math.round(c), s: Math.round(s) };
             }, [filteredData, dataINV, opProductFilter]);
 
-            const invStoreIdsAllowed = useMemo(() => filteredData.map(d => d.id || ""), [filteredData]);
+            const invStoreIdsAllowed = useMemo(() => filteredData.map(d => cleanIdPdv(d.id)), [filteredData]);
             
             const filteredInventory = useMemo(() => {
                 if(!Array.isArray(dataINV)) return [];
-                let res = dataINV.filter(i => invStoreIdsAllowed.includes(i.id || ""));
+                let res = filterInvByStoreIds(dataINV, invStoreIdsAllowed);
                 if (invMarcaFiltro !== "TODAS") res = res.filter(i => (i.mar || "").toUpperCase() === invMarcaFiltro);
                 if (invModeloFiltro !== "TODOS") res = res.filter(i => (i.mod || "").toUpperCase() === invModeloFiltro);
                 if (invStatusFiltro !== "TODOS") res = res.filter(i => (i.status || "").toUpperCase() === invStatusFiltro);
@@ -3470,7 +3547,13 @@
                                             </div>
                                             <div className="bg-white p-4 rounded-3xl border shadow-sm">
                                                 <p className="text-[8px] font-black text-gray-400 uppercase mb-1">Inventario Fís.</p>
-                                                <p className="text-2xl font-black text-movistar-dark tabular-nums">{summary.s} <span className="text-xs">pzs</span></p>
+                                                <p className="text-2xl font-black text-movistar-dark tabular-nums">
+                                                    {isSyncingInventario ? '…' : summary.s} <span className="text-xs">pzs</span>
+                                                </p>
+                                                {isSyncingInventario && <p className="text-[7px] font-bold text-movistar-blue mt-0.5">Sincronizando inventario…</p>}
+                                                {!isSyncingInventario && invSyncError && summary.s === 0 && (
+                                                    <p className="text-[7px] font-bold text-red-500 mt-0.5 leading-tight">{invSyncError}</p>
+                                                )}
                                             </div>
                                             <div className="bg-white p-4 rounded-3xl border shadow-sm">
                                                 <p className="text-[8px] font-black text-movistar-green uppercase mb-1">Altas / Meta</p>
@@ -3527,7 +3610,7 @@
                                             const curPerc = curCuota > 0 ? ((curAltas / curCuota) * 100) : 0;
                                             const curGap = curAltas - curCuota;
 
-                                            const storeInv = Array.isArray(dataINV) ? dataINV.filter(i => (i?.id || "") === (d?.id || "")) : [];
+                                            const storeInv = Array.isArray(dataINV) ? dataINV.filter(i => storeIdsMatch(i.id, d.id)) : [];
                                             const totalStoreInv = storeInv.reduce((acc, cur) => acc + (Number(cur.q) || 0), 0);
                                             const storeRosters = rosters.filter(r =>
                                                 String(r.idpdv || "").replace(/^0+/, '').toUpperCase() === String(d.id || "").replace(/^0+/, '').toUpperCase()
