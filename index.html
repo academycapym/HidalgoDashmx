@@ -722,9 +722,21 @@
                 return map;
             };
 
-            const portaAltas = parseAltasBlock(2, 109);
-            const temmAltas = parseAltasBlock(111, 218);
-            const prepagoAltas = parseAltasBlock(220, altasRows.length);
+            const findAltasSectionStarts = (rows) => {
+                let temmStart = 111;
+                let portaStart = 220;
+                for (let r = 0; r < rows.length; r++) {
+                    const label = String(rows[r]?.[0] || '').trim().toUpperCase();
+                    if (label === 'TEMM') temmStart = r + 2;
+                    if (label === 'PORTABILIDAD') portaStart = r + 2;
+                }
+                return { totalStart: 2, temmStart, portaStart };
+            };
+
+            const { totalStart, temmStart, portaStart } = findAltasSectionStarts(altasRows);
+            const totalGeneralAltas = parseAltasBlock(totalStart, temmStart - 2);
+            const temmAltas = parseAltasBlock(temmStart, portaStart - 2);
+            const portaAltas = parseAltasBlock(portaStart, altasRows.length);
 
             const tiendas = [];
             for (let r = 6; r < cuotaRows.length; r++) {
@@ -737,17 +749,17 @@
                     const dk = String(d);
                     const altaPorta = Math.round(Number(portaAltas[idpv]?.[dk]) || 0);
                     const altaTemm = Math.round(Number(temmAltas[idpv]?.[dk]) || 0);
-                    const altaPrep = Math.round(Number(prepagoAltas[idpv]?.[dk]) || 0);
-                    const cuotaPorta = Math.round(Number(row[colPorta[dk]]) || 0);
-                    const cuotaTemm = Math.round(Number(row[colTemm[dk]]) || 0);
-                    const cuotaPrep = Math.round(Number(row[colGral[dk]]) || 0);
+                    const altaTotal = Math.round(Number(totalGeneralAltas[idpv]?.[dk]) || 0);
+                    const cuotaPorta = Number(row[colPorta[dk]]) || 0;
+                    const cuotaTemm = Number(row[colTemm[dk]]) || 0;
+                    const cuotaPrep = Number(row[colGral[dk]]) || 0;
                     const fwPorta = Math.round(Number(fieldwyMap[idpv]?.[dk]?.PORTA) || 0);
                     const fwTemm = Math.round(Number(fieldwyMap[idpv]?.[dk]?.TEMM) || 0);
                     const fwPrep = Math.round(Number(fieldwyMap[idpv]?.[dk]?.PREPAGO) || 0);
                     dias[dk] = finalizeDiaProductos({
                         PORTA: { cuota: cuotaPorta, altas: altaPorta, fieldwy: fwPorta },
                         TEMM: { cuota: cuotaTemm, altas: altaTemm, fieldwy: fwTemm },
-                        PREPAGO: { cuota: cuotaPrep, altas: altaPrep, fieldwy: fwPrep }
+                        PREPAGO: { cuota: cuotaPrep, altas: altaTotal, fieldwy: fwPrep }
                     });
                 }
                 tiendas.push({
@@ -1836,7 +1848,7 @@
                             if (row) {
                                 dataBoleta.push({
                                     "IDPDV": c.idpdv, "Tienda": tienda, "Semana": sem, "Periodo": periodo, "Producto": prod,
-                                    "Altas": row.a, "Cuota": row.c, "Comisiona": row.ok ? 'SI' : 'NO',
+                                    "Altas": row.a, "Cuota": row.c,
                                     "L": row.d0?.L || '', "M": row.d0?.M || '', "X": row.d0?.X || '', "J": row.d0?.J || '', "V": row.d0?.V || '', "S": row.d0?.S || '', "D": row.d0?.D || '',
                                     "Comentario": row.com
                                 });
@@ -3462,7 +3474,7 @@
                                                             <table className="w-full tabla-carpeta min-w-[600px]">
                                                                 <thead>
                                                                     <tr>
-                                                                        <th>PRODUCTO</th><th>ALTAS</th><th>CUOTA</th><th>ALCANCE</th><th>COMISIONA</th><th>VENTAS DIARIAS (L, M, X, J, V, S, D)</th><th>COMENTARIO</th>
+                                                                        <th>PRODUCTO</th><th>ALTAS</th><th>CUOTA</th><th>ALCANCE</th><th>VENTAS DIARIAS (L, M, X, J, V, S, D)</th><th>COMENTARIO</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -3476,11 +3488,6 @@
                                                                                 <td><input type="number" value={row.a} disabled className="bg-gray-100 cursor-not-allowed text-movistar-dark" /></td>
                                                                                 <td><input type="number" value={row.c} onChange={e => updateBoleta(sem, prod, 'c', e.target.value)} disabled={!puedeEditarCarpeta || userRole === "PROMOTOR"} /></td>
                                                                                 <td className="font-bold text-movistar-blue bg-gray-50">{alcance}</td>
-                                                                                <td className={row.ok ? 'bg-green-100' : 'bg-red-100'}>
-                                                                                    <select value={row.ok ? 'SI' : 'NO'} onChange={e => updateBoleta(sem, prod, 'ok', e.target.value === 'SI')} disabled={!puedeEditarCarpeta || userRole === "PROMOTOR"} className={row.ok ? 'text-movistar-green' : 'text-movistar-red'}>
-                                                                                        <option value="NO">NO</option><option value="SI">SI</option>
-                                                                                    </select>
-                                                                                </td>
                                                                                 <td className="w-40">
                                                                                     <div className="flex gap-1 justify-center">
                                                                                         {['L','M','X','J','V','S','D'].map(day => {
