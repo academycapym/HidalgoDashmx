@@ -534,6 +534,13 @@
 
         const getCurrentMonthStr = () => new Date().toISOString().slice(0, 7);
 
+        const mesStrFromFecha = (fechaStr) => {
+            if (!fechaStr || fechaStr === 'Desconocido') return getCurrentMonthStr();
+            const d = new Date(fechaStr);
+            if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 7);
+            return getCurrentMonthStr();
+        };
+
         const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
         const DIAS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
         const PRODUCTOS_CUOTA = ['TEMM', 'PORTA', 'PREPAGO'];
@@ -755,8 +762,6 @@
             return tiendas;
         };
 
-        const PLAN_EXCEL_PATH = 'Plan Julio 2026.xlsx';
-        const PLAN_OPERACION_MES = '2026-07';
         const STORE_FILTERS_STORAGE_KEY = 'hidalgo_store_filters_v1';
 
         const loadStoreFilters = () => {
@@ -1055,9 +1060,6 @@
             const [carpetaMesSeleccionado, setCarpetaMesSeleccionado] = useState(getCurrentMonthStr());
             const [expandedCuotaWeeks, setExpandedCuotaWeeks] = useState({ 1: true });
             const [cuotasAltasSubView, setCuotasAltasSubView] = useState('detalle');
-            const [isSyncingCuotas, setIsSyncingCuotas] = useState(false);
-            const [cuotasSyncNotice, setCuotasSyncNotice] = useState('');
-            const cuotasAutoSyncRef = useRef(false);
             const invSyncAttemptedRef = useRef(false);
             const [isSyncingInventario, setIsSyncingInventario] = useState(false);
             const [invSyncError, setInvSyncError] = useState('');
@@ -1417,8 +1419,9 @@
                 };
             }, [cuotasAltasScopeStores, userRole, userId]);
 
-            const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(PLAN_OPERACION_MES), []);
-            const mesOperacionLabel = formatMesLabel(PLAN_OPERACION_MES);
+            const cuotasMesOperacion = useMemo(() => mesStrFromFecha(actualizadoAl), [actualizadoAl]);
+            const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(cuotasMesOperacion), [cuotasMesOperacion]);
+            const mesOperacionLabel = formatMesLabel(cuotasMesOperacion);
 
             const cuotasResumenSemanal = useMemo(() =>
                 aggregateSemanasCuotas(cuotasAltasVista.dias, cuotasMonthWeeks),
@@ -1699,13 +1702,13 @@
                         setRegistrosVentas(s.docs.map(d => ({ ...d.data(), id: d.id })));
                     }));
 
-                    unsubs.push(getDbPath("cuotas_altas_diario").where("mes", "==", PLAN_OPERACION_MES).onSnapshot(s => {
+                    unsubs.push(getDbPath("cuotas_altas_diario").where("mes", "==", cuotasMesOperacion).onSnapshot(s => {
                         setCuotasAltasRecords(s.docs.map(d => ({ ...d.data(), id: d.id })));
                     }));
 
                 } catch(error) { console.error("Listeners", error); }
                 return () => unsubs.forEach(u => u());
-            }, [userAuth, carpetaMesSeleccionado]);
+            }, [userAuth, carpetaMesSeleccionado, cuotasMesOperacion]);
 
             // MANEJO DE ESTADO LOCAL PARA CARPETA
             useEffect(() => {
@@ -1784,46 +1787,6 @@
                     });
                 }
             };
-
-            const syncCuotasAltasFromPlan = async (force = false) => {
-                if (!db || isSyncingCuotas) return false;
-                if (!force && cuotasAutoSyncRef.current) return false;
-                if (force) cuotasAutoSyncRef.current = false;
-                cuotasAutoSyncRef.current = true;
-                setIsSyncingCuotas(true);
-                if (force) setCuotasSyncNotice('');
-                const mesStr = PLAN_OPERACION_MES;
-                try {
-                    const res = await fetch(PLAN_EXCEL_PATH, { cache: 'no-store' });
-                    if (!res.ok) throw new Error(`No se encontró ${PLAN_EXCEL_PATH} en el servidor (misma carpeta que index.html).`);
-                    const buf = await res.arrayBuffer();
-                    const wb = XLSX.read(buf, { type: 'array' });
-                    const tiendas = parseCuotaAltasFromWorkbook(wb, mesStr);
-                    if (!tiendas.length) throw new Error('Sin tiendas en pestañas Cuota/Altas del Excel.');
-                    await uploadCuotasAltasToFirebase(tiendas, mesStr);
-                    const msg = `${tiendas.length} tiendas · ${mesStr} · ${PLAN_EXCEL_PATH}`;
-                    if (force) setCuotasSyncNotice(`Sincronizado: ${msg}`);
-                    console.info(`Cuotas/Altas sync: ${msg}`);
-                    return true;
-                } catch (e) {
-                    cuotasAutoSyncRef.current = false;
-                    const msg = e.message || String(e);
-                    if (force) setCuotasSyncNotice(`Error: ${msg}`);
-                    console.warn('Cuotas/Altas sync:', msg);
-                    return false;
-                } finally {
-                    setIsSyncingCuotas(false);
-                }
-            };
-
-            const autoSyncCuotasAltasFromPlan = () => syncCuotasAltasFromPlan(false);
-
-            const resyncCuotasAltasFromPlan = () => syncCuotasAltasFromPlan(true);
-
-            useEffect(() => {
-                if (!userAuth || !db || view !== 'APP') return;
-                autoSyncCuotasAltasFromPlan();
-            }, [userAuth, view]);
 
             const autoSyncInventarioFromFile = async () => {
                 if (!db || isSyncingInventario) return;
@@ -2448,18 +2411,37 @@
                         let list = [];
                         let diaAct = "Desconocido";
                         if (type === "temm") {
-                            const wb = XLSX.read(r, { type: 'binary', cellDates: true });
+                            const wb = XLSX.read(new Uint8Array(r), { type: 'array', cellDates: true });
                             const wsSegDiarioName = wb.SheetNames.find(n => n.toLowerCase().includes("seg diario"));
                             if (!wsSegDiarioName) return alert("Pestaña 'Seg Diario' no encontrada en el archivo.");
                             const parsed = parseSegDiarioSheet(wb.Sheets[wsSegDiarioName]);
                             list = parsed.list;
                             diaAct = parsed.diaAct;
                             await saveInChunks("temm", list, { actualizado_al: diaAct });
-                            alert(`Sincronizado Múltiples Productos (${list.length} Tiendas | Fecha: ${diaAct})`);
+
+                            const mesStr = mesStrFromFecha(diaAct);
+                            let cuotasMsg = '';
+                            try {
+                                const hasSheets = wb.SheetNames.includes('Cuota') && wb.SheetNames.includes('Altas');
+                                if (hasSheets) {
+                                    const tiendas = parseCuotaAltasFromWorkbook(wb, mesStr);
+                                    if (tiendas.length) {
+                                        await uploadCuotasAltasToFirebase(tiendas, mesStr);
+                                        cuotasMsg = `\nCuotas/Altas/FieldWy: ${tiendas.length} tiendas (${mesStr})`;
+                                    } else {
+                                        cuotasMsg = '\nCuotas/Altas: sin tiendas en el Excel';
+                                    }
+                                } else {
+                                    cuotasMsg = '\nCuotas/Altas: pestañas Cuota/Altas no encontradas';
+                                }
+                            } catch (cuotaErr) {
+                                cuotasMsg = `\nCuotas/Altas: ${cuotaErr.message || cuotaErr}`;
+                            }
+                            alert(`Sincronizado Diario (${list.length} tiendas | ${diaAct})${cuotasMsg}`);
                         }
                     } catch (error) { alert("Error procesando archivo: " + (error.message || error)); console.error(error); }
                 };
-                reader.readAsBinaryString(file);
+                reader.readAsArrayBuffer(file);
             };
 
             const handleRosterSubmit = async (e) => {
@@ -3678,37 +3660,11 @@
                                                     ? `Tienda: ${cuotasAltasVista.tiendaLabel}`
                                                     : `${cuotasAltasVista.tiendaLabel} · ${cuotasAltasVista.count} PDV`}
                                             </p>
-                                            <p className="text-[8px] font-bold text-blue-200 mt-2 uppercase">Seguimiento diario · {mesOperacionLabel} · {PLAN_EXCEL_PATH}</p>
-                                        </div>
-
-                                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl space-y-2">
-                                            <p className="text-[9px] font-black text-movistar-blue uppercase">¿De dónde salen los datos?</p>
-                                            <ul className="text-[8px] font-bold text-gray-600 space-y-1 list-disc pl-4 leading-relaxed">
-                                                <li><span className="text-movistar-dark">Cuota</span> → pestaña <b>Cuota</b> de <b>{PLAN_EXCEL_PATH}</b> (columnas <i>N porta / N temm / N gral</i> por día)</li>
-                                                <li><span className="text-movistar-dark">Altas</span> → pestaña <b>Altas</b> del mismo Excel (3 bloques: PORTA, TEMM, PREPAGO)</li>
-                                                <li><span className="text-movistar-dark">FieldWy</span> → pestaña <b>FieldWy</b> (cuenta ventas por <i>Fecha registro</i> + <i>Producto</i> + <i>ID PDV</i>)</li>
-                                                <li>Se guardan en Firebase <b>cuotas_altas_diario</b> · mes <b>{PLAN_OPERACION_MES}</b> · {cuotasAltasRecords.length} tiendas cargadas</li>
-                                                <li>Los <b>filtros de tienda</b> de arriba también aplican aquí (supervisor, cadena, estatus)</li>
-                                            </ul>
-                                            <p className="text-[8px] font-black text-movistar-dark uppercase pt-1 border-t border-blue-100">Cómo actualizar</p>
-                                            <ol className="text-[8px] font-bold text-gray-600 space-y-1 list-decimal pl-4 leading-relaxed">
-                                                <li>Edita o reemplaza <b>{PLAN_EXCEL_PATH}</b> en el servidor (junto a index.html)</li>
-                                                <li>Pulsa <b>Sincronizar desde Excel</b> o recarga la app (auto-sync al entrar)</li>
-                                                <li>Verifica en consola del navegador el mensaje <i>Cuotas/Altas sync</i></li>
-                                            </ol>
-                                            {userRole === "ADMIN" && (
-                                                <button
-                                                    type="button"
-                                                    onClick={resyncCuotasAltasFromPlan}
-                                                    disabled={isSyncingCuotas}
-                                                    className="w-full mt-2 bg-movistar-blue text-white text-[9px] font-black py-3 rounded-xl uppercase disabled:opacity-50"
-                                                >
-                                                    {isSyncingCuotas ? 'Sincronizando…' : '↻ Sincronizar desde Excel'}
-                                                </button>
-                                            )}
-                                            {cuotasSyncNotice && (
-                                                <p className={`text-[8px] font-bold pt-1 ${cuotasSyncNotice.startsWith('Error') ? 'text-red-600' : 'text-movistar-green'}`}>{cuotasSyncNotice}</p>
-                                            )}
+                                            <p className="text-[8px] font-bold text-blue-200 mt-2 uppercase">
+                                                Seguimiento diario · {mesOperacionLabel} · mismo Excel de CARGAR DIARIO
+                                                {actualizadoAl !== 'Desconocido' && <> · actualizado {actualizadoAl}</>}
+                                                {cuotasAltasRecords.length > 0 && <> · {cuotasAltasRecords.length} tiendas</>}
+                                            </p>
                                         </div>
 
                                         <div className="flex bg-gray-200 p-1 rounded-2xl">
@@ -3718,7 +3674,7 @@
 
                                         {cuotasAltasVista.count === 0 ? (
                                             <div className="text-center p-8 bg-white rounded-[1.5rem] border text-gray-400 font-bold text-xs uppercase">
-                                                Cargando datos desde {PLAN_EXCEL_PATH}… Si persiste, verifica que el archivo esté en el servidor.
+                                                Sin datos de cuotas/altas. Admin: sube el Excel con <b>CARGAR DIARIO</b> en Tiendas (pestañas Seg Diario, Cuota, Altas y FieldWy).
                                             </div>
                                         ) : cuotasAltasSubView === 'semana_fw' ? (
                                             <div className="space-y-3">
