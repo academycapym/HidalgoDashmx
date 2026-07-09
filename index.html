@@ -759,7 +759,16 @@
             return tiendas;
         };
 
-        const PLAN_EXCEL_PATH = 'Plan Junio 2026.xlsx';
+        const PLAN_EXCEL_PATH = 'Plan Julio 2026.xlsx';
+        const PLAN_OPERACION_MES = '2026-07';
+        const STORE_FILTERS_STORAGE_KEY = 'hidalgo_store_filters_v1';
+
+        const loadStoreFilters = () => {
+            try {
+                const raw = localStorage.getItem(STORE_FILTERS_STORAGE_KEY);
+                return raw ? JSON.parse(raw) : {};
+            } catch { return {}; }
+        };
 
         const isValidIdPdv = (val) => {
             if (val === null || val === undefined || val === '') return false;
@@ -1060,12 +1069,16 @@
             const [activeVentaIdx, setActiveVentaIdx] = useState(0);
             const [isSavingVentas, setIsSavingVentas] = useState(false);
 
-            // Search and filters
-            const [searchStore, setSearchStore] = useState("");
-            const [opProductFilter, setOpProductFilter] = useState("TOTAL");
+            const _savedStoreFilters = loadStoreFilters();
+
+            // Search and filters (shared Operación + Carpeta, persisted)
+            const [searchStore, setSearchStore] = useState(_savedStoreFilters.search || "");
+            const [supFilters, setSupFilters] = useState(Array.isArray(_savedStoreFilters.sups) ? _savedStoreFilters.sups : []);
+            const [cadFilters, setCadFilters] = useState(Array.isArray(_savedStoreFilters.cads) ? _savedStoreFilters.cads : []);
+            const [estatusFilters, setEstatusFilters] = useState(Array.isArray(_savedStoreFilters.estatus) ? _savedStoreFilters.estatus : []);
+            const [openFilterPanel, setOpenFilterPanel] = useState(null);
+            const [opProductFilter, setOpProductFilter] = useState(_savedStoreFilters.product || "TOTAL");
             const [searchEquipo, setSearchEquipo] = useState("");
-            const [searchStoreCarpeta, setSearchStoreCarpeta] = useState("");
-            const [supFilterCarpeta, setSupFilterCarpeta] = useState("TODOS");
             const [rosterTab, setRosterTab] = useState("ACTIVOS");
             const [selectedProfileModal, setSelectedProfileModal] = useState(null);
             const [showMissingCourses, setShowMissingCourses] = useState(false);
@@ -1075,13 +1088,11 @@
             const [expandedInvStores, setExpandedInvStores] = useState({});
             const [expandedStoreRosters, setExpandedStoreRosters] = useState({});
 
-            const [supFilter, setSupFilter] = useState("TODOS");
-            const [cadFilter, setCadFilter] = useState("TODAS");
-            const [estatusOpFilter, setEstatusOpFilter] = useState("TODOS");
+
+            const [supFilterRoster, setSupFilterRoster] = useState("TODOS");
             const [invMarcaFiltro, setInvMarcaFiltro] = useState("TODAS");
             const [invModeloFiltro, setInvModeloFiltro] = useState("TODOS");
-            const [invStatusFiltro, setInvStatusFiltro] = useState("TODOS"); 
-            const [supFilterRoster, setSupFilterRoster] = useState("TODOS");
+            const [invStatusFiltro, setInvStatusFiltro] = useState("TODOS");
             const [rostFilterInfo, setRostFilterInfo] = useState("TODOS");
             const [rostFilterCourse, setRostFilterCourse] = useState("TODOS");
 
@@ -1163,10 +1174,115 @@
             const allSupervisorsList = useMemo(() => {
                 return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.sup))].filter(Boolean).sort();
             }, [dataTEMM]);
-            
+
             const estatusUnicos = useMemo(() => {
                 return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.estatus || "SIN ESTATUS"))].filter(Boolean).sort();
             }, [dataTEMM]);
+
+            const allCadenasList = useMemo(() => {
+                return [...new Set((Array.isArray(dataTEMM) ? dataTEMM : []).map(d => d?.cad).filter(Boolean))].sort();
+            }, [dataTEMM]);
+
+            useEffect(() => {
+                try {
+                    localStorage.setItem(STORE_FILTERS_STORAGE_KEY, JSON.stringify({
+                        search: searchStore,
+                        sups: supFilters,
+                        cads: cadFilters,
+                        estatus: estatusFilters,
+                        product: opProductFilter
+                    }));
+                } catch (_) { /* ignore quota */ }
+            }, [searchStore, supFilters, cadFilters, estatusFilters, opProductFilter]);
+
+            const toggleFilterValue = (setter, value) => {
+                setter(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+            };
+
+            const clearStoreFilters = () => {
+                setSearchStore('');
+                setSupFilters([]);
+                setCadFilters([]);
+                setEstatusFilters([]);
+                setOpenFilterPanel(null);
+            };
+
+            const renderStoreFiltersBar = (opts = {}) => {
+                const { showProduct = false } = opts;
+                const multiSummary = (arr, allLabel) => arr.length === 0 ? allLabel : `${arr.length} seleccionado(s)`;
+                const renderMultiPanel = (panelKey, label, options, selected, setSelected) => {
+                    const isOpen = openFilterPanel === panelKey;
+                    return (
+                        <div className="flex-1 min-w-[130px] relative">
+                            <button
+                                type="button"
+                                onClick={() => setOpenFilterPanel(isOpen ? null : panelKey)}
+                                className={`w-full text-left text-[9px] font-black p-3 rounded-xl outline-none border transition-colors ${selected.length ? 'bg-blue-50 border-movistar-blue text-movistar-blue' : 'bg-gray-50 border-gray-200 text-movistar-dark'}`}
+                            >
+                                {label}: {multiSummary(selected, 'Todos')}
+                            </button>
+                            {isOpen && (
+                                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-xl shadow-xl max-h-52 overflow-y-auto p-2">
+                                    <button type="button" onClick={() => setSelected([])} className="text-[8px] font-black text-movistar-blue mb-2 uppercase">Limpiar {label}</button>
+                                    {options.map(opt => (
+                                        <label key={opt} className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                className="mt-0.5"
+                                                checked={selected.includes(opt)}
+                                                onChange={() => toggleFilterValue(setSelected, opt)}
+                                            />
+                                            <span className="text-[8px] font-bold text-movistar-dark leading-tight">{opt}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                };
+                const hasActiveFilters = !!(searchStore || supFilters.length || cadFilters.length || estatusFilters.length);
+                return (
+                    <div className="bg-white p-4 rounded-[1.5rem] border shadow-sm space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-[8px] font-black text-gray-400 uppercase">
+                                Filtros de tienda · {storeScopeFiltered.length} PDV
+                            </p>
+                            {hasActiveFilters && (
+                                <button type="button" onClick={clearStoreFilters} className="text-[7px] font-black text-movistar-blue uppercase whitespace-nowrap">Limpiar todo</button>
+                            )}
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="🔍 BUSCAR TIENDA POR ID O NOMBRE..."
+                            value={searchStore}
+                            onChange={e => setSearchStore(e.target.value)}
+                            className="w-full bg-gray-50 p-3 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase"
+                        />
+                        {userRole === "ADMIN" && (
+                            <div className="flex flex-wrap gap-2">
+                                {renderMultiPanel('sup', 'Supervisores', allSupervisorsList, supFilters, setSupFilters)}
+                                {renderMultiPanel('cad', 'Cadenas', allCadenasList, cadFilters, setCadFilters)}
+                                {renderMultiPanel('estatus', 'Estatus', estatusUnicos, estatusFilters, setEstatusFilters)}
+                            </div>
+                        )}
+                        {showProduct && (
+                            <select className="w-full text-[10px] font-black bg-blue-50 text-movistar-blue border border-blue-100 p-3 rounded-xl outline-none" value={opProductFilter} onChange={e => setOpProductFilter(e.target.value)}>
+                                <option value="TOTAL">📈 PRODUCTO: TOTAL</option>
+                                <option value="TEMM">📱 PRODUCTO: EQUIPOS TEMM</option>
+                                <option value="PORTA">🔄 PRODUCTO: PORTABILIDAD</option>
+                                <option value="VOZ">📞 PRODUCTO: VOZ PREPAGO</option>
+                            </select>
+                        )}
+                        {(supFilters.length > 0 || cadFilters.length > 0 || estatusFilters.length > 0) && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                                {supFilters.map(s => <span key={`s-${s}`} className="text-[7px] font-black bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">{s.split(' ').slice(0, 2).join(' ')}</span>)}
+                                {cadFilters.map(c => <span key={`c-${c}`} className="text-[7px] font-black bg-blue-50 text-movistar-blue px-2 py-0.5 rounded-full">{c}</span>)}
+                                {estatusFilters.map(e => <span key={`e-${e}`} className="text-[7px] font-black bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">{e}</span>)}
+                            </div>
+                        )}
+                    </div>
+                );
+            };
 
             const esLiderOSupervisor = useMemo(
                 () => userRole === "ADMIN" || userRole === "SUPERVISOR",
@@ -1178,22 +1294,34 @@
                 return bannersCarrusel.slice(0, MAX_BANNERS_CARRUSEL);
             }, [bannersCarrusel]);
 
-            const carpetaStoresFiltered = useMemo(() => {
+            const opCatalogBase = useMemo(() => {
                 if (!Array.isArray(dataTEMM)) return [];
-                let f = dataTEMM;
                 if (userRole === "PROMOTOR") {
-                    const cl = userId.trim().replace(/^0+/, '');
-                    f = f.filter(d => String(d.id || '').replace(/^0+/, '') === cl);
-                } else if (userRole === "SUPERVISOR") {
-                    f = f.filter(d => supervisorMatchesStore(d, userId));
-                } else if (userRole === "ADMIN") {
-                    if (supFilterCarpeta !== "TODOS") f = f.filter(d => (d.sup || "") === supFilterCarpeta);
+                    const cl = cleanStoreId(userId);
+                    return dataTEMM.filter(d => cleanStoreId(d.id) === cl);
                 }
-                if (searchStoreCarpeta) {
-                    f = f.filter(d => d.id.includes(searchStoreCarpeta) || (d.tienda || "").toUpperCase().includes(searchStoreCarpeta.toUpperCase()));
+                if (userRole === "SUPERVISOR") {
+                    return dataTEMM.filter(d => supervisorMatchesStore(d, userId));
+                }
+                return dataTEMM;
+            }, [dataTEMM, userRole, userId]);
+
+            const storeScopeFiltered = useMemo(() => {
+                let f = opCatalogBase;
+                if (userRole === "ADMIN") {
+                    if (supFilters.length) f = f.filter(d => supFilters.includes(d?.sup || ""));
+                    if (cadFilters.length) f = f.filter(d => cadFilters.includes(d?.cad || ""));
+                    if (estatusFilters.length) f = f.filter(d => estatusFilters.includes(d?.estatus || "SIN ESTATUS"));
+                }
+                if (searchStore) {
+                    const q = searchStore.toUpperCase();
+                    f = f.filter(d => String(d.id || '').includes(searchStore) || (d.tienda || "").toUpperCase().includes(q));
                 }
                 return f;
-            }, [dataTEMM, userRole, userId, supFilterCarpeta, searchStoreCarpeta]);
+            }, [opCatalogBase, userRole, supFilters, cadFilters, estatusFilters, searchStore]);
+
+            const filteredData = useMemo(() => storeScopeFiltered, [storeScopeFiltered]);
+            const carpetaStoresFiltered = useMemo(() => storeScopeFiltered, [storeScopeFiltered]);
 
             const getStoreName = (id) => {
                 if (!id || id === '0') return "SIN ASIGNAR";
@@ -1270,14 +1398,12 @@
                         dataTEMM.find(d => cleanStoreId(d.id) === cleanStoreId(r.idpdv)) || r,
                         userId
                     ));
-                } else if (userRole === "ADMIN" && supFilter !== "TODOS") {
-                    records = records.filter(r => {
-                        const temm = dataTEMM.find(d => String(d.id).replace(/^0+/, '') === String(r.idpdv).replace(/^0+/, ''));
-                        return (r.sup || "") === supFilter || (temm?.sup || "") === supFilter;
-                    });
+                } else if (userRole === "ADMIN") {
+                    const allowedIds = new Set(storeScopeFiltered.map(d => cleanIdPdv(d.id)));
+                    records = records.filter(r => allowedIds.has(cleanIdPdv(r.idpdv)));
                 }
                 return records;
-            }, [cuotasAltasRecords, userRole, userId, supFilter, dataTEMM]);
+            }, [cuotasAltasRecords, userRole, userId, storeScopeFiltered, dataTEMM]);
 
             const cuotasAltasVista = useMemo(() => {
                 if (userRole === "PROMOTOR") {
@@ -1293,8 +1419,8 @@
                 };
             }, [cuotasAltasScopeStores, userRole, userId]);
 
-            const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(getCurrentMonthStr()), []);
-            const mesOperacionLabel = formatMesLabel(getCurrentMonthStr());
+            const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(PLAN_OPERACION_MES), []);
+            const mesOperacionLabel = formatMesLabel(PLAN_OPERACION_MES);
 
             const cuotasResumenSemanal = useMemo(() =>
                 aggregateSemanasCuotas(cuotasAltasVista.dias, cuotasMonthWeeks),
@@ -1575,7 +1701,7 @@
                         setRegistrosVentas(s.docs.map(d => ({ ...d.data(), id: d.id })));
                     }));
 
-                    unsubs.push(getDbPath("cuotas_altas_diario").where("mes", "==", getCurrentMonthStr()).onSnapshot(s => {
+                    unsubs.push(getDbPath("cuotas_altas_diario").where("mes", "==", PLAN_OPERACION_MES).onSnapshot(s => {
                         setCuotasAltasRecords(s.docs.map(d => ({ ...d.data(), id: d.id })));
                     }));
 
@@ -1664,7 +1790,7 @@
             const autoSyncCuotasAltasFromPlan = async () => {
                 if (!db || cuotasAutoSyncRef.current) return;
                 cuotasAutoSyncRef.current = true;
-                const mesStr = getCurrentMonthStr();
+                const mesStr = PLAN_OPERACION_MES;
                 try {
                     const res = await fetch(PLAN_EXCEL_PATH, { cache: 'no-store' });
                     if (!res.ok) throw new Error(`No se encontró ${PLAN_EXCEL_PATH} en el servidor.`);
@@ -2020,17 +2146,8 @@
             const renderCarpetaAuditoria = (downloadHandler) => (
                 <div className="bg-white p-5 rounded-[1.5rem] shadow-sm border flex flex-col gap-3">
                     <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center border-b pb-2">Herramientas de Auditoría</h3>
-                    <div className="flex gap-2 flex-col sm:flex-row">
-                        <input type="text" placeholder="🔍 BUSCAR TIENDA O ID..." value={searchStoreCarpeta} onChange={e => setSearchStoreCarpeta(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border focus:border-movistar-blue uppercase"/>
-                        {userRole === "ADMIN" && (
-                            <select className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border focus:border-movistar-blue uppercase" value={supFilterCarpeta} onChange={e => setSupFilterCarpeta(e.target.value)}>
-                                <option value="TODOS">SUPERVISOR (TODOS)</option>
-                                {allSupervisorsList.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        )}
-                    </div>
                     <select className="w-full bg-blue-50 text-movistar-blue p-4 rounded-xl font-black text-[10px] outline-none border border-blue-200 uppercase" value={viewStoreId} onChange={e => setViewStoreId(e.target.value)}>
-                        <option value="">-- SELECCIONA TIENDA --</option>
+                        <option value="">-- SELECCIONA TIENDA ({carpetaStoresFiltered.length}) --</option>
                         {carpetaStoresFiltered.map(d => (
                             <option key={d.id} value={d.id}>{d.id} - {d.tienda}</option>
                         ))}
@@ -2727,29 +2844,6 @@
                 return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
             };
 
-            const opCatalogBase = useMemo(() => {
-                if (!Array.isArray(dataTEMM)) return [];
-                if (userRole === "PROMOTOR") {
-                    const cl = cleanStoreId(userId);
-                    return dataTEMM.filter(d => cleanStoreId(d.id) === cl);
-                }
-                if (userRole === "SUPERVISOR") {
-                    return dataTEMM.filter(d => supervisorMatchesStore(d, userId));
-                }
-                return dataTEMM;
-            }, [dataTEMM, userRole, userId]);
-
-            const filteredData = useMemo(() => {
-                let f = opCatalogBase;
-                if (userRole === "ADMIN") {
-                    if (supFilter !== "TODOS") f = f.filter(d => (d?.sup || "") === supFilter);
-                    if (cadFilter !== "TODAS") f = f.filter(d => (d?.cad || "") === cadFilter);
-                    if (estatusOpFilter !== "TODOS") f = f.filter(d => (d?.estatus || "SIN ESTATUS") === estatusOpFilter);
-                }
-                if (searchStore) f = f.filter(d => d.id.includes(searchStore) || (d.tienda || "").toUpperCase().includes(searchStore.toUpperCase()));
-                return f;
-            }, [opCatalogBase, userRole, supFilter, cadFilter, estatusOpFilter, searchStore]);
-
             const summary = useMemo(() => {
                 let a=0, c=0, s=0;
                 if (Array.isArray(filteredData)) {
@@ -3055,6 +3149,8 @@
                     <div className="p-4 flex-grow overflow-y-auto pb-10">
                         {activeTab === 'CARPETA' && (
                             <div className="space-y-4 animate-pop">
+                                {(userRole === "ADMIN" || userRole === "SUPERVISOR" || userRole === "PROMOTOR") && renderStoreFiltersBar()}
+
                                 <div className="flex bg-gray-200 p-1 rounded-2xl flex-wrap justify-center items-center">
                                     <button onClick={()=>setSubTabCarpeta("BOLETA")} className={`subtab-btn ${subTabCarpeta==="BOLETA"?'subtab-active':'subtab-inactive'}`}>BOLETA SEMANAL</button>
                                     <button onClick={()=>setSubTabCarpeta("ESTACIONALIDAD")} className={`subtab-btn ${subTabCarpeta==="ESTACIONALIDAD"?'subtab-active':'subtab-inactive'}`}>ESTACIONALIDAD</button>
@@ -3551,6 +3647,8 @@
                                     </div>
                                 </div>
 
+                                {renderStoreFiltersBar({ showProduct: true })}
+
                                 <div className="flex bg-gray-200 p-1 rounded-2xl mb-4 flex-wrap">
                                     <button onClick={()=>setSubTabOp("GENERAL")} className={`subtab-btn ${subTabOp==="GENERAL"?'subtab-active':'subtab-inactive'}`}>TIENDAS</button>
                                     <button onClick={()=>setSubTabOp("CUOTAS_ALTAS")} className={`subtab-btn ${subTabOp==="CUOTAS_ALTAS"?'subtab-active':'subtab-inactive'}`}>CUOTAS Y ALTAS</button>
@@ -3566,20 +3664,13 @@
                                                     ? `Tienda: ${cuotasAltasVista.tiendaLabel}`
                                                     : `${cuotasAltasVista.tiendaLabel} · ${cuotasAltasVista.count} PDV`}
                                             </p>
-                                            <p className="text-[8px] font-bold text-blue-200 mt-2 uppercase">Seguimiento diario · {mesOperacionLabel}</p>
+                                            <p className="text-[8px] font-bold text-blue-200 mt-2 uppercase">Seguimiento diario · {mesOperacionLabel} · {PLAN_EXCEL_PATH}</p>
                                         </div>
 
                                         <div className="flex bg-gray-200 p-1 rounded-2xl">
                                             <button type="button" onClick={() => setCuotasAltasSubView('detalle')} className={`subtab-btn flex-1 ${cuotasAltasSubView === 'detalle' ? 'subtab-active' : 'subtab-inactive'}`}>DETALLE DIARIO</button>
                                             <button type="button" onClick={() => setCuotasAltasSubView('semana_fw')} className={`subtab-btn flex-1 ${cuotasAltasSubView === 'semana_fw' ? 'subtab-active' : 'subtab-inactive'}`}>SEMANA ALTAS vs FIELDWY</button>
                                         </div>
-
-                                        {userRole === "ADMIN" && (
-                                            <select className="w-full text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none border" value={supFilter} onChange={e => setSupFilter(e.target.value)}>
-                                                <option value="TODOS">Todos los supervisores</option>
-                                                {[...new Set(cuotasAltasRecords.map(r => r.sup).filter(Boolean))].sort().map(s => <option key={s} value={s}>{s}</option>)}
-                                            </select>
-                                        )}
 
                                         {cuotasAltasVista.count === 0 ? (
                                             <div className="text-center p-8 bg-white rounded-[1.5rem] border text-gray-400 font-bold text-xs uppercase">
@@ -3743,17 +3834,7 @@
                                     <>
                                         <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl mb-4">
                                             <h2 className="font-black text-lg italic uppercase">Visión Global</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Monitorea el avance de cuotas, usa el filtro de producto y busca tu tienda asignada.</p>
-                                        </div>
-
-                                        <div className="bg-white p-4 rounded-[1.5rem] border shadow-sm mb-4 flex flex-col gap-2">
-                                            <input type="text" placeholder="🔍 BUSCAR TIENDA POR ID O NOMBRE..." value={searchStore} onChange={e => setSearchStore(e.target.value)} className="w-full bg-gray-50 p-4 rounded-xl font-black text-[10px] outline-none border focus:border-movistar-blue uppercase"/>
-                                            <select className="w-full text-[10px] font-black bg-blue-50 text-movistar-blue border border-blue-100 p-3 rounded-xl outline-none" value={opProductFilter} onChange={e => setOpProductFilter(e.target.value)}>
-                                                <option value="TOTAL">📈 PRODUCTO: TOTAL</option>
-                                                <option value="TEMM">📱 PRODUCTO: EQUIPOS TEMM</option>
-                                                <option value="PORTA">🔄 PRODUCTO: PORTABILIDAD</option>
-                                                <option value="VOZ">📞 PRODUCTO: VOZ PREPAGO</option>
-                                            </select>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Monitorea el avance de cuotas con los filtros activos arriba.</p>
                                         </div>
 
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
@@ -3786,20 +3867,6 @@
 
                                         {userRole === "ADMIN" && (
                                             <div className="bg-white p-5 rounded-[2rem] border shadow-sm space-y-3 mb-4">
-                                                <div className="flex gap-2">
-                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={supFilter} onChange={e => setSupFilter(e.target.value)}>
-                                                        <option value="TODOS">Supervisores</option>
-                                                        {[...new Set((Array.isArray(dataTEMM)?dataTEMM:[]).map(d => d?.sup))].filter(Boolean).sort().map(s => <option key={s} value={s}>{s}</option>)}
-                                                    </select>
-                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={cadFilter} onChange={e => setCadFilter(e.target.value)}>
-                                                        <option value="TODAS">Cadenas</option>
-                                                        <option value="COPPEL">Coppel</option><option value="ELEKTRA">Elektra</option><option value="SUBURBIA">Suburbia</option>
-                                                    </select>
-                                                    <select className="flex-1 text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none" value={estatusOpFilter} onChange={e => setEstatusOpFilter(e.target.value)}>
-                                                        <option value="TODOS">Estatus</option>
-                                                        {estatusUnicos.map(e => <option key={e} value={e}>{e}</option>)}
-                                                    </select>
-                                                </div>
                                                 <div className="flex gap-2 pt-1">
                                                     <label className="flex-1 bg-movistar-blue text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer active:scale-95 transition-transform">
                                                         CARGAR DIARIO<input type="file" className="hidden" accept=".xlsx" onChange={(e) => uploadFile("temm", e)}/>
