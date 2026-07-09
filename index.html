@@ -1200,6 +1200,23 @@
             return base;
         };
 
+        const getMonthDateBounds = (yyyyMM) => {
+            const [y, m] = yyyyMM.split('-').map(Number);
+            const lastDay = new Date(y, m, 0).getDate();
+            return {
+                min: `${yyyyMM}-01`,
+                max: `${yyyyMM}-${String(lastDay).padStart(2, '0')}`
+            };
+        };
+
+        const isVentaFechaInRange = (fecha, desde, hasta) => {
+            const f = String(fecha || '').trim().slice(0, 10);
+            if (!f) return false;
+            if (desde && f < desde) return false;
+            if (hasta && f > hasta) return false;
+            return true;
+        };
+
         const DEFAULT_CARRUSEL_BANNER = {
             id: 'default',
             titulo: 'Meta del mes: rompe tu récord TEMM',
@@ -1372,6 +1389,8 @@
             const [assignPromotorNombre, setAssignPromotorNombre] = useState("");
             const [selectedMedalDetail, setSelectedMedalDetail] = useState(null);
             const [resumenFecha, setResumenFecha] = useState(() => new Date().toISOString().slice(0, 10));
+            const [ventasExportDesde, setVentasExportDesde] = useState('');
+            const [ventasExportHasta, setVentasExportHasta] = useState('');
             const temmPieRef = useRef(null);
             const temmChartInstance = useRef(null);
             const swiperBannerRef = useRef(null);
@@ -2056,8 +2075,17 @@
             }, [view]);
 
             const mesSelectorOptions = useMemo(() => getMesSelectorOptions(24), []);
+            const ventasExportBounds = useMemo(() => getMonthDateBounds(carpetaMesSeleccionado), [carpetaMesSeleccionado]);
             const esMesCarpetaActual = carpetaMesSeleccionado === getCurrentMonthStr();
             const puedeEditarCarpeta = esMesCarpetaActual || userRole === "ADMIN";
+
+            useEffect(() => {
+                const { min, max } = getMonthDateBounds(carpetaMesSeleccionado);
+                const today = new Date().toISOString().slice(0, 10);
+                const hastaDefault = carpetaMesSeleccionado === getCurrentMonthStr() && today >= min && today <= max ? today : max;
+                setVentasExportDesde(min);
+                setVentasExportHasta(hastaDefault);
+            }, [carpetaMesSeleccionado]);
 
             useEffect(() => {
                 if (!viewStoreId) return;
@@ -2400,6 +2428,8 @@
             };
 
             const downloadVentasExcel = () => {
+                if (!ventasExportDesde || !ventasExportHasta) return alert("Selecciona la fecha inicial y la fecha final.");
+                if (ventasExportDesde > ventasExportHasta) return alert("La fecha inicial debe ser anterior o igual a la fecha final.");
                 const allowedStoreIds = carpetaStoresFiltered.map(d => String(d.id).replace(/^0+/, ''));
                 let docs = registrosVentas.filter(r => allowedStoreIds.includes(String(r.idpdv).replace(/^0+/, '')));
                 if (viewStoreId) {
@@ -2411,6 +2441,7 @@
                     const tienda = getStoreName(doc.idpdv);
                     (doc.ventas || []).forEach((v, idx) => {
                         if (!isVentaRowFilled(v)) return;
+                        if (!isVentaFechaInRange(v.fecha, ventasExportDesde, ventasExportHasta)) return;
                         rows.push({
                             "IDPDV": doc.idpdv,
                             "Tienda": tienda,
@@ -2427,10 +2458,12 @@
                         });
                     });
                 });
-                if (rows.length === 0) return alert("No hay ventas registradas para exportar con los filtros actuales.");
+                if (rows.length === 0) {
+                    return alert(`No hay ventas entre ${ventasExportDesde} y ${ventasExportHasta} con los filtros actuales.`);
+                }
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Registro Ventas");
-                XLSX.writeFile(wb, `Registro_Ventas_${carpetaMesSeleccionado}.xlsx`);
+                XLSX.writeFile(wb, `Registro_Ventas_${ventasExportDesde}_a_${ventasExportHasta}.xlsx`);
             };
 
             const downloadResumenVentasExcel = () => {
@@ -2463,6 +2496,56 @@
                         ))}
                     </select>
                     <button onClick={downloadHandler} className="w-full bg-movistar-green text-white p-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform">📥 DESCARGAR EXCEL FILTRADO</button>
+                </div>
+            );
+
+            const renderVentasExportPanel = () => (
+                <div className="bg-white p-5 rounded-[1.5rem] shadow-sm border flex flex-col gap-3">
+                    <h3 className="font-black text-[10px] text-movistar-dark uppercase text-center border-b pb-2">Descargar Registro de Ventas</h3>
+                    <select
+                        className="w-full bg-blue-50 text-movistar-blue p-4 rounded-xl font-black text-[10px] outline-none border border-blue-200 uppercase"
+                        value={viewStoreId}
+                        onChange={e => setViewStoreId(e.target.value)}
+                    >
+                        <option value="">-- TODAS LAS TIENDAS ({carpetaStoresFiltered.length}) --</option>
+                        {carpetaStoresFiltered.map(d => (
+                            <option key={d.id} value={d.id}>{d.id} - {d.tienda}</option>
+                        ))}
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label className="text-[8px] font-black text-gray-400 uppercase">Desde</label>
+                            <input
+                                type="date"
+                                value={ventasExportDesde}
+                                min={ventasExportBounds.min}
+                                max={ventasExportHasta || ventasExportBounds.max}
+                                onChange={e => setVentasExportDesde(e.target.value)}
+                                className="w-full mt-1 bg-gray-50 p-3 rounded-xl font-bold text-xs outline-none border focus:border-movistar-blue"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[8px] font-black text-gray-400 uppercase">Hasta</label>
+                            <input
+                                type="date"
+                                value={ventasExportHasta}
+                                min={ventasExportDesde || ventasExportBounds.min}
+                                max={ventasExportBounds.max}
+                                onChange={e => setVentasExportHasta(e.target.value)}
+                                className="w-full mt-1 bg-gray-50 p-3 rounded-xl font-bold text-xs outline-none border focus:border-movistar-blue"
+                            />
+                        </div>
+                    </div>
+                    <p className="text-[8px] font-bold text-gray-400 uppercase text-center">
+                        Mes {formatMesLabel(carpetaMesSeleccionado)} · {ventasExportDesde || '—'} al {ventasExportHasta || '—'}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={downloadVentasExcel}
+                        className="w-full bg-movistar-green text-white p-4 rounded-xl font-black text-[10px] active:scale-95 shadow-md uppercase transition-transform"
+                    >
+                        📥 DESCARGAR EXCEL DEL RANGO
+                    </button>
                 </div>
             );
 
@@ -3529,7 +3612,7 @@
 
                                 {(userRole === "ADMIN" || userRole === "SUPERVISOR") && subTabCarpeta !== "VENTAS" && subTabCarpeta !== "RESUMEN_VENTAS" && renderCarpetaAuditoria(downloadCarpetasExcel)}
 
-                                {subTabCarpeta === "VENTAS" && renderCarpetaAuditoria(downloadVentasExcel)}
+                                {subTabCarpeta === "VENTAS" && renderVentasExportPanel()}
 
                                 {subTabCarpeta === "RESUMEN_VENTAS" && esLiderOSupervisor ? (
                                     <div className="space-y-4 animate-pop">
