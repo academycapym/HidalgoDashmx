@@ -457,12 +457,24 @@
         };
 
         const roundCuotaCell = (cell) => {
-            const cuota = Math.round(Number(cell?.cuota) || 0);
-            const altas = Math.round(Number(cell?.altas) || 0);
-            return { cuota, altas, gap: altas - cuota };
+            const cuota = Math.round((Number(cell?.cuota) || 0) * 100) / 100;
+            const altas = Math.round((Number(cell?.altas) || 0) * 100) / 100;
+            const fieldwy = Math.round((Number(cell?.fieldwy) || 0) * 100) / 100;
+            return {
+                cuota, altas, fieldwy,
+                gap: Math.round((altas - cuota) * 100) / 100,
+                gapFieldwy: Math.round((fieldwy - cuota) * 100) / 100,
+                diffAltasFw: Math.round((altas - fieldwy) * 100) / 100
+            };
         };
 
-        const formatCuotaInt = (n) => Math.round(Number(n) || 0);
+        const formatCuotaValue = (n) => {
+            const v = Number(n) || 0;
+            if (Math.abs(v) >= 100 || (Math.abs(v - Math.round(v)) < 0.005)) return String(Math.round(v));
+            return (Math.round(v * 100) / 100).toFixed(2).replace(/\.?0+$/, '');
+        };
+
+        const formatCuotaInt = (n) => formatCuotaValue(n);
 
         const cuotaAlcancePct = (altas, cuota) => {
             const c = Math.round(Number(cuota) || 0);
@@ -565,10 +577,26 @@
         };
 
         const emptyDiaProductos = () => ({
-            TEMM: { cuota: 0, altas: 0, gap: 0 },
-            PORTA: { cuota: 0, altas: 0, gap: 0 },
-            PREPAGO: { cuota: 0, altas: 0, gap: 0 }
+            TEMM: { cuota: 0, altas: 0, fieldwy: 0, gap: 0, gapFieldwy: 0, diffAltasFw: 0 },
+            PORTA: { cuota: 0, altas: 0, fieldwy: 0, gap: 0, gapFieldwy: 0, diffAltasFw: 0 },
+            PREPAGO: { cuota: 0, altas: 0, fieldwy: 0, gap: 0, gapFieldwy: 0, diffAltasFw: 0 }
         });
+
+        const finalizeDiaProductos = (prods) => {
+            const out = emptyDiaProductos();
+            PRODUCTOS_CUOTA.forEach(p => {
+                const c = Math.round((Number(prods[p]?.cuota) || 0) * 100) / 100;
+                const a = Math.round((Number(prods[p]?.altas) || 0) * 100) / 100;
+                const f = Math.round((Number(prods[p]?.fieldwy) || 0) * 100) / 100;
+                out[p] = {
+                    cuota: c, altas: a, fieldwy: f,
+                    gap: Math.round((a - c) * 100) / 100,
+                    gapFieldwy: Math.round((f - c) * 100) / 100,
+                    diffAltasFw: Math.round((a - f) * 100) / 100
+                };
+            });
+            return out;
+        };
 
         const aggregateDiasCuotas = (stores) => {
             const agg = {};
@@ -578,21 +606,13 @@
                     if (!agg[day]) agg[day] = emptyDiaProductos();
                     PRODUCTOS_CUOTA.forEach(p => {
                         const cell = prods[p] || {};
-                        const c = Math.round(Number(cell.cuota) || 0);
-                        const a = Math.round(Number(cell.altas) || 0);
-                        agg[day][p].cuota += c;
-                        agg[day][p].altas += a;
-                        agg[day][p].gap += a - c;
+                        agg[day][p].cuota += Number(cell.cuota) || 0;
+                        agg[day][p].altas += Number(cell.altas) || 0;
+                        agg[day][p].fieldwy += Number(cell.fieldwy) || 0;
                     });
                 });
             });
-            Object.keys(agg).forEach(day => {
-                PRODUCTOS_CUOTA.forEach(p => {
-                    agg[day][p].cuota = Math.round(agg[day][p].cuota);
-                    agg[day][p].altas = Math.round(agg[day][p].altas);
-                    agg[day][p].gap = Math.round(agg[day][p].gap);
-                });
-            });
+            Object.keys(agg).forEach(day => { agg[day] = finalizeDiaProductos(agg[day]); });
             return agg;
         };
 
@@ -602,18 +622,64 @@
                 (week.days || []).forEach(({ day }) => {
                     const prods = diasAgg[String(day)] || emptyDiaProductos();
                     PRODUCTOS_CUOTA.forEach(p => {
-                        totals[p].cuota += Math.round(Number(prods[p]?.cuota) || 0);
-                        totals[p].altas += Math.round(Number(prods[p]?.altas) || 0);
+                        totals[p].cuota += Number(prods[p]?.cuota) || 0;
+                        totals[p].altas += Number(prods[p]?.altas) || 0;
+                        totals[p].fieldwy += Number(prods[p]?.fieldwy) || 0;
                     });
                 });
-                PRODUCTOS_CUOTA.forEach(p => {
-                    totals[p].cuota = Math.round(totals[p].cuota);
-                    totals[p].altas = Math.round(totals[p].altas);
-                    totals[p].gap = totals[p].altas - totals[p].cuota;
-                    totals[p].alcance = cuotaAlcancePct(totals[p].altas, totals[p].cuota);
-                });
-                return { weekNum: week.weekNum, weekLabel: week.days.length ? `Semana ${week.weekNum} · Día ${week.days[0].day} al ${week.days[week.days.length - 1].day}` : `Semana ${week.weekNum}`, totals };
+                return {
+                    weekNum: week.weekNum,
+                    weekLabel: week.days.length ? `Semana ${week.weekNum} · Día ${week.days[0].day} al ${week.days[week.days.length - 1].day}` : `Semana ${week.weekNum}`,
+                    totals: finalizeDiaProductos(totals),
+                    days: (week.days || []).map(({ day, label, dow }) => ({
+                        day, label, dow,
+                        prods: diasAgg[String(day)] || emptyDiaProductos()
+                    }))
+                };
             });
+        };
+
+        const mapFieldWyProducto = (producto) => {
+            const p = String(producto || '').toUpperCase().trim();
+            if (!p) return null;
+            if (p.includes('PORTABIL') || p === 'PORTA' || p.includes('PORTA')) return 'PORTA';
+            if (p.includes('TEMM') || p.includes('EQUIPO')) return 'TEMM';
+            if (p.includes('PREP') || p.includes('VOZ') || p.includes('RECARGA') || p.includes('GRAL') || p.includes('TOTAL')) return 'PREPAGO';
+            return null;
+        };
+
+        const excelDateToDay = (val) => {
+            if (val === null || val === undefined || val === '') return null;
+            if (val instanceof Date && !isNaN(val)) return val.getDate();
+            if (typeof val === 'number' && val > 40000) {
+                const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+                return isNaN(d) ? null : d.getDate();
+            }
+            const s = String(val).trim();
+            const m = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (m) return parseInt(m[3], 10);
+            const d = new Date(s);
+            return isNaN(d) ? null : d.getDate();
+        };
+
+        const parseFieldWyFromWorkbook = (wb) => {
+            const sheetName = wb.SheetNames.find(n => /fieldwy|fieldway/i.test(n));
+            if (!sheetName) return {};
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
+            const map = {};
+            rows.forEach(row => {
+                const id = cleanIdPdv(row['ID PDV'] ?? row.IDPDV ?? row['IDPDV'] ?? row['Id Pdv'] ?? '');
+                if (!isValidIdPdv(id)) return;
+                const day = excelDateToDay(row['Fecha registro'] ?? row['Fecha Registro'] ?? row['Fecha']);
+                if (!day || day < 1 || day > 31) return;
+                const prod = mapFieldWyProducto(row.Producto ?? row.producto);
+                if (!prod) return;
+                const dk = String(day);
+                if (!map[id]) map[id] = {};
+                if (!map[id][dk]) map[id][dk] = { PORTA: 0, TEMM: 0, PREPAGO: 0 };
+                map[id][dk][prod] += 1;
+            });
+            return map;
         };
 
         const parseCuotaAltasFromWorkbook = (wb, mesStr) => {
@@ -621,6 +687,7 @@
             const wsAltas = wb.Sheets['Altas'];
             if (!wsCuota || !wsAltas) throw new Error("Faltan pestañas 'Cuota' o 'Altas' en el Excel.");
 
+            const fieldwyMap = parseFieldWyFromWorkbook(wb);
             const cuotaRows = XLSX.utils.sheet_to_json(wsCuota, { header: 1, defval: '' });
             const altasRows = XLSX.utils.sheet_to_json(wsAltas, { header: 1, defval: '' });
             const headerCuota = cuotaRows[5] || [];
@@ -645,7 +712,7 @@
                     const dias = {};
                     for (let d = 1; d <= 31; d++) {
                         const v = row[3 + d];
-                        dias[String(d)] = Number(v) || 0;
+                        dias[String(d)] = Math.round((Number(v) || 0) * 100) / 100;
                     }
                     map[id] = dias;
                 }
@@ -665,18 +732,20 @@
                 const dias = {};
                 for (let d = 1; d <= 31; d++) {
                     const dk = String(d);
-                    const altaPorta = Math.round(Number(portaAltas[idpv]?.[dk]) || 0);
-                    const altaTemm = Math.round(Number(temmAltas[idpv]?.[dk]) || 0);
-                    const altaPrep = Math.round(Number(prepagoAltas[idpv]?.[dk]) || 0);
-                    const cuotaPorta = Math.round(Number(row[colPorta[dk]]) || 0);
-                    const cuotaTemm = Math.round(Number(row[colTemm[dk]]) || 0);
-                    const cuotaPrep = Math.round(Number(row[colGral[dk]]) || 0);
-                    const altaTotal = altaPorta + altaTemm + altaPrep;
-                    dias[dk] = {
-                        PORTA: { cuota: cuotaPorta, altas: altaPorta, gap: altaPorta - cuotaPorta },
-                        TEMM: { cuota: cuotaTemm, altas: altaTemm, gap: altaTemm - cuotaTemm },
-                        PREPAGO: { cuota: cuotaPrep, altas: altaTotal, gap: altaTotal - cuotaPrep }
-                    };
+                    const altaPorta = Math.round((Number(portaAltas[idpv]?.[dk]) || 0) * 100) / 100;
+                    const altaTemm = Math.round((Number(temmAltas[idpv]?.[dk]) || 0) * 100) / 100;
+                    const altaPrep = Math.round((Number(prepagoAltas[idpv]?.[dk]) || 0) * 100) / 100;
+                    const cuotaPorta = Math.round((Number(row[colPorta[dk]]) || 0) * 100) / 100;
+                    const cuotaTemm = Math.round((Number(row[colTemm[dk]]) || 0) * 100) / 100;
+                    const cuotaPrep = Math.round((Number(row[colGral[dk]]) || 0) * 100) / 100;
+                    const fwPorta = Math.round((Number(fieldwyMap[idpv]?.[dk]?.PORTA) || 0) * 100) / 100;
+                    const fwTemm = Math.round((Number(fieldwyMap[idpv]?.[dk]?.TEMM) || 0) * 100) / 100;
+                    const fwPrep = Math.round((Number(fieldwyMap[idpv]?.[dk]?.PREPAGO) || 0) * 100) / 100;
+                    dias[dk] = finalizeDiaProductos({
+                        PORTA: { cuota: cuotaPorta, altas: altaPorta, fieldwy: fwPorta },
+                        TEMM: { cuota: cuotaTemm, altas: altaTemm, fieldwy: fwTemm },
+                        PREPAGO: { cuota: cuotaPrep, altas: altaPrep, fieldwy: fwPrep }
+                    });
                 }
                 tiendas.push({
                     idpdv: idpv,
@@ -723,29 +792,55 @@
                 .filter(row => isValidIdPdv(row.id));
         };
 
+        const normalizeInvHeader = (h) => String(h ?? '').trim().replace(/^\ufeff/, '').toUpperCase().replace(/\s+/g, '');
+
         const resolveStockColumn = (headers) => {
             const keys = Array.isArray(headers) ? headers.map(h => String(h ?? '').trim()) : Object.keys(headers || {}).map(k => String(k).trim());
-            const stockKeys = keys.filter(k => k.endsWith('_STOCK'));
+            const stockKeys = keys.filter(k => normalizeInvHeader(k).endsWith('_STOCK'));
             if (stockKeys.length) return stockKeys[stockKeys.length - 1];
-            return keys[25] || null;
+            const zKey = keys[25];
+            return zKey || null;
+        };
+
+        const findInventarioHeaderRow = (rows) => {
+            if (rows[0] && Object.keys(rows[0]).some(k => {
+                const nk = normalizeInvHeader(k);
+                return nk === 'IDPDV' || nk === 'ID PDV';
+            })) return -1;
+            for (let i = 0; i < Math.min(rows.length, 15); i++) {
+                const row = rows[i] || {};
+                const vals = Object.values(row).map(normalizeInvHeader);
+                if (vals.some(v => v === 'IDPDV' || v === 'ID PDV')) return i;
+            }
+            return 0;
         };
 
         const parseInventarioFromObjects = (rows) => {
             if (!Array.isArray(rows) || rows.length === 0) return [];
-            const headers = Object.keys(rows[0] || {});
-            const stockCol = resolveStockColumn(headers);
-            const col = (name, fallbackIdx) => {
-                const idx = headers.findIndex(h => String(h).trim().toUpperCase() === name);
+            const headerIdx = findInventarioHeaderRow(rows);
+            const usesObjectHeaders = headerIdx === -1;
+            const dataRows = usesObjectHeaders ? rows : rows.slice(headerIdx + 1);
+            const headerRow = usesObjectHeaders ? {} : (rows[headerIdx] || {});
+            const headers = usesObjectHeaders
+                ? Object.keys(rows[0] || {})
+                : Object.keys(headerRow);
+            const headerNames = usesObjectHeaders
+                ? headers
+                : headers.map(k => headerRow[k] ?? k);
+            const stockCol = resolveStockColumn(headerNames);
+            const col = (name, altName, fallbackIdx) => {
+                const targets = [name, altName].filter(Boolean).map(normalizeInvHeader);
+                const idx = headerNames.findIndex(h => targets.includes(normalizeInvHeader(h)));
                 if (idx >= 0) return headers[idx];
                 return headers[fallbackIdx] ?? null;
             };
-            const idKey = col('IDPDV', 3);
-            const modKey = col('DESCRIPCION', 12);
-            const statusKey = col('STATUS_SKU', 15);
-            const marKey = col('MARCA', 14);
+            const idKey = col('IDPDV', 'ID PDV', 3);
+            const modKey = col('DESCRIPCION', null, 12);
+            const statusKey = col('STATUS_SKU', null, 15);
+            const marKey = col('MARCA', null, 14);
             const stockKey = stockCol || headers[25];
 
-            return rows
+            return dataRows
                 .filter(row => isValidIdPdv(row[idKey]))
                 .map(row => ({
                     id: cleanIdPdv(row[idKey]),
@@ -754,6 +849,36 @@
                     status: String(row[statusKey] ?? '').trim().toUpperCase(),
                     q: parseInt(String(row[stockKey] ?? '').trim(), 10) || Number(row[stockKey]) || 0
                 }));
+        };
+
+        const parseInventarioFromSheetLetters = (ws) => {
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: '' });
+            if (!rows.length) return [];
+            let headerIdx = 0;
+            for (let i = 0; i < Math.min(rows.length, 15); i++) {
+                const h = normalizeInvHeader(rows[i]?.D);
+                if (h === 'IDPDV' || h === 'ID PDV') { headerIdx = i; break; }
+            }
+            const headerRow = rows[headerIdx] || {};
+            let stockCol = 'Z';
+            Object.keys(headerRow).forEach(k => {
+                if (String(headerRow[k] || '').trim().endsWith('_STOCK')) stockCol = k;
+            });
+            const list = [];
+            for (let i = headerIdx + 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row) continue;
+                const id = cleanIdPdv(row.D);
+                if (!isValidIdPdv(id)) continue;
+                list.push({
+                    id,
+                    mod: String(row.M ?? '').trim(),
+                    mar: String(row.O ?? '').trim(),
+                    status: String(row.P ?? '').trim().toUpperCase(),
+                    q: parseInt(String(row[stockCol] ?? '').trim(), 10) || Number(row[stockCol]) || 0
+                });
+            }
+            return list;
         };
 
         const loadInventarioFromServer = async () => {
@@ -773,8 +898,11 @@
 
         const parseInventarioWorkbook = (wb) => {
             const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('inventario')) || wb.SheetNames[0];
-            const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
-            return parseInventarioFromObjects(rows);
+            const ws = wb.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+            let list = parseInventarioFromObjects(rows);
+            if (!list.length) list = parseInventarioFromSheetLetters(ws);
+            return list;
         };
 
         const getEmptyCarpeta = (idpdv, mes) => ({
@@ -921,6 +1049,7 @@
             const [cuotasAltasRecords, setCuotasAltasRecords] = useState([]);
             const [carpetaMesSeleccionado, setCarpetaMesSeleccionado] = useState(getCurrentMonthStr());
             const [expandedCuotaWeeks, setExpandedCuotaWeeks] = useState({ 1: true });
+            const [cuotasAltasSubView, setCuotasAltasSubView] = useState('detalle');
             const cuotasAutoSyncRef = useRef(false);
             const invSyncAttemptedRef = useRef(false);
             const [isSyncingInventario, setIsSyncingInventario] = useState(false);
@@ -2142,8 +2271,10 @@
                 const saveInvList = async (list) => {
                     const normalized = normalizeInventarioList(list);
                     if (!normalized.length) return alert("No se encontraron filas válidas con IDPDV.");
+                    const stockTotal = normalized.reduce((a, c) => a + (c.q || 0), 0);
                     await saveInChunks("inv", normalized);
-                    alert(`¡Inventario sincronizado! (${normalized.length} registros guardados)`);
+                    invSyncAttemptedRef.current = true;
+                    alert(`¡Inventario sincronizado! ${normalized.length} registros · ${stockTotal} pzs`);
                 };
 
                 if (type === "inv" && file.name.toLowerCase().endsWith('.csv')) {
@@ -2159,6 +2290,22 @@
                         }
                     };
                     reader.readAsText(file);
+                    return;
+                }
+
+                if (type === "inv") {
+                    const reader = new FileReader();
+                    reader.onload = async (evt) => {
+                        try {
+                            const wb = XLSX.read(new Uint8Array(evt.target.result), { type: 'array', cellDates: true });
+                            const list = parseInventarioWorkbook(wb);
+                            await saveInvList(list);
+                        } catch (error) {
+                            alert("Error procesando inventario: " + (error.message || error));
+                            console.error(error);
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
                     return;
                 }
 
@@ -2178,10 +2325,6 @@
                             diaAct = parsed.diaAct;
                             await saveInChunks("temm", list, { actualizado_al: diaAct });
                             alert(`Sincronizado Múltiples Productos (${list.length} Tiendas | Fecha: ${diaAct})`);
-                        } else if (type === "inv") {
-                            const wb = XLSX.read(r, { type: 'binary', cellDates: true });
-                            list = parseInventarioWorkbook(wb);
-                            await saveInvList(list);
                         }
                     } catch (error) { alert("Error procesando archivo: " + (error.message || error)); console.error(error); }
                 };
@@ -3426,9 +3569,81 @@
                                             <p className="text-[8px] font-bold text-blue-200 mt-2 uppercase">Seguimiento diario · {mesOperacionLabel}</p>
                                         </div>
 
+                                        <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                            <button type="button" onClick={() => setCuotasAltasSubView('detalle')} className={`subtab-btn flex-1 ${cuotasAltasSubView === 'detalle' ? 'subtab-active' : 'subtab-inactive'}`}>DETALLE DIARIO</button>
+                                            <button type="button" onClick={() => setCuotasAltasSubView('semana_fw')} className={`subtab-btn flex-1 ${cuotasAltasSubView === 'semana_fw' ? 'subtab-active' : 'subtab-inactive'}`}>SEMANA ALTAS vs FIELDWY</button>
+                                        </div>
+
+                                        {userRole === "ADMIN" && (
+                                            <select className="w-full text-[9px] font-black bg-gray-50 p-3 rounded-xl outline-none border" value={supFilter} onChange={e => setSupFilter(e.target.value)}>
+                                                <option value="TODOS">Todos los supervisores</option>
+                                                {[...new Set(cuotasAltasRecords.map(r => r.sup).filter(Boolean))].sort().map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        )}
+
                                         {cuotasAltasVista.count === 0 ? (
                                             <div className="text-center p-8 bg-white rounded-[1.5rem] border text-gray-400 font-bold text-xs uppercase">
                                                 Cargando datos desde {PLAN_EXCEL_PATH}… Si persiste, verifica que el archivo esté en el servidor.
+                                            </div>
+                                        ) : cuotasAltasSubView === 'semana_fw' ? (
+                                            <div className="space-y-3">
+                                                {cuotasResumenSemanal.map(week => {
+                                                    const isOpen = expandedCuotaWeeks[week.weekNum] !== false;
+                                                    return (
+                                                        <div key={week.weekNum} className="bg-white rounded-[1.25rem] border shadow-sm overflow-hidden">
+                                                            <button type="button" onClick={() => setExpandedCuotaWeeks(prev => ({ ...prev, [week.weekNum]: !isOpen }))} className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
+                                                                <span className="text-[10px] font-black text-movistar-dark uppercase">{week.weekLabel}</span>
+                                                                <span className="text-movistar-blue font-black text-lg">{isOpen ? '−' : '+'}</span>
+                                                            </button>
+                                                            {isOpen && (
+                                                                <div className="p-3 space-y-3">
+                                                                    <div className="bg-gradient-to-r from-slate-800 to-movistar-dark p-3 rounded-xl text-white">
+                                                                        <p className="text-[8px] font-black uppercase mb-2 opacity-90">Resumen semanal · Altas (Excel) vs FieldWy</p>
+                                                                        {PRODUCTOS_CUOTA.map(prod => {
+                                                                            const cell = roundCuotaCell(week.totals[prod] || {});
+                                                                            const prodLabel = prod === 'PREPAGO' ? 'TOTAL / PREPAGO' : prod;
+                                                                            return (
+                                                                                <div key={prod} className="bg-white/10 rounded-lg p-2 mb-2 last:mb-0">
+                                                                                    <p className="text-[7px] font-black uppercase mb-1 opacity-80">{prodLabel}</p>
+                                                                                    <div className="grid grid-cols-3 gap-1 text-[7px] text-center">
+                                                                                        <div><p className="opacity-70">Cuota</p><p className="font-black">{formatCuotaValue(cell.cuota)}</p></div>
+                                                                                        <div><p className="opacity-70">Altas Excel</p><p className="font-black">{formatCuotaValue(cell.altas)}</p></div>
+                                                                                        <div><p className="opacity-70">FieldWy</p><p className="font-black">{formatCuotaValue(cell.fieldwy)}</p></div>
+                                                                                        <div><p className="opacity-70">GAP vs Cuota</p><p className={`font-black ${cell.gap >= 0 ? 'text-green-300' : 'text-red-300'}`}>{cell.gap >= 0 ? '+' : ''}{formatCuotaValue(cell.gap)}</p></div>
+                                                                                        <div><p className="opacity-70">GAP FieldWy</p><p className={`font-black ${cell.gapFieldwy >= 0 ? 'text-green-300' : 'text-red-300'}`}>{cell.gapFieldwy >= 0 ? '+' : ''}{formatCuotaValue(cell.gapFieldwy)}</p></div>
+                                                                                        <div><p className="opacity-70">Excel − FW</p><p className={`font-black ${cell.diffAltasFw === 0 ? 'text-gray-300' : cell.diffAltasFw > 0 ? 'text-amber-200' : 'text-red-300'}`}>{cell.diffAltasFw >= 0 ? '+' : ''}{formatCuotaValue(cell.diffAltasFw)}</p></div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                    {week.days.map(({ day, label, prods }) => (
+                                                                        <div key={day} className="border rounded-xl p-3 bg-slate-50/80">
+                                                                            <p className="text-[9px] font-black text-movistar-blue uppercase mb-2">{label} {day}</p>
+                                                                            <div className="space-y-2">
+                                                                                {PRODUCTOS_CUOTA.map(prod => {
+                                                                                    const cell = roundCuotaCell(prods[prod] || {});
+                                                                                    const prodLabel = prod === 'PREPAGO' ? 'TOTAL' : prod;
+                                                                                    return (
+                                                                                        <div key={prod} className="bg-white rounded-lg p-2 text-[7px] grid grid-cols-6 gap-1 text-center">
+                                                                                            <div className="font-black text-gray-500 uppercase col-span-6 text-left mb-1">{prodLabel}</div>
+                                                                                            <div><p className="text-gray-400">Cuota</p><p className="font-black">{formatCuotaValue(cell.cuota)}</p></div>
+                                                                                            <div><p className="text-gray-400">Altas</p><p className="font-black">{formatCuotaValue(cell.altas)}</p></div>
+                                                                                            <div><p className="text-gray-400">FieldWy</p><p className="font-black">{formatCuotaValue(cell.fieldwy)}</p></div>
+                                                                                            <div><p className="text-gray-400">GAP</p><p className={`font-black ${cell.gap >= 0 ? 'text-movistar-green' : 'text-movistar-red'}`}>{cell.gap >= 0 ? '+' : ''}{formatCuotaValue(cell.gap)}</p></div>
+                                                                                            <div><p className="text-gray-400">GAP FW</p><p className={`font-black ${cell.gapFieldwy >= 0 ? 'text-movistar-green' : 'text-movistar-red'}`}>{cell.gapFieldwy >= 0 ? '+' : ''}{formatCuotaValue(cell.gapFieldwy)}</p></div>
+                                                                                            <div><p className="text-gray-400">Δ E−FW</p><p className="font-black">{cell.diffAltasFw >= 0 ? '+' : ''}{formatCuotaValue(cell.diffAltasFw)}</p></div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
@@ -3455,16 +3670,16 @@
                                                                             <p className="text-[8px] font-black uppercase mb-2 opacity-90">Resumen semanal · {semResumen.weekLabel}</p>
                                                                             <div className="grid grid-cols-1 gap-2">
                                                                                 {PRODUCTOS_CUOTA.map(prod => {
-                                                                                    const cell = semResumen.totals[prod] || { cuota: 0, altas: 0, gap: 0, alcance: 0 };
+                                                                                    const cell = roundCuotaCell(semResumen.totals[prod] || {});
                                                                                     const prodLabel = prod === 'PREPAGO' ? 'TOTAL / PREPAGO' : prod;
                                                                                     return (
                                                                                         <div key={prod} className="bg-white/10 rounded-lg p-2 backdrop-blur-sm">
                                                                                             <p className="text-[7px] font-black uppercase mb-1 opacity-80">{prodLabel}</p>
                                                                                             <div className="grid grid-cols-4 gap-1 text-center text-[8px]">
-                                                                                                <div><p className="opacity-70">Cuota</p><p className="font-black">{formatCuotaInt(cell.cuota)}</p></div>
-                                                                                                <div><p className="opacity-70">Altas</p><p className="font-black">{formatCuotaInt(cell.altas)}</p></div>
-                                                                                                <div><p className="opacity-70">GAP</p><p className={`font-black ${cell.gap >= 0 ? 'text-green-300' : 'text-red-300'}`}>{cell.gap >= 0 ? '+' : ''}{formatCuotaInt(cell.gap)}</p></div>
-                                                                                                <div><p className="opacity-70">Alcance</p><p className="font-black">{cell.alcance}%</p></div>
+                                                                                                <div><p className="opacity-70">Cuota</p><p className="font-black">{formatCuotaValue(cell.cuota)}</p></div>
+                                                                                                <div><p className="opacity-70">Altas</p><p className="font-black">{formatCuotaValue(cell.altas)}</p></div>
+                                                                                                <div><p className="opacity-70">GAP</p><p className={`font-black ${cell.gap >= 0 ? 'text-green-300' : 'text-red-300'}`}>{cell.gap >= 0 ? '+' : ''}{formatCuotaValue(cell.gap)}</p></div>
+                                                                                                <div><p className="opacity-70">Alcance</p><p className="font-black">{cuotaAlcancePct(cell.altas, cell.cuota)}%</p></div>
                                                                                             </div>
                                                                                         </div>
                                                                                     );
@@ -3483,24 +3698,28 @@
                                                                                         const gap = cell.gap;
                                                                                         const gapClass = gap >= 0 ? 'text-movistar-green bg-green-50' : 'text-movistar-red bg-red-50';
                                                                                         const prodColors = prod === 'TEMM' ? 'border-l-movistar-blue' : prod === 'PORTA' ? 'border-l-purple-500' : 'border-l-amber-500';
-                                                                                        const prodLabel = prod === 'TEMM' ? 'TEMM · Altas vs Cuota TEMM'
-                                                                                            : prod === 'PORTA' ? 'PORTA · Altas vs Cuota PORTA'
-                                                                                            : 'TOTAL · Altas vs Cuota PREPAGO';
+                                                                                        const prodLabel = prod === 'TEMM' ? 'TEMM · Altas vs Cuota'
+                                                                                            : prod === 'PORTA' ? 'PORTA · Altas vs Cuota'
+                                                                                            : 'PREPAGO · Altas vs Cuota';
                                                                                         return (
                                                                                             <div key={prod} className={`bg-white rounded-lg p-3 border-l-4 ${prodColors} shadow-sm`}>
                                                                                                 <p className="text-[8px] font-black text-gray-500 uppercase mb-2">{prodLabel}</p>
-                                                                                                <div className="grid grid-cols-3 gap-2 text-center">
+                                                                                                <div className="grid grid-cols-4 gap-2 text-center">
                                                                                                     <div>
                                                                                                         <p className="text-[7px] font-bold text-gray-400 uppercase">Cuota</p>
-                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{cell.cuota}</p>
+                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{formatCuotaValue(cell.cuota)}</p>
                                                                                                     </div>
                                                                                                     <div>
                                                                                                         <p className="text-[7px] font-bold text-gray-400 uppercase">Altas</p>
-                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{cell.altas}</p>
+                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{formatCuotaValue(cell.altas)}</p>
+                                                                                                    </div>
+                                                                                                    <div>
+                                                                                                        <p className="text-[7px] font-bold text-gray-400 uppercase">FieldWy</p>
+                                                                                                        <p className="text-sm font-black text-movistar-dark tabular-nums">{formatCuotaValue(cell.fieldwy)}</p>
                                                                                                     </div>
                                                                                                     <div className={`rounded-lg py-1 ${gapClass}`}>
                                                                                                         <p className="text-[7px] font-bold uppercase opacity-80">GAP</p>
-                                                                                                        <p className="text-sm font-black tabular-nums">{gap >= 0 ? '+' : ''}{gap}</p>
+                                                                                                        <p className="text-sm font-black tabular-nums">{gap >= 0 ? '+' : ''}{formatCuotaValue(gap)}</p>
                                                                                                     </div>
                                                                                                 </div>
                                                                                             </div>
