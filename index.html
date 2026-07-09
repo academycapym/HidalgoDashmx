@@ -74,22 +74,23 @@
         .login-gradient { background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); }
         .login-screen {
             min-height: 100vh;
-            background: url('login-bg.png') center center / cover no-repeat fixed;
+            min-height: 100dvh;
+            background: url('login-bg.png') center top / cover no-repeat;
             position: relative;
         }
         .login-screen::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: rgba(11, 39, 57, 0.35);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(11, 39, 57, 0.2) 40%, rgba(11, 39, 57, 0.5) 100%);
             pointer-events: none;
         }
         .login-card {
-            background: rgba(255, 255, 255, 0.94);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
         }
         .metric-alcance {
             font-size: 2.75rem;
@@ -602,11 +603,27 @@
             return raw ? raw.toUpperCase() : "SUBURBIA";
         };
 
+        const cleanIdPdv = (val) => String(val ?? '').trim().replace(/^0+/, '').split('.')[0];
+
+        const isValidIdPdv = (val) => {
+            if (val === null || val === undefined || val === '') return false;
+            const id = cleanIdPdv(val);
+            return /^\d{5,}$/.test(id);
+        };
+
+        const findSegDiarioDataStart = (rows) => {
+            for (let i = 0; i < Math.min(rows.length, 20); i++) {
+                const h = String(rows[i]?.H ?? '').toUpperCase().trim();
+                if (h === 'IDPV' || h.includes('ID PDV')) return i + 1;
+            }
+            return 5;
+        };
+
         const parseSegDiarioRow = (row) => {
-            const idRaw = String(row["H"] || "").trim();
-            if (!idRaw) return null;
+            const id = cleanIdPdv(row["H"]);
+            if (!isValidIdPdv(id)) return null;
             return {
-                id: idRaw.replace(/^0+/, ''),
+                id,
                 tienda: String(row["I"] || "").trim(),
                 plaza: String(row["J"] || "").trim().toUpperCase(),
                 lider: String(row["A"] || "").trim(),
@@ -641,7 +658,7 @@
                 }
             }
             const jData = XLSX.utils.sheet_to_json(wsSegDiario, { header: "A", defval: "" });
-            const list = jData.slice(5)
+            const list = jData.slice(findSegDiarioDataStart(jData))
                 .map(parseSegDiarioRow)
                 .filter(Boolean);
             return { list, diaAct };
@@ -976,14 +993,6 @@
                 return raw ? JSON.parse(raw) : {};
             } catch { return {}; }
         };
-
-        const isValidIdPdv = (val) => {
-            if (val === null || val === undefined || val === '') return false;
-            const id = cleanIdPdv(val);
-            return /^\d{5,}$/.test(id);
-        };
-
-        const cleanIdPdv = (val) => String(val ?? '').trim().replace(/^0+/, '').split('.')[0];
 
         const storeIdsMatch = (a, b) => cleanIdPdv(a) === cleanIdPdv(b);
 
