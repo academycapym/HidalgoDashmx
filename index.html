@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     
@@ -688,6 +689,49 @@
             }
             return tiendas;
         };
+
+        const PLAN_EXCEL_PATH = 'Plan Junio 2026.xlsx';
+
+        const isValidIdPdv = (val) => {
+            const id = String(val ?? '').trim().replace(/^0+/, '').split('.')[0];
+            return /^\d{5,}$/.test(id);
+        };
+
+        const cleanIdPdv = (val) => String(val ?? '').trim().replace(/^0+/, '').split('.')[0];
+
+        const resolveStockColumn = (headers) => {
+            const keys = Array.isArray(headers) ? headers.map(h => String(h ?? '').trim()) : Object.keys(headers || {}).map(k => String(k).trim());
+            const stockKeys = keys.filter(k => k.endsWith('_STOCK'));
+            if (stockKeys.length) return stockKeys[stockKeys.length - 1];
+            return keys[25] || null;
+        };
+
+        const parseInventarioFromObjects = (rows) => {
+            if (!Array.isArray(rows) || rows.length === 0) return [];
+            const headers = Object.keys(rows[0] || {});
+            const stockCol = resolveStockColumn(headers);
+            const col = (name, fallbackIdx) => {
+                const found = headers.find(h => String(h).trim().toUpperCase() === name);
+                if (found !== undefined) return found;
+                return headers[fallbackIdx] || null;
+            };
+            const idKey = col('IDPDV', 3);
+            const modKey = col('DESCRIPCION', 12);
+            const statusKey = col('STATUS_SKU', 15);
+            const marKey = col('MARCA', 14);
+            const stockKey = stockCol || headers[25];
+
+            return rows
+                .filter(row => isValidIdPdv(row[idKey]))
+                .map(row => ({
+                    id: cleanIdPdv(row[idKey]),
+                    mod: String(row[modKey] ?? '').trim(),
+                    mar: String(row[marKey] ?? '').trim(),
+                    status: String(row[statusKey] ?? '').trim().toUpperCase(),
+                    q: parseInt(String(row[stockKey] ?? '').trim(), 10) || 0
+                }));
+        };
+
         const getEmptyCarpeta = (idpdv, mes) => ({
             idpdv, mes,
             boleta: [1,2,3,4,5].reduce((acc, sem) => {
@@ -831,9 +875,8 @@
             const [registrosVentas, setRegistrosVentas] = useState([]);
             const [cuotasAltasRecords, setCuotasAltasRecords] = useState([]);
             const [carpetaMesSeleccionado, setCarpetaMesSeleccionado] = useState(getCurrentMonthStr());
-            const [cuotasMesSeleccionado, setCuotasMesSeleccionado] = useState(getCurrentMonthStr());
             const [expandedCuotaWeeks, setExpandedCuotaWeeks] = useState({ 1: true });
-            const [isSeedingCuotas, setIsSeedingCuotas] = useState(false);
+            const cuotasAutoSyncRef = useRef(false);
             const [viewStoreId, setViewStoreId] = useState("");
             const [localCarpeta, setLocalCarpeta] = useState(null);
             const [localRegistroVentas, setLocalRegistroVentas] = useState(null);
@@ -1073,7 +1116,8 @@
                 };
             }, [cuotasAltasScopeStores, userRole, userId]);
 
-            const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(cuotasMesSeleccionado), [cuotasMesSeleccionado]);
+            const cuotasMonthWeeks = useMemo(() => buildMonthWeeks(getCurrentMonthStr()), []);
+            const mesOperacionLabel = formatMesLabel(getCurrentMonthStr());
 
             const cuotasResumenSemanal = useMemo(() =>
                 aggregateSemanasCuotas(cuotasAltasVista.dias, cuotasMonthWeeks),
@@ -1354,13 +1398,13 @@
                         setRegistrosVentas(s.docs.map(d => ({ ...d.data(), id: d.id })));
                     }));
 
-                    unsubs.push(getDbPath("cuotas_altas_diario").where("mes", "==", cuotasMesSeleccionado).onSnapshot(s => {
+                    unsubs.push(getDbPath("cuotas_altas_diario").where("mes", "==", getCurrentMonthStr()).onSnapshot(s => {
                         setCuotasAltasRecords(s.docs.map(d => ({ ...d.data(), id: d.id })));
                     }));
 
                 } catch(error) { console.error("Listeners", error); }
                 return () => unsubs.forEach(u => u());
-            }, [userAuth, carpetaMesSeleccionado, cuotasMesSeleccionado]);
+            }, [userAuth, carpetaMesSeleccionado]);
 
             // MANEJO DE ESTADO LOCAL PARA CARPETA
             useEffect(() => {
@@ -1440,23 +1484,29 @@
                 }
             };
 
-            const bulkSeedCuotasAltas = async () => {
-                if (!db || userRole !== "ADMIN") return;
-                if (!window.confirm(`¿Importar cuotas/altas diarias a Firebase para ${formatMesLabel(cuotasMesSeleccionado)}?`)) return;
-                setIsSeedingCuotas(true);
+            const autoSyncCuotasAltasFromPlan = async () => {
+                if (!db || cuotasAutoSyncRef.current) return;
+                cuotasAutoSyncRef.current = true;
+                const mesStr = getCurrentMonthStr();
                 try {
-                    const res = await fetch(`cuotas_altas_${cuotasMesSeleccionado}.json`, { cache: 'no-store' });
-                    if (!res.ok) throw new Error(`No se encontró cuotas_altas_${cuotasMesSeleccionado}.json`);
-                    const payload = await res.json();
-                    const tiendas = payload.tiendas || payload;
-                    await uploadCuotasAltasToFirebase(tiendas, payload.mes || cuotasMesSeleccionado);
-                    alert(`Cuotas y altas sincronizadas: ${tiendas.length} tiendas.`);
+                    const res = await fetch(PLAN_EXCEL_PATH, { cache: 'no-store' });
+                    if (!res.ok) throw new Error(`No se encontró ${PLAN_EXCEL_PATH} en el servidor.`);
+                    const buf = await res.arrayBuffer();
+                    const wb = XLSX.read(buf, { type: 'array' });
+                    const tiendas = parseCuotaAltasFromWorkbook(wb, mesStr);
+                    if (!tiendas.length) throw new Error('Sin tiendas en pestañas Cuota/Altas.');
+                    await uploadCuotasAltasToFirebase(tiendas, mesStr);
+                    console.info(`Cuotas/Altas auto-sync: ${tiendas.length} tiendas · ${mesStr}`);
                 } catch (e) {
-                    alert("Error: " + (e.message || e));
-                } finally {
-                    setIsSeedingCuotas(false);
+                    cuotasAutoSyncRef.current = false;
+                    console.warn('Auto-sync cuotas/altas:', e.message || e);
                 }
             };
+
+            useEffect(() => {
+                if (!userAuth || !db || view !== 'APP') return;
+                autoSyncCuotasAltasFromPlan();
+            }, [userAuth, view]);
 
             const downloadCarpetasExcel = () => {
                 const allowedStoreIds = carpetaStoresFiltered.map(d => String(d.id).replace(/^0+/, ''));
@@ -2009,14 +2059,42 @@
             };
 
             const uploadFile = async (type, e) => {
-                if (!db) return alert("Sin red"); const file = e.target.files[0]; if (!file) return;
+                if (!db) return alert("Sin red");
+                const file = e.target.files[0];
+                if (!file) return;
+                e.target.value = '';
+
+                const saveInvList = async (list) => {
+                    if (!list.length) return alert("No se encontraron filas válidas con IDPDV.");
+                    await saveInChunks("inv", list);
+                    alert(`¡Inventario sincronizado! (${list.length} registros guardados)`);
+                };
+
+                if (type === "inv" && file.name.toLowerCase().endsWith('.csv')) {
+                    const reader = new FileReader();
+                    reader.onload = async (evt) => {
+                        try {
+                            const parsed = Papa.parse(evt.target.result, { header: true, skipEmptyLines: true });
+                            const list = parseInventarioFromObjects(parsed.data);
+                            await saveInvList(list);
+                        } catch (error) {
+                            alert("Error procesando CSV: " + (error.message || error));
+                            console.error(error);
+                        }
+                    };
+                    reader.readAsText(file);
+                    return;
+                }
+
                 const reader = new FileReader();
 
                 reader.onload = async (evt) => {
                     try {
-                        const r = evt.target.result; const wb = XLSX.read(r, { type: 'binary', cellDates: true });
-                        let list = []; let diaAct = "Desconocido";
+                        const r = evt.target.result;
+                        let list = [];
+                        let diaAct = "Desconocido";
                         if (type === "temm") {
+                            const wb = XLSX.read(r, { type: 'binary', cellDates: true });
                             const wsSegDiarioName = wb.SheetNames.find(n => n.toLowerCase().includes("seg diario"));
                             if (!wsSegDiarioName) return alert("Pestaña 'Seg Diario' no encontrada en el archivo.");
                             const parsed = parseSegDiarioSheet(wb.Sheets[wsSegDiarioName]);
@@ -2025,34 +2103,15 @@
                             await saveInChunks("temm", list, { actualizado_al: diaAct });
                             alert(`Sincronizado Múltiples Productos (${list.length} Tiendas | Fecha: ${diaAct})`);
                         } else if (type === "inv") {
-                            // Buscar hoja de tiendas/inventario de forma menos estricta
-                            const wsTiendas = wb.SheetNames.find(n => n.toLowerCase().includes("tienda") || n.toLowerCase().includes("hoja1") || n.toLowerCase().includes("inventario") || n.toLowerCase().includes("general"));
-                            const sheetToUse = wsTiendas ? wb.Sheets[wsTiendas] : wb.Sheets[wb.SheetNames[0]];
-                            
-                            const jDataInv = XLSX.utils.sheet_to_json(sheetToUse, { header: "A", defval: "" });
-                            
-                            list = jDataInv.filter(row => {
-                                const iVal = String(row["G"] || "").toUpperCase().trim();
-                                return iVal.length >= 3 && !iVal.includes("ID") && !iVal.includes("PDV");
-                            }).map(row => ({ 
-                                id: String(row["G"] || "").trim().replace(/^0+/, ''), 
-                                mod: String(row["R"] || "").trim(), 
-                                mar: String(row["S"] || "").trim(), 
-                                status: String(row["U"] || "").trim().toUpperCase(),
-                                q: parseInt(Number(row["AE"])) || 0 
-                            }));
-                            
-                            await saveInChunks("inv", list);
-                            alert(`¡Inventario Sincronizado exitosamente! (${list.length} registros guardados)`);
-                        } else if (type === "cuotas_altas") {
-                            const mesImp = cuotasMesSeleccionado;
-                            const tiendas = parseCuotaAltasFromWorkbook(wb, mesImp);
-                            if (!tiendas.length) return alert("No se extrajeron tiendas de Cuota/Altas.");
-                            await uploadCuotasAltasToFirebase(tiendas, mesImp);
-                            alert(`Cuotas y Altas diarias importadas: ${tiendas.length} tiendas · ${formatMesLabel(mesImp)}`);
+                            const wb = XLSX.read(r, { type: 'binary', cellDates: true });
+                            const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes("inventario")) || wb.SheetNames[0];
+                            const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
+                            list = parseInventarioFromObjects(rows);
+                            await saveInvList(list);
                         }
-                    } catch (error) { alert("Error procesando Excel: " + (error.message || error)); console.error(error); }
-                }; reader.readAsBinaryString(file);
+                    } catch (error) { alert("Error procesando archivo: " + (error.message || error)); console.error(error); }
+                };
+                reader.readAsBinaryString(file);
             };
 
             const handleRosterSubmit = async (e) => {
@@ -3287,35 +3346,12 @@
                                                     ? `Tienda: ${cuotasAltasVista.tiendaLabel}`
                                                     : `${cuotasAltasVista.tiendaLabel} · ${cuotasAltasVista.count} PDV`}
                                             </p>
-                                            <div className="mt-3">
-                                                <label className="text-[8px] font-black text-gray-400 uppercase">Mes del calendario</label>
-                                                <select
-                                                    className="w-full mt-1 bg-white/10 text-white border border-white/20 p-3 rounded-xl font-black text-[11px] outline-none"
-                                                    value={cuotasMesSeleccionado}
-                                                    onChange={e => setCuotasMesSeleccionado(e.target.value)}
-                                                >
-                                                    {mesSelectorOptions.map(o => (
-                                                        <option key={o.value} value={o.value} className="text-movistar-dark">{o.label}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                            <p className="text-[8px] font-bold text-blue-200 mt-2 uppercase">Seguimiento diario · {mesOperacionLabel}</p>
                                         </div>
-
-                                        {userRole === "ADMIN" && (
-                                            <div className="bg-white p-4 rounded-[1.5rem] border shadow-sm flex flex-col gap-2">
-                                                <label className="flex-1 bg-movistar-blue text-white text-[8px] font-black p-4 rounded-2xl text-center cursor-pointer active:scale-95">
-                                                    IMPORTAR EXCEL (CUOTA + ALTAS)
-                                                    <input type="file" className="hidden" accept=".xlsx" onChange={e => uploadFile("cuotas_altas", e)} />
-                                                </label>
-                                                <button type="button" onClick={bulkSeedCuotasAltas} disabled={isSeedingCuotas} className="text-[8px] font-black text-gray-500 py-2 disabled:opacity-40">
-                                                    {isSeedingCuotas ? 'Sincronizando…' : `Sync JSON cuotas_altas_${cuotasMesSeleccionado}.json`}
-                                                </button>
-                                            </div>
-                                        )}
 
                                         {cuotasAltasVista.count === 0 ? (
                                             <div className="text-center p-8 bg-white rounded-[1.5rem] border text-gray-400 font-bold text-xs uppercase">
-                                                Sin datos de cuotas/altas para {formatMesLabel(cuotasMesSeleccionado)}. Importa el Excel (Admin).
+                                                Cargando datos desde {PLAN_EXCEL_PATH}… Si persiste, verifica que el archivo esté en el servidor.
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
@@ -3363,7 +3399,7 @@
                                                                         const prods = cuotasAltasVista.dias[String(day)] || emptyDiaProductos();
                                                                         return (
                                                                             <div key={day} className="border rounded-xl p-3 bg-slate-50/80">
-                                                                                <p className="text-[9px] font-black text-movistar-blue uppercase mb-2">{label} {day} · {formatMesLabel(cuotasMesSeleccionado)}</p>
+                                                                                <p className="text-[9px] font-black text-movistar-blue uppercase mb-2">{label} {day} · {mesOperacionLabel}</p>
                                                                                 <div className="grid grid-cols-1 gap-2">
                                                                                     {PRODUCTOS_CUOTA.map(prod => {
                                                                                         const cell = roundCuotaCell(prods[prod] || {});
