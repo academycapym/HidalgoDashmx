@@ -59,11 +59,23 @@ def parse_altas_section(df, start_row, end_row):
     return stores
 
 
+def parse_altas_sections(df_a):
+    temm_start, porta_start = 111, 220
+    for i in range(len(df_a)):
+        label = str(df_a.iloc[i, 0] or "").strip().upper()
+        if label == "TEMM":
+            temm_start = i + 2
+        if label == "PORTABILIDAD":
+            porta_start = i + 2
+    total_general = parse_altas_section(df_a, 2, temm_start - 2)
+    temm_altas = parse_altas_section(df_a, temm_start, porta_start - 2)
+    porta_altas = parse_altas_section(df_a, porta_start, len(df_a))
+    return total_general, temm_altas, porta_altas
+
+
 def main():
     df_a = pd.read_excel(EXCEL, sheet_name="Altas", header=None)
-    porta_altas = parse_altas_section(df_a, 2, 109)
-    temm_altas = parse_altas_section(df_a, 111, 218)
-    prepago_altas = parse_altas_section(df_a, 220, len(df_a))
+    total_general_altas, temm_altas, porta_altas = parse_altas_sections(df_a)
 
     cuota = parse_cuota()
     merged = []
@@ -73,12 +85,12 @@ def main():
             dk = str(d)
             pa = porta_altas.get(idpv, {}).get(dk, 0)
             ta = temm_altas.get(idpv, {}).get(dk, 0)
-            pra = prepago_altas.get(idpv, {}).get(dk, 0)
+            tga = total_general_altas.get(idpv, {}).get(dk, 0)
             dias_out[dk] = {}
             for prod, cu, al in [
                 ("PORTA", c["dias"][dk]["PORTA"]["cuota"], pa),
                 ("TEMM", c["dias"][dk]["TEMM"]["cuota"], ta),
-                ("PREPAGO", c["dias"][dk]["PREPAGO"]["cuota"], pra),
+                ("PREPAGO", c["dias"][dk]["PREPAGO"]["cuota"], tga),
             ]:
                 dias_out[dk][prod] = {
                     "cuota": round(cu, 4),
