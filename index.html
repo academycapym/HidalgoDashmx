@@ -1388,7 +1388,6 @@
             const [assignMedallaId, setAssignMedallaId] = useState("");
             const [assignPromotorNombre, setAssignPromotorNombre] = useState("");
             const [selectedMedalDetail, setSelectedMedalDetail] = useState(null);
-            const [resumenFecha, setResumenFecha] = useState(() => new Date().toISOString().slice(0, 10));
             const [ventasExportDesde, setVentasExportDesde] = useState('');
             const [ventasExportHasta, setVentasExportHasta] = useState('');
             const temmPieRef = useRef(null);
@@ -1618,9 +1617,15 @@
             }, [registrosVentas, ventasScopeAllowed, dataTEMM]);
 
             const ventasPorDia = useMemo(() => {
-                if (!resumenFecha) return ventasConsolidadas;
-                return ventasConsolidadas.filter(v => v.fecha === resumenFecha);
-            }, [ventasConsolidadas, resumenFecha]);
+                if (!ventasExportDesde || !ventasExportHasta) return ventasConsolidadas;
+                return ventasConsolidadas.filter(v => isVentaFechaInRange(v.fecha, ventasExportDesde, ventasExportHasta));
+            }, [ventasConsolidadas, ventasExportDesde, ventasExportHasta]);
+
+            const ventasRangoLabel = useMemo(() => {
+                if (!ventasExportDesde || !ventasExportHasta) return 'Todos los días';
+                if (ventasExportDesde === ventasExportHasta) return ventasExportDesde;
+                return `${ventasExportDesde} al ${ventasExportHasta}`;
+            }, [ventasExportDesde, ventasExportHasta]);
 
             const resumenGlobalVentas = useMemo(() => {
                 const porProducto = {};
@@ -2378,7 +2383,7 @@
                         temmChartInstance.current = null;
                     }
                 };
-            }, [resumenTemmEquipos, subTabCarpeta, esLiderOSupervisor, resumenFecha]);
+            }, [resumenTemmEquipos, subTabCarpeta, esLiderOSupervisor, ventasExportDesde, ventasExportHasta]);
 
             useEffect(() => {
                 if (view !== 'APP' || !swiperBannerRef.current || typeof window.Swiper === 'undefined') {
@@ -2467,7 +2472,11 @@
             };
 
             const downloadResumenVentasExcel = () => {
-                if (ventasPorDia.length === 0) return alert("No hay ventas para exportar en la fecha seleccionada.");
+                if (!ventasExportDesde || !ventasExportHasta) return alert("Selecciona la fecha inicial y la fecha final.");
+                if (ventasExportDesde > ventasExportHasta) return alert("La fecha inicial debe ser anterior o igual a la fecha final.");
+                if (ventasPorDia.length === 0) {
+                    return alert(`No hay ventas entre ${ventasExportDesde} y ${ventasExportHasta} con los filtros actuales.`);
+                }
                 const rows = ventasPorDia.map(v => ({
                     "Fecha": v.fecha || '',
                     "IDPDV": v.idpdv || '',
@@ -2483,7 +2492,7 @@
                 }));
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Resumen Ventas");
-                XLSX.writeFile(wb, `Resumen_Ventas_${resumenFecha || 'todas'}_${carpetaMesSeleccionado}.xlsx`);
+                XLSX.writeFile(wb, `Resumen_Ventas_${ventasExportDesde}_a_${ventasExportHasta}.xlsx`);
             };
 
             const renderCarpetaAuditoria = (downloadHandler) => (
@@ -3617,28 +3626,46 @@
                                 {subTabCarpeta === "RESUMEN_VENTAS" && esLiderOSupervisor ? (
                                     <div className="space-y-4 animate-pop">
                                         <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border">
-                                            <label className="text-[8px] font-black text-gray-400 uppercase">Filtrar por día</label>
-                                            <input
-                                                type="date"
-                                                value={resumenFecha}
-                                                onChange={e => setResumenFecha(e.target.value)}
-                                                className="w-full mt-2 bg-gray-50 p-3 rounded-xl font-bold text-xs outline-none border focus:border-movistar-blue"
-                                            />
+                                            <p className="text-[8px] font-black text-gray-400 uppercase mb-2">Filtrar por rango de fechas</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-400 uppercase">Desde</label>
+                                                    <input
+                                                        type="date"
+                                                        value={ventasExportDesde}
+                                                        min={ventasExportBounds.min}
+                                                        max={ventasExportHasta || ventasExportBounds.max}
+                                                        onChange={e => setVentasExportDesde(e.target.value)}
+                                                        className="w-full mt-1 bg-gray-50 p-3 rounded-xl font-bold text-xs outline-none border focus:border-movistar-blue"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-400 uppercase">Hasta</label>
+                                                    <input
+                                                        type="date"
+                                                        value={ventasExportHasta}
+                                                        min={ventasExportDesde || ventasExportBounds.min}
+                                                        max={ventasExportBounds.max}
+                                                        onChange={e => setVentasExportHasta(e.target.value)}
+                                                        className="w-full mt-1 bg-gray-50 p-3 rounded-xl font-bold text-xs outline-none border focus:border-movistar-blue"
+                                                    />
+                                                </div>
+                                            </div>
                                             <p className="text-[8px] font-bold text-gray-400 mt-2 uppercase">
-                                                Mes consulta: {formatMesLabel(carpetaMesSeleccionado)} · {ventasScopeAllowed.length} PDV en alcance
+                                                Mes consulta: {formatMesLabel(carpetaMesSeleccionado)} · {ventasRangoLabel} · {ventasScopeAllowed.length} PDV en alcance
                                             </p>
                                             <button
                                                 type="button"
                                                 onClick={downloadResumenVentasExcel}
                                                 className="w-full mt-3 bg-movistar-green text-white p-3 rounded-xl font-black text-[9px] uppercase active:scale-95 shadow-md"
                                             >
-                                                📥 Descargar Ventas en Excel
+                                                📥 Descargar Excel del rango
                                             </button>
                                         </div>
 
                                         <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border">
                                             <h3 className="font-black text-sm italic uppercase text-movistar-dark mb-1">Top 3 Modelos Más Vendidos</h3>
-                                            <p className="text-[9px] font-bold text-gray-400 mb-4">{resumenFecha}</p>
+                                            <p className="text-[9px] font-bold text-gray-400 mb-4">{ventasRangoLabel}</p>
                                             {top3ModelosVendidos.length > 0 ? (
                                                 <div className="space-y-2">
                                                     {top3ModelosVendidos.map((item, i) => (
@@ -3651,14 +3678,14 @@
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <p className="text-center text-[10px] font-bold text-gray-400 uppercase py-4">Sin modelos registrados para esta fecha</p>
+                                                <p className="text-center text-[10px] font-bold text-gray-400 uppercase py-4">Sin modelos registrados para este rango</p>
                                             )}
                                         </div>
 
                                         <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border">
                                             <h3 className="font-black text-sm italic uppercase text-movistar-dark mb-1">Resumen Global de Ventas</h3>
                                             <p className="text-[9px] font-bold text-gray-400 mb-4">
-                                                Total consolidado · {resumenFecha || 'Todos los días'}
+                                                Total consolidado · {ventasRangoLabel}
                                             </p>
                                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                                                 <div className="bg-blue-50 p-4 rounded-xl text-center">
@@ -3679,7 +3706,7 @@
                                                 ))}
                                                 {resumenGlobalVentas.total === 0 && (
                                                     <p className="text-center text-[10px] font-bold text-gray-400 uppercase py-4">
-                                                        Sin ventas registradas para esta fecha
+                                                        Sin ventas registradas para este rango
                                                     </p>
                                                 )}
                                             </div>
@@ -3688,10 +3715,10 @@
                                         <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border">
                                             <h3 className="font-black text-sm italic uppercase text-movistar-dark mb-1">Resumen TEMM (Equipos)</h3>
                                             <p className="text-[9px] font-bold text-gray-400 mb-4">
-                                                Equipos vendidos · {resumenFecha}
+                                                Equipos vendidos · {ventasRangoLabel}
                                             </p>
                                             <div className="bg-movistar-dark text-white p-4 rounded-xl mb-4 text-center">
-                                                <p className="text-[8px] font-bold opacity-70 uppercase">Total TEMM del día</p>
+                                                <p className="text-[8px] font-bold opacity-70 uppercase">Total TEMM del rango</p>
                                                 <p className="text-3xl font-black">{resumenTemmEquipos.total}</p>
                                             </div>
 
@@ -3713,7 +3740,7 @@
                                                 </>
                                             ) : (
                                                 <p className="text-center text-[10px] font-bold text-gray-400 uppercase py-6">
-                                                    No hay ventas TEMM para este día
+                                                    No hay ventas TEMM para este rango
                                                 </p>
                                             )}
                                         </div>
