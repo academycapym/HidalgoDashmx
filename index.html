@@ -448,7 +448,7 @@
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
-        const APP_VERSION = '40.0';
+        const APP_VERSION = '41.0';
 
         const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
         const SESSION_INACTIVITY_MS = 5 * 60 * 1000;
@@ -845,6 +845,34 @@
             return s === 'true' || s === 'si' || s === 'sí' || s === '1' || s === 'verdadero';
         };
 
+        const findSheetHeaderIndex = (headers, tests) => {
+            for (const test of tests) {
+                const idx = headers.findIndex(test);
+                if (idx >= 0) return idx;
+            }
+            return -1;
+        };
+
+        const resolveFieldWyColumns = (headers) => ({
+            idxId: findSheetHeaderIndex(headers, [h => h.includes('ID PDV') || h === 'IDPDV']),
+            idxDn: findSheetHeaderIndex(headers, [h => h === 'DN']),
+            idxFecha: findSheetHeaderIndex(headers, [h => h.includes('FECHA REGISTRO')]),
+            idxProducto: findSheetHeaderIndex(headers, [h => h === 'PRODUCTO']),
+            idxTemm: findSheetHeaderIndex(headers, [h => h.includes('EQUIPO TEMM')])
+        });
+
+        /** Oct 2026+: PREPAGO, PORTABILIDAD, PLAN PRO, PLAN PRO / PORTABILIDAD */
+        const fieldWyRowProductCounts = (producto, temmVal) => {
+            const p = String(producto || '').toUpperCase().trim();
+            const temm = isFieldWyTemm(temmVal) ? 1 : 0;
+            if (!p) return { PREPAGO: 0, PORTA: 0, TEMM: temm };
+            if (p.includes('PORTABIL')) return { PREPAGO: 0, PORTA: 1, TEMM: temm };
+            if (p === 'PREPAGO' || p === 'PLAN PRO' || p.startsWith('PLAN PRO ')) {
+                return { PREPAGO: 1, PORTA: 0, TEMM: temm };
+            }
+            return { PREPAGO: 1, PORTA: 0, TEMM: temm };
+        };
+
         const parseFieldWyFromWorkbook = (wb) => {
             const sheetName = wb.SheetNames.find(n => /fieldwy|fieldway/i.test(n));
             if (!sheetName) return {};
@@ -852,7 +880,7 @@
             if (!rows.length) return {};
 
             let headerRow = 0;
-            for (let r = 0; r < Math.min(6, rows.length); r++) {
+            for (let r = 0; r < Math.min(15, rows.length); r++) {
                 const line = (rows[r] || []).map(c => String(c).toUpperCase().trim());
                 if (line.some(c => c.includes('ID PDV') || c === 'IDPDV')) {
                     headerRow = r;
@@ -860,11 +888,11 @@
                 }
             }
             const headers = (rows[headerRow] || []).map(h => String(h).toUpperCase().trim());
-            const idxId = Math.max(headers.findIndex(h => h.includes('ID PDV')), 0);
-            const idxDn = Math.max(headers.findIndex(h => h === 'DN'), 5);
-            const idxFecha = Math.max(headers.findIndex(h => h.includes('FECHA REGISTRO')), 17);
-            const idxProducto = Math.max(headers.findIndex(h => h === 'PRODUCTO'), 23);
-            const idxTemm = Math.max(headers.findIndex(h => h.includes('EQUIPO TEMM')), 26);
+            const { idxId, idxDn, idxFecha, idxProducto, idxTemm } = resolveFieldWyColumns(headers);
+            if (idxId < 0 || idxDn < 0 || idxFecha < 0 || idxProducto < 0 || idxTemm < 0) {
+                console.warn('FieldWy: columnas requeridas no encontradas', headers.filter(Boolean));
+                return {};
+            }
 
             const map = {};
             for (let r = headerRow + 1; r < rows.length; r++) {
@@ -876,15 +904,73 @@
                 if (!isValidIdPdv(id)) continue;
                 const day = excelDateToDay(row[idxFecha]);
                 if (!day || day < 1 || day > 31) continue;
-                const producto = String(row[idxProducto] || '').toUpperCase().trim();
+                const counts = fieldWyRowProductCounts(row[idxProducto], row[idxTemm]);
                 const dk = String(day);
                 if (!map[id]) map[id] = {};
                 if (!map[id][dk]) map[id][dk] = { PORTA: 0, TEMM: 0, PREPAGO: 0 };
-                map[id][dk].PREPAGO += 1;
-                if (producto.includes('PORTABIL')) map[id][dk].PORTA += 1;
-                if (isFieldWyTemm(row[idxTemm])) map[id][dk].TEMM += 1;
+                map[id][dk].PREPAGO += counts.PREPAGO;
+                map[id][dk].PORTA += counts.PORTA;
+                map[id][dk].TEMM += counts.TEMM;
             }
             return map;
+        };
+
+        const parseAsistenciaFromWorkbook = (wb, mesStr) => {
+            const sheetName = wb.SheetNames.find(n => /^asistencia$/i.test(String(n).trim()));
+            if (!sheetName) return null;
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
+            if (!rows.length) return null;
+            let headerRow = -1;
+            for (let r = 0; r < Math.min(20, rows.length); r++) {
+                const line = (rows[r] || []).map(c => String(c).toUpperCase().trim());
+                if (line.some(c => c === 'IDPV' || c.includes('ID PDV'))) {
+                    headerRow = r;
+                    break;
+                }
+            }
+            if (headerRow < 0) return null;
+            const headers = (rows[headerRow] || []).map(h => String(h ?? ''));
+            const idxId = headers.findIndex(h => /^IDPV$|ID PDV/i.test(h.trim()));
+            const idxTienda = headers.findIndex(h => /NOMBRE_IDPV|NOMBRE PDV/i.test(h));
+            const idxSup = headers.findIndex(h => h.toUpperCase().trim() === 'SUPERVISOR');
+            const asisCols = headers.map((h, i) => {
+                const m = String(h).match(/asis[\s_-]*(\d{1,2})/i);
+                if (!m) return null;
+                const day = parseInt(m[1], 10);
+                if (day < 1 || day > 31) return null;
+                return { i, day: String(day) };
+            }).filter(Boolean);
+            const tiendas = [];
+            for (let r = headerRow + 1; r < rows.length; r++) {
+                const row = rows[r];
+                if (!row) continue;
+                const id = cleanIdPdv(row[idxId >= 0 ? idxId : 4]);
+                if (!isValidIdPdv(id)) continue;
+                const asistencia = {};
+                asisCols.forEach(({ i, day }) => {
+                    asistencia[day] = Math.round(Number(row[i]) || 0);
+                });
+                tiendas.push({
+                    idpdv: id,
+                    tienda: String(row[idxTienda >= 0 ? idxTienda : 5] || '').trim(),
+                    sup: String(row[idxSup >= 0 ? idxSup : 2] || '').trim(),
+                    asistencia
+                });
+            }
+            return tiendas.length ? { mes: mesStr, tiendas } : null;
+        };
+
+        const countCuotasFwDiscrepancies = (tiendasRecords) => {
+            let cells = 0;
+            (tiendasRecords || []).forEach(rec => {
+                Object.values(rec?.dias || {}).forEach(day => {
+                    PRODUCTOS_CUOTA.forEach(prod => {
+                        const c = roundCuotaCell(day?.[prod] || {}, prod);
+                        if (c.diffAltasFw !== 0) cells += 1;
+                    });
+                });
+            });
+            return cells;
         };
 
         const parseCuotaAltasFromWorkbook = (wb, mesStr) => {
@@ -923,15 +1009,35 @@
                 return map;
             };
 
+            const isAltasDataRow = (row) => {
+                const id = cleanIdPdv(row?.[0]);
+                return isValidIdPdv(id);
+            };
+
+            const findAltasDataStartAfterLabel = (rows, labelRow) => {
+                for (let r = labelRow + 1; r < Math.min(labelRow + 5, rows.length); r++) {
+                    if (isAltasDataRow(rows[r])) return r;
+                }
+                return labelRow + 2;
+            };
+
+            const findFirstAltasDataRow = (rows, fromRow = 0) => {
+                for (let r = fromRow; r < rows.length; r++) {
+                    if (isAltasDataRow(rows[r])) return r;
+                }
+                return 2;
+            };
+
             const findAltasSectionStarts = (rows) => {
                 let temmStart = 111;
                 let portaStart = 220;
                 for (let r = 0; r < rows.length; r++) {
                     const label = String(rows[r]?.[0] || '').trim().toUpperCase();
-                    if (label === 'TEMM') temmStart = r + 2;
-                    if (label === 'PORTABILIDAD') portaStart = r + 2;
+                    if (label === 'TEMM') temmStart = findAltasDataStartAfterLabel(rows, r);
+                    if (label === 'PORTABILIDAD') portaStart = findAltasDataStartAfterLabel(rows, r);
                 }
-                return { totalStart: 2, temmStart, portaStart };
+                const totalStart = findFirstAltasDataRow(rows, 0);
+                return { totalStart, temmStart, portaStart };
             };
 
             const { totalStart, temmStart, portaStart } = findAltasSectionStarts(altasRows);
@@ -1362,7 +1468,11 @@
             const [cuotasAltasRecords, setCuotasAltasRecords] = useState([]);
             const [carpetaMesSeleccionado, setCarpetaMesSeleccionado] = useState(getCurrentMonthStr());
             const [expandedCuotaWeeks, setExpandedCuotaWeeks] = useState({ 1: true });
-            const [cuotasAltasSubView, setCuotasAltasSubView] = useState('detalle');
+            const [cuotasAltasSubView, setCuotasAltasSubView] = useState('resumen_dia');
+            const [opCuotasDia, setOpCuotasDia] = useState(null);
+            const [soloConciliacionDiff, setSoloConciliacionDiff] = useState(true);
+            const [asistenciaDiario, setAsistenciaDiario] = useState(null);
+            const [lastDiarioUploadMeta, setLastDiarioUploadMeta] = useState(null);
             const invSyncAttemptedRef = useRef(false);
             const carpetaDirtyRef = useRef(false);
             const carpetaSelectionRef = useRef('');
@@ -1798,6 +1908,195 @@
                 return { prod, prodLabel, topStores, topSupervisors };
             }, [cuotasAltasScopeStores, opProductFilter, dataTEMM]);
 
+            const corteDiaOperacion = useMemo(() => {
+                const d = excelDateToDay(actualizadoAl);
+                if (d && d >= 1 && d <= 31) return d;
+                return new Date().getDate();
+            }, [actualizadoAl]);
+
+            useEffect(() => {
+                setOpCuotasDia(corteDiaOperacion);
+            }, [corteDiaOperacion, cuotasMesOperacion]);
+
+            const cuotasDiaKey = opCuotasDia ? String(opCuotasDia) : null;
+
+            const cuotasResumenDia = useMemo(() => {
+                if (!cuotasDiaKey) return null;
+                const prod = mapOpFilterToCuotaProd(opProductFilter);
+                const totals = emptyDiaProductos();
+                cuotasAltasScopeStores.forEach(rec => {
+                    const day = rec?.dias?.[cuotasDiaKey];
+                    if (!day) return;
+                    PRODUCTOS_CUOTA.forEach(p => {
+                        totals[p].cuota += Number(day[p]?.cuota) || 0;
+                        totals[p].altas += Math.round(Number(day[p]?.altas) || 0);
+                        totals[p].fieldwy += Math.round(Number(day[p]?.fieldwy) || 0);
+                    });
+                });
+                const finalized = finalizeDiaProductos(totals);
+                const cell = roundCuotaCell(finalized[prod] || {}, prod);
+                const tiendasConDiff = cuotasAltasScopeStores.filter(rec => {
+                    const c = roundCuotaCell(rec?.dias?.[cuotasDiaKey]?.[prod] || {}, prod);
+                    return c.diffAltasFw !== 0;
+                }).length;
+                const tiendasFwOk = cuotasAltasScopeStores.filter(rec => {
+                    const c = roundCuotaCell(rec?.dias?.[cuotasDiaKey]?.[prod] || {}, prod);
+                    return c.altas > 0 && c.fieldwy >= c.altas;
+                }).length;
+                return {
+                    prod,
+                    prodLabel: opFilterCuotaLabel(opProductFilter),
+                    dia: cuotasDiaKey,
+                    totals: finalized,
+                    highlight: cell,
+                    tiendasScope: cuotasAltasScopeStores.length,
+                    tiendasConDiff,
+                    tiendasFwOk
+                };
+            }, [cuotasAltasScopeStores, cuotasDiaKey, opProductFilter]);
+
+            const cuotasConciliacionFilas = useMemo(() => {
+                const rows = [];
+                cuotasAltasScopeStores.forEach(rec => {
+                    const meta = dataTEMM.find(d => cleanStoreId(d.id) === cleanStoreId(rec.idpdv)) || {};
+                    Object.entries(rec?.dias || {}).forEach(([day, prods]) => {
+                        PRODUCTOS_CUOTA.forEach(prod => {
+                            const cell = roundCuotaCell(prods?.[prod] || {}, prod);
+                            if (soloConciliacionDiff && cell.diffAltasFw === 0) return;
+                            if (!soloConciliacionDiff && cell.altas === 0 && cell.fieldwy === 0 && cell.cuota === 0) return;
+                            rows.push({
+                                idpdv: rec.idpdv,
+                                tienda: rec.tienda || meta.tienda || rec.idpdv,
+                                sup: rec.sup || meta.sup || '',
+                                day,
+                                prod,
+                                ...cell
+                            });
+                        });
+                    });
+                });
+                return rows.sort((a, b) => Math.abs(b.diffAltasFw) - Math.abs(a.diffAltasFw));
+            }, [cuotasAltasScopeStores, dataTEMM, soloConciliacionDiff]);
+
+            const cuotasHeatmap = useMemo(() => {
+                const prod = mapOpFilterToCuotaProd(opProductFilter);
+                const storeRows = cuotasAltasScopeStores.map(rec => {
+                    const meta = dataTEMM.find(d => cleanStoreId(d.id) === cleanStoreId(rec.idpdv)) || {};
+                    const cells = {};
+                    let maxAbs = 0;
+                    for (let d = 1; d <= 31; d++) {
+                        const dk = String(d);
+                        const cell = roundCuotaCell(rec?.dias?.[dk]?.[prod] || {}, prod);
+                        cells[dk] = cell.diffAltasFw;
+                        maxAbs = Math.max(maxAbs, Math.abs(cell.diffAltasFw));
+                    }
+                    return {
+                        idpdv: rec.idpdv,
+                        tienda: rec.tienda || meta.tienda || String(rec.idpdv),
+                        cells,
+                        maxAbs
+                    };
+                });
+                const globalMax = Math.max(1, ...storeRows.map(s => s.maxAbs));
+                return { prod, prodLabel: opFilterCuotaLabel(opProductFilter), stores: storeRows.slice(0, 40), globalMax };
+            }, [cuotasAltasScopeStores, opProductFilter, dataTEMM]);
+
+            const cuotasRankingCorte = useMemo(() => filteredData
+                .map(d => {
+                    const a = Number(d.altas_total ?? d.altas) || 0;
+                    const c = Number(d.cuota_total ?? d.cuota) || 0;
+                    const alcance = c > 0 ? Math.round((a / c) * 100) : 0;
+                    return {
+                        id: d.id,
+                        tienda: d.tienda,
+                        sup: d.sup,
+                        alcance,
+                        altas: a,
+                        cuota: c,
+                        temmAlt: Number(d.altas_temm ?? d.altas_voz ?? 0)
+                    };
+                })
+                .sort((a, b) => b.alcance - a.alcance)
+                .slice(0, 15),
+            [filteredData]);
+
+            const diarioEstadoCarga = useMemo(() => ({
+                corte: actualizadoAl,
+                mes: cuotasMesOperacion,
+                mesLabel: mesOperacionLabel,
+                tiendasSegDiario: opCatalogBase.length,
+                tiendasCuotasAltas: cuotasAltasRecords.length,
+                discrepanciasFw: countCuotasFwDiscrepancies(cuotasAltasScopeStores),
+                asistenciaTiendas: asistenciaDiario?.tiendas?.length || 0,
+                meta: lastDiarioUploadMeta,
+                ok106: opCatalogBase.length >= 106
+            }), [actualizadoAl, cuotasMesOperacion, mesOperacionLabel, opCatalogBase.length, cuotasAltasRecords.length, cuotasAltasScopeStores, asistenciaDiario, lastDiarioUploadMeta]);
+
+            const ventasVsPlanBridge = useMemo(() => {
+                if (!cuotasAltasScopeStores.length && !ventasPorDia.length) return null;
+                const prod = mapOpFilterToCuotaProd(opProductFilter);
+                const prodKey = prod === 'PREPAGO' ? 'PREPAGO' : prod;
+                const mes = cuotasMesOperacion;
+                const dayInPlanRange = (dayKey) => {
+                    const n = parseInt(dayKey, 10);
+                    if (!n || n < 1 || n > 31) return false;
+                    if (!ventasExportDesde || !ventasExportHasta) return true;
+                    const iso = `${mes}-${String(n).padStart(2, '0')}`;
+                    return isVentaFechaInRange(iso, ventasExportDesde, ventasExportHasta);
+                };
+                let ventasTemm = 0;
+                ventasPorDia.forEach(v => {
+                    if (String(v.producto || '').toLowerCase() === 'temm') ventasTemm += 1;
+                });
+                let planTemm = 0;
+                const planByStore = {};
+                cuotasAltasScopeStores.forEach(rec => {
+                    const id = cleanIdPdv(rec.idpdv);
+                    Object.entries(rec?.dias || {}).forEach(([day, prods]) => {
+                        if (!dayInPlanRange(day)) return;
+                        const alt = Math.round(Number(prods?.TEMM?.altas) || 0);
+                        planTemm += alt;
+                        planByStore[id] = (planByStore[id] || 0) + alt;
+                    });
+                });
+                const ventasByStore = {};
+                ventasPorDia.forEach(v => {
+                    const id = cleanIdPdv(v.idpdv);
+                    if (!ventasByStore[id]) ventasByStore[id] = { temm: 0, total: 0, tienda: v.tienda || getStoreName(v.idpdv) };
+                    ventasByStore[id].total += 1;
+                    if (String(v.producto || '').toLowerCase() === 'temm') ventasByStore[id].temm += 1;
+                });
+                const mismatches = Object.keys({ ...ventasByStore, ...planByStore }).map(id => {
+                    const v = ventasByStore[id]?.temm || 0;
+                    const p = planByStore[id] || 0;
+                    return {
+                        idpdv: id,
+                        tienda: ventasByStore[id]?.tienda || getStoreName(id),
+                        ventasTemm: v,
+                        planAltas: p,
+                        delta: v - p
+                    };
+                }).filter(r => r.ventasTemm !== r.planAltas).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 8);
+                return {
+                    ventasTemm,
+                    planTemm,
+                    gap: ventasTemm - planTemm,
+                    ventasByStore,
+                    planByStore,
+                    mismatches,
+                    prod,
+                    prodKey,
+                    rango: ventasRangoLabel,
+                    mesLabel: mesOperacionLabel
+                };
+            }, [ventasPorDia, cuotasAltasScopeStores, opProductFilter, ventasRangoLabel, ventasExportDesde, ventasExportHasta, cuotasMesOperacion, mesOperacionLabel]);
+
+            const asistenciaScope = useMemo(() => {
+                const allowed = new Set(cuotasAltasScopeStores.map(r => cleanIdPdv(r.idpdv)));
+                const list = (asistenciaDiario?.tiendas || []).filter(t => allowed.has(cleanIdPdv(t.idpdv)));
+                return { mes: asistenciaDiario?.mes || cuotasMesOperacion, tiendas: list };
+            }, [asistenciaDiario, cuotasAltasScopeStores, cuotasMesOperacion]);
+
             const top3ModelosVendidos = useMemo(() => {
                 const counts = {};
                 ventasPorDia.forEach(v => {
@@ -2076,6 +2375,9 @@
                     unsubs.push(getDbPath("cuotas_altas_diario").where("mes", "==", cuotasMesOperacion).onSnapshot(s => {
                         setCuotasAltasRecords(s.docs.map(d => ({ ...d.data(), id: d.id })));
                     }));
+                    unsubs.push(getDbPath("asistencia_diario").doc(cuotasMesOperacion).onSnapshot(d => {
+                        setAsistenciaDiario(d.exists ? d.data() : null);
+                    }, err => console.warn('asistencia_diario:', err?.message)));
 
                 } catch(error) { console.error("Listeners", error); }
                 return () => unsubs.forEach(u => u());
@@ -2250,6 +2552,50 @@
                         actualizado: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
+            };
+
+            const uploadAsistenciaToFirebase = async (payload) => {
+                if (!db || !payload?.mes || !payload?.tiendas?.length) return;
+                await getDbPath("asistencia_diario").doc(payload.mes).set({
+                    mes: payload.mes,
+                    tiendas: payload.tiendas,
+                    actualizado: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            };
+
+            const downloadConciliacionExcel = () => {
+                if (!cuotasConciliacionFilas.length) return alert('No hay filas para exportar con los filtros actuales.');
+                const rows = cuotasConciliacionFilas.map(r => ({
+                    Día: r.day,
+                    IDPDV: r.idpdv,
+                    Tienda: r.tienda,
+                    Supervisor: r.sup,
+                    Producto: r.prod,
+                    Cuota: r.cuota,
+                    'Altas Excel': r.altas,
+                    FieldWy: r.fieldwy,
+                    'Excel − FW': r.diffAltasFw,
+                    'GAP vs Cuota': r.gap
+                }));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Conciliacion');
+                XLSX.writeFile(wb, `Conciliacion_Altas_FieldWy_${cuotasMesOperacion}.xlsx`);
+            };
+
+            const downloadDiarioSnapshotJson = () => {
+                const payload = {
+                    exportado: new Date().toISOString(),
+                    estado: diarioEstadoCarga,
+                    tiendas_seg_diario: opCatalogBase,
+                    cuotas_altas: cuotasAltasScopeStores,
+                    asistencia: asistenciaScope
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `Snapshot_Diario_${cuotasMesOperacion}.json`;
+                a.click();
+                URL.revokeObjectURL(a.href);
             };
 
             const autoSyncInventarioFromFile = async () => {
@@ -2953,13 +3299,16 @@
 
                             const mesStr = mesStrFromFecha(diaAct);
                             let cuotasMsg = '';
+                            let discCount = 0;
+                            let asistenciaMsg = '';
                             try {
                                 const hasSheets = wb.SheetNames.includes('Cuota') && wb.SheetNames.includes('Altas');
                                 if (hasSheets) {
                                     const tiendas = parseCuotaAltasFromWorkbook(wb, mesStr);
                                     if (tiendas.length) {
                                         await uploadCuotasAltasToFirebase(tiendas, mesStr);
-                                        cuotasMsg = `\nCuotas/Altas/FieldWy: ${tiendas.length} tiendas (${mesStr})`;
+                                        discCount = countCuotasFwDiscrepancies(tiendas);
+                                        cuotasMsg = `\nCuotas/Altas/FieldWy: ${tiendas.length} tiendas (${mesStr}) · ${discCount} celdas con diff Altas≠FW`;
                                     } else {
                                         cuotasMsg = '\nCuotas/Altas: sin tiendas en el Excel';
                                     }
@@ -2969,7 +3318,26 @@
                             } catch (cuotaErr) {
                                 cuotasMsg = `\nCuotas/Altas: ${cuotaErr.message || cuotaErr}`;
                             }
-                            alert(`Sincronizado Diario (${list.length} tiendas | ${diaAct})${cuotasMsg}`);
+                            try {
+                                const asistencia = parseAsistenciaFromWorkbook(wb, mesStr);
+                                if (asistencia?.tiendas?.length) {
+                                    await uploadAsistenciaToFirebase(asistencia);
+                                    asistenciaMsg = `\nAsistencia: ${asistencia.tiendas.length} tiendas (${mesStr})`;
+                                }
+                            } catch (asistErr) {
+                                asistenciaMsg = `\nAsistencia: ${asistErr.message || asistErr}`;
+                            }
+                            setLastDiarioUploadMeta({
+                                at: new Date().toISOString(),
+                                diaAct,
+                                mesStr,
+                                tiendasSeg: list.length,
+                                sheets: wb.SheetNames,
+                                discrepancias: discCount
+                            });
+                            setDeployToast(true);
+                            window.setTimeout(() => setDeployToast(false), 8000);
+                            alert(`Sincronizado Diario (${list.length} tiendas | ${diaAct})${cuotasMsg}${asistenciaMsg}`);
                         }
                     } catch (error) { alert("Error procesando archivo: " + (error.message || error)); console.error(error); }
                 };
@@ -3540,8 +3908,15 @@
                         <div className="deploy-toast bg-movistar-dark text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-white/10">
                             <span className="text-lg">✓</span>
                             <div>
-                                <p className="text-[10px] font-black uppercase tracking-wide">Hidalgo Dash desplegado</p>
-                                <p className="text-[8px] font-bold text-blue-200">Versión {APP_VERSION}</p>
+                                <p className="text-[10px] font-black uppercase tracking-wide">
+                                    {lastDiarioUploadMeta ? 'Diario sincronizado' : 'Hidalgo Dash desplegado'}
+                                </p>
+                                <p className="text-[8px] font-bold text-blue-200">
+                                    V{APP_VERSION}
+                                    {lastDiarioUploadMeta && (
+                                        <> · {lastDiarioUploadMeta.tiendasSeg} tiendas · {lastDiarioUploadMeta.discrepancias ?? 0} diff FW</>
+                                    )}
+                                </p>
                             </div>
                         </div>
                     )}
@@ -3788,6 +4163,44 @@
                                                 <p className="text-center text-[10px] font-bold text-gray-400 uppercase py-4">Sin modelos registrados para este rango</p>
                                             )}
                                         </div>
+
+                                        {ventasVsPlanBridge && (
+                                            <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border border-amber-100">
+                                                <h3 className="font-black text-sm italic uppercase text-movistar-dark mb-1">Puente Carpeta ↔ Plan (TEMM)</h3>
+                                                <p className="text-[9px] font-bold text-gray-400 mb-4">
+                                                    Ventas registradas vs altas del Excel diario · {ventasVsPlanBridge.rango} · Plan {ventasVsPlanBridge.mesLabel}
+                                                </p>
+                                                <div className="grid grid-cols-3 gap-2 mb-4">
+                                                    <div className="bg-blue-50 p-3 rounded-xl text-center">
+                                                        <p className="text-[7px] font-black text-gray-500 uppercase">Ventas TEMM</p>
+                                                        <p className="text-xl font-black text-movistar-blue">{ventasVsPlanBridge.ventasTemm}</p>
+                                                    </div>
+                                                    <div className="bg-green-50 p-3 rounded-xl text-center">
+                                                        <p className="text-[7px] font-black text-gray-500 uppercase">Altas plan</p>
+                                                        <p className="text-xl font-black text-movistar-green">{ventasVsPlanBridge.planTemm}</p>
+                                                    </div>
+                                                    <div className={`p-3 rounded-xl text-center ${ventasVsPlanBridge.gap === 0 ? 'bg-gray-50' : 'bg-amber-50'}`}>
+                                                        <p className="text-[7px] font-black text-gray-500 uppercase">Δ Ventas − Altas</p>
+                                                        <p className={`text-xl font-black ${ventasVsPlanBridge.gap === 0 ? 'text-gray-600' : ventasVsPlanBridge.gap > 0 ? 'text-amber-600' : 'text-red-600'}`}>
+                                                            {ventasVsPlanBridge.gap >= 0 ? '+' : ''}{ventasVsPlanBridge.gap}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {ventasVsPlanBridge.mismatches.length > 0 ? (
+                                                    <div className="space-y-1">
+                                                        <p className="text-[8px] font-black text-gray-400 uppercase">Tiendas con diferencia (top 8)</p>
+                                                        {ventasVsPlanBridge.mismatches.map(r => (
+                                                            <div key={r.idpdv} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg text-[8px]">
+                                                                <span className="font-bold truncate max-w-[55%]">{r.tienda}</span>
+                                                                <span className="font-black text-gray-500">V {r.ventasTemm} · A {r.planAltas} · <span className={r.delta === 0 ? '' : 'text-amber-700'}>Δ {r.delta >= 0 ? '+' : ''}{r.delta}</span></span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-center text-[9px] font-bold text-movistar-green uppercase py-2">Ventas TEMM alineadas con altas del plan en el rango</p>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <div className="bg-white p-5 rounded-[1.5rem] shadow-xl border">
                                             <h3 className="font-black text-sm italic uppercase text-movistar-dark mb-1">Resumen Global de Ventas</h3>
@@ -4275,15 +4688,166 @@
                                             </div>
                                         )}
 
-                                        <div className="flex bg-gray-200 p-1 rounded-2xl">
-                                            <button type="button" onClick={() => setCuotasAltasSubView('detalle')} className={`subtab-btn flex-1 ${cuotasAltasSubView === 'detalle' ? 'subtab-active' : 'subtab-inactive'}`}>ALTAS vs CUOTA</button>
-                                            <button type="button" onClick={() => setCuotasAltasSubView('semana_fw')} className={`subtab-btn flex-1 ${cuotasAltasSubView === 'semana_fw' ? 'subtab-active' : 'subtab-inactive'}`}>ALTAS vs FIELDWY</button>
+                                        <div className="flex flex-wrap gap-1 bg-gray-200 p-1 rounded-2xl">
+                                            {[
+                                                { id: 'resumen_dia', label: 'Resumen día' },
+                                                { id: 'conciliacion', label: 'Conciliación' },
+                                                { id: 'semana_fw', label: 'Semanal FW' },
+                                                { id: 'detalle', label: 'Altas vs Cuota' },
+                                                { id: 'heatmap', label: 'Heatmap' },
+                                                { id: 'ranking', label: 'Ranking' },
+                                                ...(userRole === 'ADMIN' ? [{ id: 'estado', label: 'Estado carga' }] : []),
+                                                { id: 'asistencia', label: 'Asistencia' }
+                                            ].filter(tab => userRole !== 'PROMOTOR' || ['resumen_dia', 'detalle', 'semana_fw'].includes(tab.id)).map(tab => (
+                                                <button key={tab.id} type="button" onClick={() => setCuotasAltasSubView(tab.id)} className={`subtab-btn flex-1 min-w-[30%] ${cuotasAltasSubView === tab.id ? 'subtab-active' : 'subtab-inactive'}`}>{tab.label}</button>
+                                            ))}
                                         </div>
+
+                                        {['resumen_dia', 'conciliacion', 'heatmap'].includes(cuotasAltasSubView) && cuotasAltasVista.count > 0 && (
+                                            <div className="bg-white p-3 rounded-xl border flex items-center gap-2">
+                                                <label className="text-[8px] font-black text-gray-400 uppercase shrink-0">Día</label>
+                                                <input type="number" min={1} max={31} value={opCuotasDia ?? corteDiaOperacion} onChange={e => setOpCuotasDia(Math.min(31, Math.max(1, parseInt(e.target.value, 10) || 1)))} className="w-16 bg-gray-50 p-2 rounded-lg font-black text-xs text-center border" />
+                                                <button type="button" onClick={() => setOpCuotasDia(corteDiaOperacion)} className="text-[8px] font-black text-movistar-blue uppercase">Corte actual</button>
+                                            </div>
+                                        )}
 
                                         {cuotasAltasVista.count === 0 ? (
                                             <div className="text-center p-8 bg-white rounded-[1.5rem] border text-gray-400 font-bold text-xs uppercase">
                                                 Sin datos de cuotas/altas. Admin: sube el Excel con <b>CARGAR DIARIO</b> en Tiendas (pestañas Seg Diario, Cuota, Altas y FieldWy).
                                             </div>
+                                        ) : cuotasAltasSubView === 'resumen_dia' ? (
+                                            !cuotasResumenDia ? (
+                                                <p className="text-center text-[10px] font-bold text-gray-400 uppercase p-6 bg-white rounded-xl border">Selecciona un día válido para el resumen</p>
+                                            ) : (
+                                            <div className="space-y-3">
+                                                <div className="bg-white p-4 rounded-2xl border shadow-sm">
+                                                    <p className="text-[10px] font-black uppercase text-movistar-dark">Resumen día {cuotasResumenDia.dia} · {cuotasResumenDia.prodLabel}</p>
+                                                    <p className="text-[8px] font-bold text-gray-400 mt-1">{cuotasResumenDia.tiendasScope} PDV · {cuotasResumenDia.tiendasConDiff} con diff Altas≠FW · {cuotasResumenDia.tiendasFwOk} con FW≥Altas</p>
+                                                    <div className="grid grid-cols-2 gap-2 mt-3">
+                                                        {PRODUCTOS_CUOTA.map(prod => {
+                                                            const cell = roundCuotaCell(cuotasResumenDia.totals[prod] || {}, prod);
+                                                            return (
+                                                                <div key={prod} className="bg-gray-50 rounded-xl p-3 text-center">
+                                                                    <p className="text-[7px] font-black text-gray-500 uppercase">{prod === 'PREPAGO' ? 'Total' : prod}</p>
+                                                                    <p className="text-[8px] font-bold text-gray-400">Cuota {formatCuotaValue(cell.cuota, prod)} · Altas {formatCuotaValue(cell.altas)} · FW {formatCuotaValue(cell.fieldwy)}</p>
+                                                                    <p className={`text-sm font-black ${cell.diffAltasFw === 0 ? 'text-movistar-green' : 'text-amber-600'}`}>Δ {cell.diffAltasFw >= 0 ? '+' : ''}{formatCuotaValue(cell.diffAltasFw)}</p>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                {cuotasFwRankings.topStores.slice(0, 5).map((s, i) => (
+                                                    <div key={s.idpdv} className="flex justify-between bg-white border rounded-xl px-3 py-2 text-[9px]">
+                                                        <span className="font-black">#{i + 1} {s.tienda}</span>
+                                                        <span className="font-black text-red-600">Δ {s.diffFw}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            )
+                                        ) : cuotasAltasSubView === 'conciliacion' ? (
+                                            <div className="space-y-3">
+                                                <div className="flex gap-2 items-center">
+                                                    <label className="text-[8px] font-black uppercase text-gray-500 flex items-center gap-1">
+                                                        <input type="checkbox" checked={soloConciliacionDiff} onChange={e => setSoloConciliacionDiff(e.target.checked)} /> Solo diferencias
+                                                    </label>
+                                                    <button type="button" onClick={downloadConciliacionExcel} className="ml-auto bg-movistar-green text-white px-3 py-2 rounded-lg text-[8px] font-black uppercase">📥 Excel</button>
+                                                </div>
+                                                <div className="overflow-x-auto bg-white rounded-xl border max-h-[55vh] overflow-y-auto">
+                                                    <table className="w-full text-[8px]">
+                                                        <thead className="bg-gray-100 sticky top-0"><tr>
+                                                            <th className="p-2">Día</th><th>ID</th><th>Tienda</th><th>Prod</th><th>Altas</th><th>FW</th><th>Δ</th>
+                                                        </tr></thead>
+                                                        <tbody>
+                                                            {cuotasConciliacionFilas.slice(0, 200).map((r, i) => (
+                                                                <tr key={i} className="border-t">
+                                                                    <td className="p-1 text-center font-bold">{r.day}</td>
+                                                                    <td className="p-1">{r.idpdv}</td>
+                                                                    <td className="p-1 max-w-[90px] truncate">{r.tienda}</td>
+                                                                    <td className="p-1">{r.prod}</td>
+                                                                    <td className="p-1 text-center font-black">{r.altas}</td>
+                                                                    <td className="p-1 text-center font-black">{r.fieldwy}</td>
+                                                                    <td className={`p-1 text-center font-black ${r.diffAltasFw === 0 ? 'text-green-600' : 'text-red-600'}`}>{r.diffAltasFw >= 0 ? '+' : ''}{r.diffAltasFw}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                {cuotasConciliacionFilas.length > 200 && <p className="text-[8px] text-gray-400 text-center">Mostrando 200 de {cuotasConciliacionFilas.length} — exporta Excel para ver todo</p>}
+                                            </div>
+                                        ) : cuotasAltasSubView === 'heatmap' ? (
+                                            <div className="bg-white p-3 rounded-xl border overflow-x-auto">
+                                                <p className="text-[9px] font-black uppercase mb-2">Δ Altas − FieldWy · {cuotasHeatmap.prodLabel} (top {cuotasHeatmap.stores.length} tiendas)</p>
+                                                <table className="text-[6px]">
+                                                    <thead><tr><th className="p-1 sticky left-0 bg-white">PDV</th>{Array.from({length: 31}, (_, i) => <th key={i} className="p-0.5 w-3">{i + 1}</th>)}</tr></thead>
+                                                    <tbody>
+                                                        {cuotasHeatmap.stores.map(st => (
+                                                            <tr key={st.idpdv}>
+                                                                <td className="p-1 sticky left-0 bg-white font-bold max-w-[72px] truncate">{st.idpdv}</td>
+                                                                {Array.from({length: 31}, (_, i) => {
+                                                                    const v = st.cells[String(i + 1)] || 0;
+                                                                    const intensity = Math.min(1, Math.abs(v) / cuotasHeatmap.globalMax);
+                                                                    const bg = v === 0 ? '#f1f5f9' : v > 0 ? `rgba(245,158,11,${0.25 + intensity * 0.75})` : `rgba(220,38,38,${0.25 + intensity * 0.75})`;
+                                                                    return <td key={i} title={`${v}`} style={{ backgroundColor: bg }} className="w-3 h-3 border border-white" />;
+                                                                })}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : cuotasAltasSubView === 'ranking' ? (
+                                            cuotasRankingCorte.length === 0 ? (
+                                                <p className="text-center text-[10px] font-bold text-gray-400 uppercase p-6 bg-white rounded-xl border">Sin ranking para el corte actual</p>
+                                            ) : (
+                                            <div className="space-y-2">
+                                                {cuotasRankingCorte.map((s, i) => (
+                                                    <div key={s.id} className="flex justify-between items-center bg-white border rounded-xl px-3 py-2">
+                                                        <div>
+                                                            <p className="text-[9px] font-black">#{i + 1} · {s.tienda}</p>
+                                                            <p className="text-[7px] font-bold text-gray-400 truncate max-w-[200px]">{s.sup}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-lg font-black text-movistar-blue">{s.alcance}%</p>
+                                                            <p className="text-[7px] font-bold text-gray-400">{s.altas}/{Math.round(s.cuota)}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            )
+                                        ) : cuotasAltasSubView === 'estado' && userRole === 'ADMIN' ? (
+                                            <div className="bg-white p-4 rounded-2xl border space-y-3 text-[9px]">
+                                                <p className="font-black uppercase text-movistar-dark">Estado de la carga diaria</p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="bg-gray-50 p-2 rounded-lg"><p className="text-gray-400 font-bold">Corte</p><p className="font-black">{diarioEstadoCarga.corte}</p></div>
+                                                    <div className="bg-gray-50 p-2 rounded-lg"><p className="text-gray-400 font-bold">Mes plan</p><p className="font-black">{diarioEstadoCarga.mesLabel}</p></div>
+                                                    <div className="bg-gray-50 p-2 rounded-lg"><p className="text-gray-400 font-bold">Seg Diario</p><p className={`font-black ${diarioEstadoCarga.ok106 ? 'text-green-600' : 'text-amber-600'}`}>{diarioEstadoCarga.tiendasSegDiario} tiendas</p></div>
+                                                    <div className="bg-gray-50 p-2 rounded-lg"><p className="text-gray-400 font-bold">Cuotas/Altas/FW</p><p className="font-black">{diarioEstadoCarga.tiendasCuotasAltas}</p></div>
+                                                    <div className="bg-gray-50 p-2 rounded-lg"><p className="text-gray-400 font-bold">Diff Altas≠FW</p><p className="font-black text-red-600">{diarioEstadoCarga.discrepanciasFw}</p></div>
+                                                    <div className="bg-gray-50 p-2 rounded-lg"><p className="text-gray-400 font-bold">Asistencia</p><p className="font-black">{diarioEstadoCarga.asistenciaTiendas || '—'}</p></div>
+                                                </div>
+                                                {diarioEstadoCarga.meta && <p className="text-[7px] text-gray-400">Última carga: {new Date(diarioEstadoCarga.meta.at).toLocaleString('es-MX')}</p>}
+                                                <button type="button" onClick={downloadDiarioSnapshotJson} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[9px] uppercase">📥 Descargar snapshot JSON</button>
+                                            </div>
+                                        ) : cuotasAltasSubView === 'asistencia' ? (
+                                            asistenciaScope.tiendas.length === 0 ? (
+                                                <p className="text-center text-[10px] font-bold text-gray-400 uppercase p-6 bg-white rounded-xl border">Sin asistencia — incluye pestaña Asistencia en el Excel al cargar diario</p>
+                                            ) : (
+                                                <div className="overflow-x-auto bg-white rounded-xl border max-h-[55vh]">
+                                                    <table className="w-full text-[8px]">
+                                                        <thead className="bg-gray-100"><tr><th className="p-2">ID</th><th>Tienda</th>{Object.keys(asistenciaScope.tiendas[0]?.asistencia || {}).sort((a,b)=>+a - +b).map(d => <th key={d} className="p-1">{d}</th>)}</tr></thead>
+                                                        <tbody>
+                                                            {asistenciaScope.tiendas.map(t => (
+                                                                <tr key={t.idpdv} className="border-t">
+                                                                    <td className="p-1 font-bold">{t.idpdv}</td>
+                                                                    <td className="p-1 max-w-[100px] truncate">{t.tienda}</td>
+                                                                    {Object.keys(asistenciaScope.tiendas[0]?.asistencia || {}).sort((a,b)=>+a - +b).map(d => (
+                                                                        <td key={d} className="p-1 text-center">{t.asistencia?.[d] ?? '—'}</td>
+                                                                    ))}
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )
                                         ) : cuotasAltasSubView === 'semana_fw' ? (
                                             <div className="space-y-3">
                                                 {cuotasResumenSemanal.map(week => {
