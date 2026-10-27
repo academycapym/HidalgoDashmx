@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V42.0</title>
+    <title>HidalgoDash CAPYM V42.1</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -536,7 +536,7 @@
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
-        const APP_VERSION = '42.0';
+        const APP_VERSION = '42.1';
 
         const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
         const SESSION_INACTIVITY_MS = 5 * 60 * 1000;
@@ -1181,6 +1181,53 @@
 
         const getStoreRegionLabel = (region) => region === 'HIDALGO' ? 'Hidalgo' : region === 'TOLUCA' ? 'Toluca' : 'Todos';
 
+        const getPromoterRegionByName = (userName, rosters, dataTEMM) => {
+            const match = (rosters || []).find(r => normalizeName(r.nombre) === normalizeName(userName));
+            if (!match?.idpdv) return 'TOLUCA';
+            const store = (dataTEMM || []).find(d => cleanStoreId(d.id) === cleanIdPdv(match.idpdv));
+            return getStoreRegion(store?.sup);
+        };
+
+        const NOTICIA_COMMENT_MAX_LEN = 400;
+        const NOTICIA_BLOCKED_TOPIC_WORDS = [
+            'comision', 'comisiones', 'pago', 'pagos', 'sueldo', 'salario', 'nomina', 'nominas',
+            'bono', 'bonos', 'liquidacion', 'prestacion', 'prestaciones', 'demanda', 'abogado',
+            'demandar', 'queja', 'quejas', 'corrupcion', 'robo', 'estafa', 'fraude', 'despido',
+            'injusto', 'injusticia', 'mal pagado', 'malpagado'
+        ];
+        const NOTICIA_PROFANITY_PATTERNS = [
+            /pendej/i, /chingad/i, /verg[a@]/i, /\bput[oa]s?\b/i, /cabron/i, /cabr[oó]n/i,
+            /mierda/i, /\bjoder\b/i, /culer/i, /maric/i, /\bpinche\b/i, /hij[oa]s?\s+de/i,
+            /caraj/i, /coño/i, /\bcono\b/i, /malparid/i, /gonor/i, /imbecil/i, /estupid/i,
+            /\bidiota\b/i, /\bptm\b/i, /\bmk\b/i
+        ];
+
+        const stripAccentsLower = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        const moderateNoticiaComment = (raw) => {
+            const text = String(raw || '').replace(/\s+/g, ' ').trim();
+            if (text.length < 2) return { ok: false, reason: 'Tu comentario es muy corto.' };
+            if (text.length > NOTICIA_COMMENT_MAX_LEN) {
+                return { ok: false, reason: `Máximo ${NOTICIA_COMMENT_MAX_LEN} caracteres.` };
+            }
+            const plain = stripAccentsLower(text);
+            for (const w of NOTICIA_BLOCKED_TOPIC_WORDS) {
+                const re = new RegExp(`\\b${w.replace(/\s+/g, '\\s+')}\\b`, 'i');
+                if (re.test(plain)) {
+                    return {
+                        ok: false,
+                        reason: 'Para pagos, comisiones o quejas usa Portal → Buzón. Aquí solo comentarios sobre la noticia.'
+                    };
+                }
+            }
+            for (const pat of NOTICIA_PROFANITY_PATTERNS) {
+                if (pat.test(plain) || pat.test(text)) {
+                    return { ok: false, reason: 'Evita groserías. Mantén un tono respetuoso con el equipo.' };
+                }
+            }
+            return { ok: true, text };
+        };
+
         const loadStoreFilters = () => {
             try {
                 const raw = localStorage.getItem(STORE_FILTERS_STORAGE_KEY);
@@ -1546,6 +1593,8 @@
             const [vacaciones, setVacaciones] = useState([]);
             const [rosters, setRosters] = useState([]);
             const [comunicados, setComunicados] = useState([]);
+            const [comCommentDrafts, setComCommentDrafts] = useState({});
+            const [rankRegionTab, setRankRegionTab] = useState('HIDALGO');
             const [encuestas, setEncuestas] = useState([]);
             const [beneficios, setBeneficios] = useState([]);
             const [encuestaActiva, setEncuestaActiva] = useState(true);
@@ -2367,6 +2416,33 @@
                 const q = searchEquipo.trim().toUpperCase();
                 return rankingActivos.filter(u => (u.name || '').toUpperCase().includes(q));
             }, [rankingActivos, searchEquipo]);
+
+            const rankingPorRegion = useMemo(() => {
+                const byReg = { HIDALGO: [], TOLUCA: [] };
+                filteredRankingActivos.forEach(u => {
+                    const reg = getPromoterRegionByName(u.name, rosters, dataTEMM);
+                    byReg[reg].push(u);
+                });
+                byReg.HIDALGO.sort((a, b) => (b.score || 0) - (a.score || 0));
+                byReg.TOLUCA.sort((a, b) => (b.score || 0) - (a.score || 0));
+                return byReg;
+            }, [filteredRankingActivos, rosters, dataTEMM]);
+
+            const rankingRegionList = useMemo(
+                () => rankingPorRegion[rankRegionTab] || [],
+                [rankingPorRegion, rankRegionTab]
+            );
+
+            useEffect(() => {
+                if (userRole === 'SUPERVISOR') {
+                    const supUp = String(userId || '').toUpperCase();
+                    const reg = HIDALGO_SUPERVISOR_KEYS.some(k => supUp.includes(k)) ? 'HIDALGO' : 'TOLUCA';
+                    setRankRegionTab(reg);
+                } else if (userRole === 'PROMOTOR') {
+                    const store = dataTEMM.find(d => cleanStoreId(d.id) === cleanIdPdv(userId));
+                    setRankRegionTab(getStoreRegion(store?.sup));
+                }
+            }, [userRole, userId, dataTEMM]);
 
             const supervisorCanDeactivatePromotor = (r) => {
                 if (!r || (r.rol || 'PROMOTOR') !== 'PROMOTOR') return false;
@@ -3613,7 +3689,18 @@
             const submitComunicado = async (e) => {
                 e.preventDefault(); if(!db) return;
                 if(!comTexto.trim() && !comImgBase64 && !comVideoUrl) return alert("Vacío.");
-                try { await getDbPath("comunicados").add({ texto: comTexto, imgBase64: comImgBase64, videoUrl: comVideoUrl, likes: [], fecha: firebase.firestore.FieldValue.serverTimestamp() }); setComTexto(""); setComImgBase64(""); setComVideoUrl(""); alert("Publicado!"); } catch (err) { alert("Error."); }
+                try {
+                    await getDbPath("comunicados").add({
+                        texto: comTexto,
+                        imgBase64: comImgBase64,
+                        videoUrl: comVideoUrl,
+                        likes: [],
+                        comentarios: [],
+                        fecha: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    setComTexto(""); setComImgBase64(""); setComVideoUrl("");
+                    alert("Publicado!");
+                } catch (err) { alert("Error."); }
             };
 
             const submitBannerCarrusel = async (e) => {
@@ -3649,6 +3736,53 @@
                         else await cRef.update({ likes: [...currentLikes, logId] });
                     }
                 } catch (e) {}
+            };
+
+            const getNoticiaCommentAuthorLabel = () => {
+                const logId = userId.trim().toUpperCase();
+                const byStore = rosters.find(r => cleanIdPdv(r.idpdv) === cleanIdPdv(userId));
+                const byName = rosters.find(r => normalizeName(r.nombre) === normalizeName(userId));
+                const r = byStore || byName;
+                return (r?.nombre || logId).toUpperCase();
+            };
+
+            const submitNoticiaComment = async (comId) => {
+                if (!db) return;
+                if (userRole !== 'PROMOTOR') return alert('Solo los promotores pueden comentar noticias.');
+                const draft = (comCommentDrafts[comId] || '').trim();
+                const mod = moderateNoticiaComment(draft);
+                if (!mod.ok) return alert(mod.reason);
+                const logId = userId.trim().toUpperCase();
+                try {
+                    const cRef = getDbPath("comunicados").doc(comId);
+                    const cDoc = await cRef.get();
+                    if (!cDoc.exists) return alert('La noticia ya no está disponible.');
+                    const prev = cDoc.data().comentarios || [];
+                    const newComment = {
+                        id: `${Date.now()}_${logId}`,
+                        autorId: logId,
+                        autorNombre: getNoticiaCommentAuthorLabel(),
+                        texto: mod.text,
+                        createdAt: new Date().toISOString()
+                    };
+                    await cRef.update({ comentarios: [...prev, newComment] });
+                    setComCommentDrafts(d => ({ ...d, [comId]: '' }));
+                } catch (e) {
+                    alert('No se pudo publicar el comentario.');
+                }
+            };
+
+            const deleteNoticiaComment = async (comId, commentId) => {
+                if (!db || userRole !== 'ADMIN') return;
+                try {
+                    const cRef = getDbPath("comunicados").doc(comId);
+                    const cDoc = await cRef.get();
+                    if (!cDoc.exists) return;
+                    const prev = cDoc.data().comentarios || [];
+                    await cRef.update({ comentarios: prev.filter(c => c.id !== commentId) });
+                } catch (e) {
+                    alert('Error al eliminar comentario.');
+                }
             };
 
             const submitBeneficio = async (e) => {
@@ -6106,10 +6240,25 @@
                                     <div className="space-y-4">
                                         <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
                                             <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Toca a un promotor para abrir su perfil completo.</p>
+                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Ranking por estado · toca un promotor para ver su perfil.</p>
                                             {searchEquipo && (
                                                 <p className="text-[8px] font-bold text-yellow-300 mt-2 uppercase">{filteredRankingActivos.length} resultado(s) para "{searchEquipo}"</p>
                                             )}
+                                        </div>
+                                        <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                            {['HIDALGO', 'TOLUCA'].map(reg => (
+                                                <button
+                                                    key={reg}
+                                                    type="button"
+                                                    onClick={() => setRankRegionTab(reg)}
+                                                    className={`subtab-btn flex-1 ${rankRegionTab === reg ? 'subtab-active' : 'subtab-inactive'}`}
+                                                >
+                                                    {getStoreRegionLabel(reg)} ({rankingPorRegion[reg]?.length || 0})
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className={`rounded-2xl px-4 py-2 text-center text-[9px] font-black uppercase ${rankRegionTab === 'HIDALGO' ? 'bg-teal-50 text-teal-800 border border-teal-100' : 'bg-indigo-50 text-indigo-800 border border-indigo-100'}`}>
+                                            Top Rank · {getStoreRegionLabel(rankRegionTab)}
                                         </div>
                                         <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border ui-lift">
                                             <table className="w-full text-left">
@@ -6117,20 +6266,20 @@
                                                     <tr className="text-[9px] font-black text-gray-400"><th className="p-4 text-center">#</th><th className="p-4">PROMOTOR</th><th className="p-4 text-right">SCORE</th></tr>
                                                 </thead>
                                                 <tbody>
-                                                    {Array.isArray(filteredRankingActivos) && filteredRankingActivos.length === 0 && (
+                                                    {rankingRegionList.length === 0 && (
                                                         <tr>
                                                             <td colSpan="3" className="p-8 text-center text-gray-400 font-bold text-xs uppercase">
-                                                                {searchEquipo ? `Sin promotores que coincidan con "${searchEquipo}"` : 'Sin promotores en el ranking'}
+                                                                {searchEquipo ? `Sin promotores en ${getStoreRegionLabel(rankRegionTab)} para "${searchEquipo}"` : `Sin promotores en ${getStoreRegionLabel(rankRegionTab)}`}
                                                             </td>
                                                         </tr>
                                                     )}
-                                                    {Array.isArray(filteredRankingActivos) && filteredRankingActivos.map((u, i) => {
+                                                    {rankingRegionList.map((u, i) => {
                                                         const rMatch = getRosterMatch(u.name);
-                                                        const rankPos = rankingActivos.findIndex(x => x.id === u.id) + 1;
+                                                        const rankPos = i + 1;
                                                         const photoUrl = rMatch && rMatch.foto && rMatch.foto.startsWith("data:image") ? rMatch.foto : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
                                                         return (
                                                             <tr key={u.id} onClick={() => { if(rMatch) setSelectedProfileModal(rMatch); }} className="border-b rank-row-hover cursor-pointer">
-                                                                <td className="p-3 text-center font-black text-movistar-dark">#{rankPos > 0 ? rankPos : i + 1}</td>
+                                                                <td className="p-3 text-center font-black text-movistar-dark">#{rankPos}</td>
                                                                 <td className="p-3">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 bg-white"><img src={photoUrl} className="w-full h-full object-cover" /></div>
@@ -6258,10 +6407,47 @@
                                                         )}
                                                         {com.imgBase64 && !videoEmbed && <img src={com.imgBase64} alt="" className="w-full h-auto object-cover border-y" />}
                                                         
-                                                        <div className="border-t p-3 bg-gray-50 flex items-center justify-between">
-                                                            <button onClick={() => toggleLike(com.id)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
-                                                                <span className={`text-lg ${hasLiked ? '' : 'grayscale opacity-50'}`}>❤️</span> Me moviencanta ({com.likes ? com.likes.length : 0})
-                                                            </button>
+                                                        <div className="border-t p-3 bg-gray-50 space-y-3">
+                                                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                                                <button onClick={() => toggleLike(com.id)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
+                                                                    <span className={`text-lg ${hasLiked ? '' : 'grayscale opacity-50'}`}>❤️</span> Me moviencanta ({com.likes ? com.likes.length : 0})
+                                                                </button>
+                                                                <span className="text-[8px] font-black text-gray-400 uppercase">💬 {(com.comentarios || []).length} comentario(s)</span>
+                                                            </div>
+                                                            {(com.comentarios || []).length > 0 && (
+                                                                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                                                    {[...(com.comentarios || [])].reverse().map(c => (
+                                                                        <div key={c.id} className="bg-white rounded-xl border p-3 text-left relative">
+                                                                            {userRole === 'ADMIN' && (
+                                                                                <button type="button" onClick={() => deleteNoticiaComment(com.id, c.id)} className="absolute top-2 right-2 text-[8px] font-black text-red-500 uppercase">✕</button>
+                                                                            )}
+                                                                            <p className="text-[8px] font-black text-movistar-blue uppercase">{c.autorNombre || c.autorId}</p>
+                                                                            <p className="text-[10px] font-bold text-gray-700 mt-1 whitespace-pre-wrap">{c.texto}</p>
+                                                                            {c.createdAt && (
+                                                                                <p className="text-[7px] font-bold text-gray-400 mt-1">{new Date(c.createdAt).toLocaleString('es-MX')}</p>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {userRole === 'PROMOTOR' ? (
+                                                                <div className="flex gap-2 items-end">
+                                                                    <div className="flex-1">
+                                                                        <label className="text-[7px] font-black text-gray-400 uppercase block mb-1">Comentar (sin groserías ni temas de pago/comisiones)</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            maxLength={NOTICIA_COMMENT_MAX_LEN}
+                                                                            placeholder="Escribe algo positivo sobre la noticia…"
+                                                                            value={comCommentDrafts[com.id] || ''}
+                                                                            onChange={e => setComCommentDrafts(d => ({ ...d, [com.id]: e.target.value }))}
+                                                                            className="w-full bg-white border rounded-xl p-3 text-[10px] font-bold outline-none focus:border-movistar-blue"
+                                                                        />
+                                                                    </div>
+                                                                    <button type="button" onClick={() => submitNoticiaComment(com.id)} className="bg-movistar-blue text-white px-4 py-3 rounded-xl font-black text-[9px] uppercase shrink-0 active:scale-95">Enviar</button>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-[8px] font-bold text-gray-400 uppercase text-center">Los promotores pueden comentar aquí · quejas al Buzón</p>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
