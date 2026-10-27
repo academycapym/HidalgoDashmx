@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V40.0</title>
+    <title>HidalgoDash CAPYM V42.0</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -136,12 +136,100 @@
         .progress-bar-container { width: 100%; background-color: #f1f5f9; height: 8px; border-radius: 9999px; overflow: hidden; }
         .progress-bar-fill { height: 100%; transition: width 0.5s ease-out; }
         
-        /* Estilos Compactos para Carpeta Digital */
+        /* Carpeta Digital — modo cómodo (más legible) */
         .tabla-carpeta th, .tabla-carpeta td { border: 1px solid #e2e8f0; padding: 6px; text-align: center; font-size: 10px; }
+        .tabla-carpeta-comfort th, .tabla-carpeta-comfort td { padding: 10px 8px; font-size: 11px; }
         .tabla-carpeta th { background-color: #f8fafc; color: #334155; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .tabla-carpeta-comfort th { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); font-size: 9px; }
         .tabla-carpeta input { width: 100%; font-size: 10px; text-align: center; font-weight: 600; background: transparent; border: none; outline: none; padding: 4px; border-radius: 4px; transition: 0.2s;}
+        .tabla-carpeta-comfort input { font-size: 12px; padding: 6px; font-weight: 700; }
         .tabla-carpeta input:focus { background: #eff6ff; }
         .tabla-carpeta select { font-size: 10px; text-align: center; font-weight: 600; background: transparent; border: none; outline: none; width: 100%; cursor: pointer;}
+        .carpeta-shell { width: 100%; max-width: 100%; }
+        .carpeta-table-wrap {
+            border-radius: 1rem;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            box-shadow: inset 0 0 0 1px #e2e8f0;
+            background: #fff;
+        }
+        .alcance-pill { display: inline-block; min-width: 3rem; padding: 4px 8px; border-radius: 999px; font-weight: 800; font-size: 10px; }
+        .alcance-pill--ok { background: #dcfce7; color: #15803d; }
+        .alcance-pill--mid { background: #fef3c7; color: #b45309; }
+        .alcance-pill--low { background: #fee2e2; color: #b91c1c; }
+
+        /* Inicio / KPIs */
+        .inicio-hero {
+            background: linear-gradient(135deg, #0B2739 0%, #019DF4 55%, #5CB615 120%);
+            border-radius: 1.75rem;
+            padding: 1.35rem 1.25rem;
+            color: #fff;
+            box-shadow: 0 20px 40px -16px rgba(11, 39, 57, 0.55);
+            position: relative;
+            overflow: hidden;
+        }
+        .inicio-hero::after {
+            content: '';
+            position: absolute;
+            right: -20%;
+            top: -30%;
+            width: 55%;
+            height: 140%;
+            background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
+        @media (min-width: 480px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
+        .kpi-card {
+            background: #fff;
+            border-radius: 1.15rem;
+            padding: 0.85rem 0.65rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 8px 20px -12px rgba(11, 39, 57, 0.2);
+        }
+        .kpi-card--temm { border-top: 3px solid #019DF4; }
+        .kpi-card--porta { border-top: 3px solid #E63780; }
+        .kpi-card--prepago { border-top: 3px solid #5CB615; }
+        .kpi-card--total { border-top: 3px solid #0B2739; }
+        .kpi-card .kpi-value { font-size: 1.65rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .profile-scroll {
+            display: flex;
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding: 0.25rem 0.15rem 0.75rem;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+        .profile-chip {
+            flex: 0 0 auto;
+            width: 7.5rem;
+            scroll-snap-align: start;
+            background: #fff;
+            border-radius: 1.25rem;
+            padding: 0.75rem 0.5rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 24px -14px rgba(1, 157, 244, 0.45);
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .profile-chip:active { transform: scale(0.97); }
+        .profile-chip:hover { transform: translateY(-3px); box-shadow: 0 14px 28px -12px rgba(1, 157, 244, 0.5); }
+        .quick-action-btn {
+            flex: 1;
+            min-width: 45%;
+            padding: 0.85rem;
+            border-radius: 1rem;
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border: none;
+            color: #fff;
+            box-shadow: 0 8px 18px -8px rgba(11, 39, 57, 0.35);
+        }
+        .app-shell { width: 100%; }
 
         .venta-row { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         .venta-row-compact { padding: 8px 12px; margin-bottom: 6px; cursor: pointer; }
@@ -448,7 +536,7 @@
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
-        const APP_VERSION = '41.0';
+        const APP_VERSION = '42.0';
 
         const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
         const SESSION_INACTIVITY_MS = 5 * 60 * 1000;
@@ -1439,7 +1527,7 @@
             const [pass, setPass] = useState("");
             const [deployToast, setDeployToast] = useState(false);
             
-            const [activeTab, setActiveTab] = useState("CARPETA");
+            const [activeTab, setActiveTab] = useState("INICIO");
             const [subTabCarpeta, setSubTabCarpeta] = useState("BOLETA");
             const [subTabAcademia, setSubTabAcademia] = useState("EXAMENES");
             const [subTabPortal, setSubTabPortal] = useState("COMUNICADOS");
@@ -2020,6 +2108,40 @@
                 .slice(0, 15),
             [filteredData]);
 
+            const inicioResumenAltas = useMemo(() => {
+                const acc = {};
+                PRODUCTOS_CUOTA.forEach(p => { acc[p] = { altas: 0, cuota: 0, fieldwy: 0 }; });
+                Object.values(cuotasAltasVista.dias || {}).forEach(dayProds => {
+                    PRODUCTOS_CUOTA.forEach(p => {
+                        acc[p].altas += Math.round(Number(dayProds?.[p]?.altas) || 0);
+                        acc[p].cuota += Number(dayProds?.[p]?.cuota) || 0;
+                        acc[p].fieldwy += Math.round(Number(dayProds?.[p]?.fieldwy) || 0);
+                    });
+                });
+                const cards = PRODUCTOS_CUOTA.map(p => {
+                    const { altas, cuota, fieldwy } = acc[p];
+                    const alcance = cuotaAlcancePct(altas, cuota, p);
+                    const diffFw = altas - fieldwy;
+                    return { prod: p, altas, cuota, fieldwy, alcance, diffFw };
+                });
+                const totalAltas = cards.reduce((s, c) => s + c.altas, 0);
+                return {
+                    cards,
+                    totalAltas,
+                    mesLabel: mesOperacionLabel,
+                    corteDia: corteDiaOperacion,
+                    scopeLabel: cuotasAltasVista.tiendaLabel,
+                    pdvCount: cuotasAltasVista.count,
+                    diaResumen: cuotasResumenDia
+                };
+            }, [cuotasAltasVista, mesOperacionLabel, corteDiaOperacion, cuotasResumenDia]);
+
+            const alcanceToneClass = (pct) => {
+                if (pct >= 100) return 'alcance-pill alcance-pill--ok';
+                if (pct >= 70) return 'alcance-pill alcance-pill--mid';
+                return 'alcance-pill alcance-pill--low';
+            };
+
             const diarioEstadoCarga = useMemo(() => ({
                 corte: actualizadoAl,
                 mes: cuotasMesOperacion,
@@ -2200,6 +2322,33 @@
                 }
                 return r;
             }, [rosters, userId, userRole, supFilterRoster]);
+
+            const inicioPromotoresCards = useMemo(() => {
+                const list = myRosters.filter(r => r.estatus !== 'INACTIVO' && (r.rol === 'PROMOTOR' || r.rol === 'MULTITIENDA'));
+                return list.slice(0, 20).map(r => {
+                    const storeId = cleanIdPdv(r.idpdv);
+                    const store = dataTEMM.find(d => cleanStoreId(d.id) === storeId);
+                    const a = Number(store?.altas_total ?? store?.altas) || 0;
+                    const c = Number(store?.cuota_total ?? store?.cuota) || 0;
+                    const alcance = c > 0 ? Math.round((a / c) * 100) : 0;
+                    const uRank = ranking.find(rk => normalizeName(rk.name) === normalizeName(r.nombre));
+                    return {
+                        roster: r,
+                        tienda: store?.tienda || getStoreName(storeId),
+                        alcance,
+                        badges: uRank?.badges?.length || 0
+                    };
+                });
+            }, [myRosters, dataTEMM, ranking]);
+
+            const inicioSaludo = useMemo(() => {
+                const h = new Date().getHours();
+                const parte = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+                const nombre = userRole === 'PROMOTOR'
+                    ? (myRosters.find(r => normalizeName(r.nombre) === normalizeName(userId) || cleanIdPdv(r.idpdv) === cleanIdPdv(userId))?.nombre || getStoreName(userId))
+                    : userRole === 'SUPERVISOR' ? userId : 'Líder CAPYM';
+                return { parte, nombre };
+            }, [userRole, userId, myRosters]);
 
             const getRosterMatch = (name) => {
                 return rosters.find(r => normalizeName(r.nombre) === normalizeName(name));
@@ -3903,7 +4052,7 @@
             );
 
             return (
-                <div className="min-h-screen flex flex-col bg-gray-100 max-w-md mx-auto shadow-2xl relative animate-pop">
+                <div className="app-shell min-h-screen flex flex-col bg-slate-100 max-w-md sm:max-w-xl md:max-w-2xl mx-auto shadow-2xl relative animate-pop">
                     {deployToast && (
                         <div className="deploy-toast bg-movistar-dark text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-white/10">
                             <span className="text-lg">✓</span>
@@ -4026,6 +4175,7 @@
                     </div>
 
                     <div className="bg-white flex sticky top-[68px] z-40 border-b shadow-sm overflow-x-auto hide-scrollbar p-1">
+                        <button className={`tab-btn ui-lift ${activeTab==='INICIO'?'tab-active':''}`} onClick={()=>setActiveTab('INICIO')}>Inicio</button>
                         <button className={`tab-btn ui-lift ${activeTab==='CARPETA'?'tab-active':''}`} onClick={()=>setActiveTab('CARPETA')}>Carpeta</button>
                         <button className={`tab-btn ui-lift ${activeTab==='OPERACION'?'tab-active':''}`} onClick={()=>setActiveTab('OPERACION')}>Operación</button>
                         <button className={`tab-btn ui-lift ${activeTab==='ACADEMIA'?'tab-active':''}`} onClick={()=>setActiveTab('ACADEMIA')}>Academia</button>
@@ -4058,7 +4208,129 @@
                         </div>
                     </div>
 
-                    <div className="p-4 flex-grow overflow-y-auto pb-10">
+                    <div className="p-4 sm:p-5 flex-grow overflow-y-auto pb-10">
+                        {activeTab === 'INICIO' && (
+                            <div className="space-y-4 animate-pop">
+                                <div className="inicio-hero">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 relative z-10">{inicioSaludo.parte}</p>
+                                    <h2 className="text-2xl sm:text-3xl font-black italic uppercase leading-tight mt-1 relative z-10">{inicioSaludo.nombre}</h2>
+                                    <p className="text-[10px] font-bold text-blue-100 mt-2 relative z-10">
+                                        {inicioResumenAltas.scopeLabel} · {inicioResumenAltas.pdvCount} PDV · {inicioResumenAltas.mesLabel}
+                                        {actualizadoAl !== 'Desconocido' && <> · corte día {inicioResumenAltas.corteDia}</>}
+                                    </p>
+                                    <div className="kpi-grid mt-4 relative z-10">
+                                        <div className="kpi-card kpi-card--total col-span-2 sm:col-span-1">
+                                            <p className="text-[7px] font-black text-gray-400 uppercase">Altas acum.</p>
+                                            <p className="kpi-value text-movistar-dark">{inicioResumenAltas.totalAltas}</p>
+                                        </div>
+                                        {resumenGlobalVentas.total > 0 && (
+                                            <div className="kpi-card">
+                                                <p className="text-[7px] font-black text-gray-400 uppercase">Ventas carpeta</p>
+                                                <p className="kpi-value text-movistar-blue">{resumenGlobalVentas.total}</p>
+                                            </div>
+                                        )}
+                                        {cuotasRankingCorte[0] && (
+                                            <div className="kpi-card">
+                                                <p className="text-[7px] font-black text-gray-400 uppercase">Top tienda</p>
+                                                <p className="kpi-value text-movistar-green">{cuotasRankingCorte[0].alcance}%</p>
+                                            </div>
+                                        )}
+                                        {inicioResumenAltas.diaResumen && (
+                                            <div className="kpi-card">
+                                                <p className="text-[7px] font-black text-gray-400 uppercase">Δ hoy Altas−FW</p>
+                                                <p className={`kpi-value ${inicioResumenAltas.diaResumen.highlight?.diffAltasFw === 0 ? 'text-movistar-green' : 'text-amber-600'}`}>
+                                                    {inicioResumenAltas.diaResumen.highlight?.diffAltasFw >= 0 ? '+' : ''}{formatCuotaValue(inicioResumenAltas.diaResumen.highlight?.diffAltasFw || 0)}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between items-end mb-2 px-1">
+                                        <h3 className="font-black text-sm uppercase text-movistar-dark italic">Resumen de altas</h3>
+                                        <button type="button" onClick={() => { setActiveTab('OPERACION'); setSubTabOp('CUOTAS_ALTAS'); setCuotasAltasSubView('resumen_dia'); }} className="text-[8px] font-black text-movistar-blue uppercase">Ver detalle →</button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {inicioResumenAltas.cards.map(card => {
+                                            const tone = card.prod === 'TEMM' ? 'kpi-card--temm' : card.prod === 'PORTA' ? 'kpi-card--porta' : card.prod === 'PREPAGO' ? 'kpi-card--prepago' : 'kpi-card--total';
+                                            const label = card.prod === 'PREPAGO' ? 'Total / Prepago' : card.prod;
+                                            return (
+                                                <div key={card.prod} className={`kpi-card ${tone}`}>
+                                                    <p className="text-[8px] font-black text-gray-500 uppercase">{label}</p>
+                                                    <p className="kpi-value text-movistar-dark mt-1">{card.altas}</p>
+                                                    <p className="text-[8px] font-bold text-gray-400 mt-1">Meta {formatCuotaValue(card.cuota, card.prod)}</p>
+                                                    <div className="flex justify-between items-center mt-2 gap-1">
+                                                        <span className={alcanceToneClass(card.alcance)}>{card.alcance}%</span>
+                                                        <span className={`text-[7px] font-black ${card.diffFw === 0 ? 'text-green-600' : 'text-amber-600'}`}>FW Δ {card.diffFw >= 0 ? '+' : ''}{card.diffFw}</span>
+                                                    </div>
+                                                    <div className="progress-bar-container mt-2 h-2">
+                                                        <div className="progress-bar-fill bg-movistar-blue" style={{ width: `${Math.min(card.alcance, 100)}%` }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {cuotasRankingCorte.length > 0 && (
+                                    <div className="bg-white rounded-2xl border shadow-sm p-4">
+                                        <p className="text-[9px] font-black text-gray-400 uppercase mb-3">Top tiendas · alcance al corte</p>
+                                        <div className="space-y-2">
+                                            {cuotasRankingCorte.slice(0, 5).map((s, i) => (
+                                                <div key={s.id} className="flex items-center gap-3 rank-row-hover rounded-xl px-2 py-2">
+                                                    <span className="w-7 h-7 rounded-full bg-movistar-blue text-white flex items-center justify-center text-[10px] font-black shrink-0">{i + 1}</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[10px] font-black text-movistar-dark truncate uppercase">{s.tienda}</p>
+                                                        <p className="text-[7px] font-bold text-gray-400 truncate">{s.sup}</p>
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                        <span className={alcanceToneClass(s.alcance)}>{s.alcance}%</span>
+                                                        <p className="text-[7px] font-bold text-gray-400 mt-0.5">{s.altas}/{Math.round(s.cuota)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {inicioPromotoresCards.length > 0 && (
+                                    <div>
+                                        <div className="flex justify-between items-end mb-2 px-1">
+                                            <h3 className="font-black text-sm uppercase text-movistar-dark italic">Promotores</h3>
+                                            <button type="button" onClick={() => { setActiveTab('EQUIPO'); setSubTabEquipo('PERFIL'); }} className="text-[8px] font-black text-movistar-blue uppercase">Ver roster →</button>
+                                        </div>
+                                        <div className="profile-scroll">
+                                            {inicioPromotoresCards.map(({ roster: r, tienda, alcance, badges }) => (
+                                                <button key={r.id} type="button" onClick={() => setSelectedProfileModal(r)} className="profile-chip ui-lift">
+                                                    <div className="w-14 h-14 mx-auto rounded-full overflow-hidden border-2 border-movistar-blue/30 bg-gray-100 mb-2">
+                                                        {r.foto && r.foto.startsWith('data:image') ? (
+                                                            <img src={r.foto} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <span className="text-2xl flex items-center justify-center h-full">👤</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[8px] font-black text-movistar-dark uppercase leading-tight line-clamp-2 min-h-[2rem]">{r.nombre}</p>
+                                                    <p className="text-[6px] font-bold text-gray-400 truncate mt-1">{tienda}</p>
+                                                    <span className={`${alcanceToneClass(alcance)} mt-2 text-[8px]`}>{alcance}%</span>
+                                                    {badges > 0 && <p className="text-[6px] font-black text-movistar-blue mt-1">{badges} cert.</p>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex flex-wrap gap-2">
+                                    <button type="button" className="quick-action-btn bg-movistar-blue" onClick={() => { setActiveTab('OPERACION'); setSubTabOp('CUOTAS_ALTAS'); }}>Cuotas y altas</button>
+                                    <button type="button" className="quick-action-btn bg-movistar-green" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('VENTAS'); }}>Registrar ventas</button>
+                                    <button type="button" className="quick-action-btn bg-movistar-dark" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('BOLETA'); }}>Carpeta digital</button>
+                                    {esLiderOSupervisor && (
+                                        <button type="button" className="quick-action-btn bg-movistar-red" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('RESUMEN_VENTAS'); }}>Resumen ventas</button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'CARPETA' && (
                             <div className="space-y-4 animate-pop">
                                 {(userRole === "ADMIN" || userRole === "SUPERVISOR" || userRole === "PROMOTOR") && renderStoreFiltersBar()}
@@ -4073,13 +4345,13 @@
                                     )}
                                 </div>
 
-                                <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
+                                <div className="bg-gradient-to-br from-movistar-dark via-slate-900 to-movistar-blue p-6 sm:p-7 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
                                     <div className="flex justify-between items-start gap-3">
                                         <div className="relative z-10 flex-1">
-                                            <h2 className="font-black text-lg italic uppercase">Carpeta Digital</h2>
-                                            <p className="text-[9px] font-bold text-gray-400 mt-1">Historial por mes y tienda (IDPV)</p>
+                                            <h2 className="font-black text-xl italic uppercase">Carpeta Digital</h2>
+                                            <p className="text-[10px] font-bold text-blue-100/80 mt-1">Historial por mes y tienda · tablas ampliadas para lectura rápida</p>
                                         </div>
-                                        <div className="text-4xl opacity-50 relative z-10">📁</div>
+                                        <div className="text-4xl opacity-60 relative z-10">📁</div>
                                     </div>
                                     <div className="mt-4 relative z-10 flex flex-col gap-2">
                                         <label className="text-[8px] font-black text-gray-400 uppercase">Mes de consulta</label>
@@ -4402,7 +4674,7 @@
                                 ) : !localCarpeta ? (
                                     <div className="text-center p-6 text-gray-400 font-bold text-xs uppercase">Cargando formato...</div>
                                 ) : (
-                                    <div className="bg-white p-4 rounded-[1.5rem] shadow-xl border">
+                                    <div className="carpeta-shell bg-white p-4 sm:p-5 rounded-[1.5rem] shadow-xl border">
                                         
                                         <div className="flex justify-between items-center mb-4 border-b pb-3">
                                             <div>
@@ -4430,8 +4702,8 @@
                                                                 />
                                                             </div>
                                                         </div>
-                                                        <div className="overflow-x-auto">
-                                                            <table className="w-full tabla-carpeta min-w-[600px]">
+                                                        <div className="carpeta-table-wrap overflow-x-auto">
+                                                            <table className="w-full tabla-carpeta tabla-carpeta-comfort min-w-[640px]">
                                                                 <thead>
                                                                     <tr>
                                                                         <th>PRODUCTO</th><th>ALTAS</th><th>CUOTA</th><th>ALCANCE</th><th>VENTAS DIARIAS (L, M, X, J, V, S, D)</th><th>COMENTARIO</th>
@@ -4441,13 +4713,13 @@
                                                                     {['TEMM', 'PORTA', 'PP_VOZ', 'TOTAL'].map(prod => {
                                                                         const row = localCarpeta.boleta[sem]?.[prod] || {a:'', c:'', d0:{}, com:'', ok:false};
                                                                         const a = Number(row.a) || 0; const c = Number(row.c) || 0;
-                                                                        const alcance = c > 0 ? ((a / c) * 100).toFixed(0) + '%' : '0%';
+                                                                        const alcPct = c > 0 ? Math.round((a / c) * 100) : 0;
                                                                         return (
                                                                             <tr key={prod}>
                                                                                 <td className="font-bold bg-gray-50">{prod.replace('_', ' ')}</td>
                                                                                 <td><input type="number" value={row.a} disabled className="bg-gray-100 cursor-not-allowed text-movistar-dark" /></td>
                                                                                 <td><input type="number" value={row.c} onChange={e => updateBoleta(sem, prod, 'c', e.target.value)} disabled={!puedeEditarCarpeta || userRole === "PROMOTOR"} /></td>
-                                                                                <td className="font-bold text-movistar-blue bg-gray-50">{alcance}</td>
+                                                                                <td className="bg-gray-50"><span className={alcanceToneClass(alcPct)}>{alcPct}%</span></td>
                                                                                 <td className="w-40">
                                                                                     <div className="flex gap-1 justify-center">
                                                                                         {['L','M','X','J','V','S','D'].map(day => {
@@ -4477,11 +4749,11 @@
                                             const today = new Date().getDate();
                                             let acCuotaTot = 0, acAltaTot = 0, acCuotaTemm = 0, acAltaTemm = 0;
                                             return (
-                                                <div className="overflow-x-auto border rounded-xl">
-                                                    <table className="w-full tabla-carpeta min-w-[600px]">
+                                                <div className="carpeta-table-wrap overflow-x-auto border rounded-xl">
+                                                    <table className="w-full tabla-carpeta tabla-carpeta-comfort min-w-[640px]">
                                                         <thead>
                                                             <tr>
-                                                                <th rowSpan="2">DÍA</th><th colSpan="5">TOTALES</th><th colSpan="5" className="bg-movistar-blue">TEMM</th>
+                                                                <th rowSpan="2">DÍA</th><th colSpan="5">TOTALES</th><th colSpan="5" className="bg-movistar-blue text-white">TEMM</th>
                                                             </tr>
                                                             <tr>
                                                                 <th>CUOTA</th><th>ALTAS</th><th>ACUM C.</th><th>ACUM V.</th><th>GAP</th>
@@ -4526,14 +4798,14 @@
                                         {subTabCarpeta === "SHARE" && (() => {
                                             let acMov = 0, acTel = 0, acLib = 0, acAtt = 0, acTot = 0;
                                             return (
-                                                <div className="overflow-x-auto border rounded-xl">
-                                                    <table className="w-full tabla-carpeta min-w-[600px]">
+                                                <div className="carpeta-table-wrap overflow-x-auto border rounded-xl">
+                                                    <table className="w-full tabla-carpeta tabla-carpeta-comfort min-w-[640px]">
                                                         <thead>
                                                             <tr>
                                                                 <th rowSpan="2">DÍA</th>
-                                                                <th colSpan="2" className="bg-movistar-green">MOVISTAR</th>
-                                                                <th colSpan="2" className="bg-blue-600">TELCEL</th>
-                                                                <th colSpan="2" className="bg-gray-500">LIBRE</th>
+                                                                <th colSpan="2" className="bg-movistar-green text-white">MOVISTAR</th>
+                                                                <th colSpan="2" className="bg-blue-600 text-white">TELCEL</th>
+                                                                <th colSpan="2" className="bg-gray-500 text-white">LIBRE</th>
                                                                 <th colSpan="2" className="bg-black">AT&T</th>
                                                                 <th colSpan="4">TOTALES Y SHARE</th>
                                                             </tr>
@@ -4633,6 +4905,23 @@
                                                 {cuotasAltasRecords.length > 0 && <> · {cuotasAltasRecords.length} tiendas</>}
                                             </p>
                                         </div>
+
+                                        {cuotasAltasVista.count > 0 && (
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                {inicioResumenAltas.cards.map(card => {
+                                                    const tone = card.prod === 'TEMM' ? 'kpi-card--temm' : card.prod === 'PORTA' ? 'kpi-card--porta' : card.prod === 'PREPAGO' ? 'kpi-card--prepago' : 'kpi-card--total';
+                                                    const label = card.prod === 'PREPAGO' ? 'Total' : card.prod;
+                                                    return (
+                                                        <div key={`cuotas-kpi-${card.prod}`} className={`kpi-card ${tone}`}>
+                                                            <p className="text-[7px] font-black text-gray-500 uppercase">{label}</p>
+                                                            <p className="kpi-value text-movistar-dark text-xl">{card.altas}</p>
+                                                            <p className="text-[7px] font-bold text-gray-400">/{formatCuotaValue(card.cuota, card.prod)}</p>
+                                                            <span className={`${alcanceToneClass(card.alcance)} mt-2 inline-block`}>{card.alcance}%</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
 
                                         {cuotasAltasVista.count > 0 && (userRole === 'ADMIN' || userRole === 'SUPERVISOR') && (
                                             <div className="space-y-3">
