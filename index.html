@@ -1130,20 +1130,90 @@
             return list;
         };
 
+        const CARPETA_BOLETA_SEMS = [1, 2, 3, 4, 5];
+        const CARPETA_BOLETA_PRODS = ['TEMM', 'PORTA', 'PP_VOZ', 'TOTAL'];
+        const CARPETA_BOLETA_DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+        const getEmptyBoletaProductRow = () => ({
+            a: '', c: '', d0: { L: '', M: '', X: '', J: '', V: '', S: '', D: '' }, com: '', ok: false
+        });
+
+        const normalizeBoletaProductRow = (raw) => {
+            const base = getEmptyBoletaProductRow();
+            if (!raw || typeof raw !== 'object') return base;
+            const d0 = { ...base.d0 };
+            const srcD0 = raw.d0 && typeof raw.d0 === 'object' ? raw.d0 : {};
+            CARPETA_BOLETA_DAYS.forEach(d => {
+                let v = srcD0[d];
+                if (typeof v === 'boolean') v = v ? '0' : '';
+                d0[d] = v === null || v === undefined ? '' : String(v);
+            });
+            return {
+                a: raw.a === null || raw.a === undefined ? '' : String(raw.a),
+                c: raw.c === null || raw.c === undefined ? '' : String(raw.c),
+                d0,
+                com: raw.com === null || raw.com === undefined ? '' : String(raw.com),
+                ok: !!raw.ok
+            };
+        };
+
+        const normalizeBoletaFromFirebase = (raw) => {
+            const out = {};
+            CARPETA_BOLETA_SEMS.forEach(sem => {
+                const srcSem = raw?.[sem] ?? raw?.[String(sem)] ?? {};
+                const semObj = { periodo: String(srcSem.periodo ?? '') };
+                CARPETA_BOLETA_PRODS.forEach(prod => {
+                    semObj[prod] = normalizeBoletaProductRow(srcSem[prod]);
+                });
+                out[sem] = semObj;
+            });
+            return out;
+        };
+
+        const normalizeCarpetaDayRows = (rawRows, emptyRow, fields, len = 31) => {
+            const base = Array.from({ length: len }, () => ({ ...emptyRow }));
+            if (!Array.isArray(rawRows)) return base;
+            rawRows.forEach((row, i) => {
+                if (i >= len) return;
+                const merged = { ...emptyRow };
+                fields.forEach(f => {
+                    merged[f] = row?.[f] === null || row?.[f] === undefined ? '' : String(row[f]);
+                });
+                base[i] = merged;
+            });
+            return base;
+        };
+
         const getEmptyCarpeta = (idpdv, mes) => ({
-            idpdv, mes,
-            boleta: [1,2,3,4,5].reduce((acc, sem) => {
+            idpdv: String(idpdv || '').replace(/^0+/, ''),
+            mes,
+            boleta: CARPETA_BOLETA_SEMS.reduce((acc, sem) => {
                 acc[sem] = {
                     periodo: '',
-                    TEMM: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
-                    PORTA: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
-                    PP_VOZ: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false},
-                    TOTAL: {a:'', c:'', d0:{L:'', M:'', X:'', J:'', V:'', S:'', D:''}, com:'', ok:false}
-                }; return acc;
+                    TEMM: getEmptyBoletaProductRow(),
+                    PORTA: getEmptyBoletaProductRow(),
+                    PP_VOZ: getEmptyBoletaProductRow(),
+                    TOTAL: getEmptyBoletaProductRow()
+                };
+                return acc;
             }, {}),
-            estacionalidad: Array.from({length: 31}).map(()=>({ cTot:'', aTot:'', cTem:'', aTem:'' })),
-            share: Array.from({length: 31}).map(()=>({ mov:'', tel:'', lib:'', att:'' }))
+            estacionalidad: Array.from({ length: 31 }, () => ({ cTot: '', aTot: '', cTem: '', aTem: '' })),
+            share: Array.from({ length: 31 }, () => ({ mov: '', tel: '', lib: '', att: '' }))
         });
+
+        const normalizeCarpetaFromFirebase = (raw, idpdv, mes) => {
+            const empty = getEmptyCarpeta(idpdv, mes);
+            if (!raw || typeof raw !== 'object') return empty;
+            return {
+                idpdv: String(idpdv || raw.idpdv || '').replace(/^0+/, ''),
+                mes: raw.mes || mes,
+                boleta: normalizeBoletaFromFirebase(raw.boleta),
+                estacionalidad: normalizeCarpetaDayRows(raw.estacionalidad, { cTot: '', aTot: '', cTem: '', aTem: '' }, ['cTot', 'aTot', 'cTem', 'aTem']),
+                share: normalizeCarpetaDayRows(raw.share, { mov: '', tel: '', lib: '', att: '' }, ['mov', 'tel', 'lib', 'att'])
+            };
+        };
+
+        const cloneCarpetaState = (carpeta) => JSON.parse(JSON.stringify(carpeta));
 
         const VENTAS_MAX_ROWS = 200;
         const VENTAS_PRODUCTOS = ['Portabilidad', 'Temm', 'Pospago', 'Prepago Voz'];
@@ -1294,6 +1364,8 @@
             const [expandedCuotaWeeks, setExpandedCuotaWeeks] = useState({ 1: true });
             const [cuotasAltasSubView, setCuotasAltasSubView] = useState('detalle');
             const invSyncAttemptedRef = useRef(false);
+            const carpetaDirtyRef = useRef(false);
+            const carpetaSelectionRef = useRef('');
             const [isSyncingInventario, setIsSyncingInventario] = useState(false);
             const [invSyncError, setInvSyncError] = useState('');
             const [viewStoreId, setViewStoreId] = useState("");
@@ -2092,12 +2164,30 @@
                 setVentasExportHasta(hastaDefault);
             }, [carpetaMesSeleccionado]);
 
+            const findCarpetaDoc = (cleanId, mes) => carpetas.find(c =>
+                c.id === `${cleanId}_${mes}` ||
+                (String(c.idpdv).replace(/^0+/, '') === cleanId && c.mes === mes)
+            );
+
             useEffect(() => {
                 if (!viewStoreId) return;
                 const cleanId = String(viewStoreId).replace(/^0+/, '');
-                const exist = carpetas.find(c => c.id === `${cleanId}_${carpetaMesSeleccionado}` || (String(c.idpdv).replace(/^0+/, '') === cleanId && c.mes === carpetaMesSeleccionado));
-                if (exist) setLocalCarpeta(JSON.parse(JSON.stringify(exist)));
-                else setLocalCarpeta(getEmptyCarpeta(viewStoreId, carpetaMesSeleccionado));
+                const selectionKey = `${cleanId}|${carpetaMesSeleccionado}`;
+                const selectionChanged = carpetaSelectionRef.current !== selectionKey;
+                if (selectionChanged) {
+                    carpetaSelectionRef.current = selectionKey;
+                    carpetaDirtyRef.current = false;
+                }
+                if (carpetaDirtyRef.current && !selectionChanged) return;
+
+                const exist = findCarpetaDoc(cleanId, carpetaMesSeleccionado);
+                if (exist) {
+                    setLocalCarpeta(normalizeCarpetaFromFirebase(exist, cleanId, carpetaMesSeleccionado));
+                    return;
+                }
+                if (selectionChanged) {
+                    setLocalCarpeta(getEmptyCarpeta(cleanId, carpetaMesSeleccionado));
+                }
             }, [viewStoreId, carpetas, carpetaMesSeleccionado]);
 
             useEffect(() => {
@@ -2130,11 +2220,19 @@
                 if(!db || !localCarpeta) return;
                 if (!puedeEditarCarpeta) return alert("Este mes está en modo consulta. Solo puedes editar el mes actual (o eres Admin).");
                 try {
-                    const docId = `${String(localCarpeta.idpdv).replace(/^0+/, '')}_${localCarpeta.mes}`;
-                    await getDbPath("carpeta_digital").doc(docId).set({ ...localCarpeta, idpdv: String(localCarpeta.idpdv).replace(/^0+/, ''), mes: localCarpeta.mes });
+                    const cleanId = String(localCarpeta.idpdv).replace(/^0+/, '');
+                    const docId = `${cleanId}_${localCarpeta.mes}`;
+                    const payload = normalizeCarpetaFromFirebase(localCarpeta, cleanId, localCarpeta.mes);
+                    await getDbPath("carpeta_digital").doc(docId).set({
+                        ...payload,
+                        actualizado: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    carpetaDirtyRef.current = false;
                     alert(`¡Avances guardados (${formatMesLabel(localCarpeta.mes)})!`);
                 } catch(e) { alert("Error al guardar: " + e.message); }
             };
+
+            const markCarpetaDirty = () => { carpetaDirtyRef.current = true; };
 
             const uploadCuotasAltasToFirebase = async (tiendas, mesStr) => {
                 if (!db) throw new Error("Sin conexión a Firebase");
@@ -2254,63 +2352,72 @@
             };
 
             const updatePeriodo = (sem, value) => {
-                const n = {...localCarpeta};
-                if(!n.boleta[sem]) n.boleta[sem] = {
-                    periodo: '',
-                    TEMM: {a:'', c:'', d0:{}, com:'', ok:false},
-                    PORTA: {a:'', c:'', d0:{}, com:'', ok:false},
-                    PP_VOZ: {a:'', c:'', d0:{}, com:'', ok:false},
-                    TOTAL: {a:'', c:'', d0:{}, com:'', ok:false}
-                };
+                markCarpetaDirty();
+                const n = cloneCarpetaState(localCarpeta);
+                if (!n.boleta[sem]) {
+                    n.boleta[sem] = {
+                        periodo: '',
+                        TEMM: getEmptyBoletaProductRow(),
+                        PORTA: getEmptyBoletaProductRow(),
+                        PP_VOZ: getEmptyBoletaProductRow(),
+                        TOTAL: getEmptyBoletaProductRow()
+                    };
+                }
                 n.boleta[sem].periodo = value;
                 setLocalCarpeta(n);
             };
 
             const updateBoleta = (sem, prod, field, value) => {
-                const n = {...localCarpeta};
-                if(!n.boleta[sem]) n.boleta[sem] = { periodo:'', TEMM:{}, PORTA:{}, PP_VOZ:{}, TOTAL:{} };
-                if(!n.boleta[sem][prod]) n.boleta[sem][prod] = {a:'', c:'', d0:{}, com:'', ok:false};
+                markCarpetaDirty();
+                const n = cloneCarpetaState(localCarpeta);
+                if (!n.boleta[sem]) n.boleta[sem] = { periodo: '', TEMM: getEmptyBoletaProductRow(), PORTA: getEmptyBoletaProductRow(), PP_VOZ: getEmptyBoletaProductRow(), TOTAL: getEmptyBoletaProductRow() };
+                if (!n.boleta[sem][prod]) n.boleta[sem][prod] = getEmptyBoletaProductRow();
                 n.boleta[sem][prod][field] = value;
                 setLocalCarpeta(n);
             };
 
             const updateBoletaD0 = (sem, prod, dayKey, value) => {
-                const n = {...localCarpeta};
-                if(!n.boleta[sem]) n.boleta[sem] = { periodo:'', TEMM:{}, PORTA:{}, PP_VOZ:{}, TOTAL:{} };
-                if(!n.boleta[sem][prod]) n.boleta[sem][prod] = {a:'', c:'', d0:{}, com:'', ok:false};
+                markCarpetaDirty();
+                const n = cloneCarpetaState(localCarpeta);
+                if (!n.boleta[sem]) n.boleta[sem] = { periodo: '', TEMM: getEmptyBoletaProductRow(), PORTA: getEmptyBoletaProductRow(), PP_VOZ: getEmptyBoletaProductRow(), TOTAL: getEmptyBoletaProductRow() };
+                if (!n.boleta[sem][prod]) n.boleta[sem][prod] = getEmptyBoletaProductRow();
                 if (typeof n.boleta[sem][prod].d0 !== 'object' || n.boleta[sem][prod].d0 === null) {
                     n.boleta[sem][prod].d0 = { L: '', M: '', X: '', J: '', V: '', S: '', D: '' };
                 }
-                if(typeof n.boleta[sem][prod].d0[dayKey] === 'boolean') {
+                if (typeof n.boleta[sem][prod].d0[dayKey] === 'boolean') {
                     n.boleta[sem][prod].d0[dayKey] = n.boleta[sem][prod].d0[dayKey] ? '0' : '';
                 }
                 n.boleta[sem][prod].d0[dayKey] = value;
-                
+
                 const days = n.boleta[sem][prod].d0;
                 let sum = 0;
                 let anyFilled = false;
-                ['L','M','X','J','V','S','D'].forEach(d => {
+                CARPETA_BOLETA_DAYS.forEach(d => {
                     let dVal = days[d];
-                    if(typeof dVal === 'boolean') dVal = dVal ? '0' : '';
-                    if(dVal !== '' && dVal !== null && dVal !== undefined) {
+                    if (typeof dVal === 'boolean') dVal = dVal ? '0' : '';
+                    if (dVal !== '' && dVal !== null && dVal !== undefined) {
                         anyFilled = true;
                         const num = Number(dVal);
                         sum += isNaN(num) ? 0 : num;
                     }
                 });
-                
+
                 n.boleta[sem][prod].a = anyFilled ? String(sum) : '';
                 setLocalCarpeta(n);
             };
 
             const updateEstac = (dayIdx, field, value) => {
-                const n = {...localCarpeta};
+                markCarpetaDirty();
+                const n = cloneCarpetaState(localCarpeta);
+                if (!n.estacionalidad[dayIdx]) n.estacionalidad[dayIdx] = { cTot: '', aTot: '', cTem: '', aTem: '' };
                 n.estacionalidad[dayIdx][field] = value;
                 setLocalCarpeta(n);
             };
 
             const updateShare = (dayIdx, field, value) => {
-                const n = {...localCarpeta};
+                markCarpetaDirty();
+                const n = cloneCarpetaState(localCarpeta);
+                if (!n.share[dayIdx]) n.share[dayIdx] = { mov: '', tel: '', lib: '', att: '' };
                 n.share[dayIdx][field] = value;
                 setLocalCarpeta(n);
             };
