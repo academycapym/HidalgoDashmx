@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Auto-incrementa versión y la incluye en un commit antes del push.
+# Activar: git config core.hooksPath .githooks
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+"$ROOT/scripts/bump_version.sh"
+
+if git diff --quiet -- index.html; then
+  exit 0
+fi
+
+NEW=$(grep -oE "const APP_VERSION = '[0-9]+\.[0-9]+'" index.html | head -1 | grep -oE "[0-9]+\.[0-9]+")
+git add index.html
+git commit -m "chore: bump version to ${NEW}"
