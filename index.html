@@ -464,6 +464,44 @@
         }
         .noticia-comment-name:hover { text-decoration: underline; }
 
+        .cap-profile-modal {
+            max-height: 92vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .cap-profile-cover {
+            height: 9.5rem;
+            background: linear-gradient(135deg, #0B2739, #019DF4);
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+        .cap-profile-cover-edit {
+            position: absolute;
+            bottom: 0.5rem;
+            right: 0.5rem;
+            background: rgba(255,255,255,0.92);
+            font-size: 8px;
+            font-weight: 800;
+            padding: 0.35rem 0.55rem;
+            border-radius: 999px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .cap-recon-chip {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 0.45rem 0.55rem;
+            font-size: 9px;
+        }
+        .cap-btn--ghost {
+            background: #fff;
+            color: var(--cap-primary);
+            border: 1px solid var(--cap-border);
+        }
+        .cap-btn--danger { background: #fee2e2; color: #b91c1c; }
+
         .venta-row { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         .venta-row-compact { padding: 8px 12px; margin-bottom: 6px; cursor: pointer; }
         .venta-row-compact:hover { border-color: #cbd5e1; background: #f8fafc; }
@@ -798,7 +836,7 @@
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
-        const APP_VERSION = '43.0';
+        const APP_VERSION = '44.0';
 
         const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
         const SESSION_INACTIVITY_MS = 5 * 60 * 1000;
@@ -1467,6 +1505,9 @@
             return getStoreRegion(store?.sup);
         };
 
+        const PROFILE_BIO_MAX_LEN = 300;
+        const PROFILE_RECON_MAX_LEN = 50;
+
         const NOTICIA_COMMENT_MAX_LEN = 400;
         const NOTICIA_BLOCKED_TOPIC_WORDS = [
             'comision', 'comisiones', 'pago', 'pagos', 'sueldo', 'salario', 'nomina', 'nominas',
@@ -1482,6 +1523,33 @@
         ];
 
         const stripAccentsLower = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        const moderateReconocimiento = (raw) => {
+            const text = String(raw || '').replace(/\s+/g, ' ').trim();
+            if (!text.length) return { ok: false, reason: 'Escribe un reconocimiento breve.' };
+            if (text.length > PROFILE_RECON_MAX_LEN) {
+                return { ok: false, reason: `Máximo ${PROFILE_RECON_MAX_LEN} caracteres.` };
+            }
+            const plain = stripAccentsLower(text);
+            for (const pat of NOTICIA_PROFANITY_PATTERNS) {
+                if (pat.test(plain) || pat.test(text)) {
+                    return { ok: false, reason: 'Evita groserías en el reconocimiento.' };
+                }
+            }
+            return { ok: true, text };
+        };
+
+        const moderateProfileBio = (raw) => {
+            const text = String(raw || '').replace(/\r\n/g, '\n').trim();
+            if (text.length > PROFILE_BIO_MAX_LEN) {
+                return { ok: false, reason: `Máximo ${PROFILE_BIO_MAX_LEN} caracteres.` };
+            }
+            const plain = stripAccentsLower(text);
+            for (const pat of NOTICIA_PROFANITY_PATTERNS) {
+                if (pat.test(plain)) return { ok: false, reason: 'Evita groserías en tu biografía.' };
+            }
+            return { ok: true, text };
+        };
 
         const moderateNoticiaComment = (raw) => {
             const text = String(raw || '').replace(/\s+/g, ' ').trim();
@@ -1917,6 +1985,11 @@
             const [searchEquipo, setSearchEquipo] = useState("");
             const [rosterTab, setRosterTab] = useState("ACTIVOS");
             const [selectedProfileModal, setSelectedProfileModal] = useState(null);
+            const [profileBioDraft, setProfileBioDraft] = useState('');
+            const [profileReconDraft, setProfileReconDraft] = useState('');
+            const [profileShowMoviencantas, setProfileShowMoviencantas] = useState(false);
+            const [expandedVoteCandidateId, setExpandedVoteCandidateId] = useState(null);
+            const [expandedComLikesId, setExpandedComLikesId] = useState(null);
             const [showMissingCourses, setShowMissingCourses] = useState(false);
             const [showAllEncuestas, setShowAllEncuestas] = useState(false);
             const [editIdPdv, setEditIdPdv] = useState(""); 
@@ -2998,6 +3071,24 @@
                 }
                 return false;
             };
+
+            useEffect(() => {
+                if (!selectedProfileModal?.id) return;
+                const fresh = rosters.find(r => r.id === selectedProfileModal.id);
+                if (fresh) setSelectedProfileModal(fresh);
+            }, [rosters]);
+
+            useEffect(() => {
+                if (!selectedProfileModal) {
+                    setProfileBioDraft('');
+                    setProfileReconDraft('');
+                    setProfileShowMoviencantas(false);
+                    return;
+                }
+                setProfileBioDraft(selectedProfileModal.bio || '');
+                setProfileReconDraft('');
+                setProfileShowMoviencantas(false);
+            }, [selectedProfileModal?.id]);
 
             useEffect(() => {
                 if (userRole !== 'PROMOTOR' || !rosters.length) return;
@@ -4178,6 +4269,152 @@
                 } catch (e) {}
             };
 
+            const resolveActingKeyLabel = (key) => {
+                if (!key) return '—';
+                const k = String(key);
+                if (k.startsWith('roster:')) {
+                    const id = k.slice(7);
+                    const r = rosters.find(x => x.id === id);
+                    return r?.nombre || 'Promotor';
+                }
+                if (k.startsWith('admin:')) return 'Líder CAPYM';
+                if (k.startsWith('sup:')) return `Supervisor ${k.slice(4)}`;
+                const legacy = k.trim().toUpperCase();
+                const byStore = rosters.find(r => cleanIdPdv(r.idpdv) === cleanIdPdv(legacy));
+                if (byStore) return byStore.nombre;
+                const byName = rosters.find(r => normalizeName(r.nombre) === normalizeName(legacy));
+                if (byName) return byName.nombre;
+                return legacy;
+            };
+
+            const getProfileSocialActor = () => {
+                if (userRole === 'ADMIN') {
+                    return { key: `admin:${String(userId || 'lider').trim().toUpperCase()}`, nombre: 'LÍDER CAPYM', rol: 'ADMIN', rosterId: null };
+                }
+                if (userRole === 'SUPERVISOR') {
+                    const uid = userId.trim().toUpperCase();
+                    return { key: `sup:${uid}`, nombre: uid, rol: 'SUPERVISOR', rosterId: null };
+                }
+                if (userRole === 'PROMOTOR' && canPromotorInteract && activePromotorProfile) {
+                    return {
+                        key: getPromotorActingKey(activePromotorProfile),
+                        nombre: activePromotorProfile.nombre,
+                        rol: 'PROMOTOR',
+                        rosterId: activePromotorProfile.id
+                    };
+                }
+                return null;
+            };
+
+            const canEditProfileFields = (r) => {
+                if (userRole === 'ADMIN') return true;
+                return userRole === 'PROMOTOR' && canPromotorInteract && activePromotorProfile?.id === r?.id;
+            };
+
+            const canSendReconocimiento = (targetR) => {
+                if (!targetR?.id || !isRosterActivo(targetR)) return false;
+                const actor = getProfileSocialActor();
+                if (!actor) return false;
+                if (actor.rosterId && actor.rosterId === targetR.id) return false;
+                return userRole === 'ADMIN' || userRole === 'SUPERVISOR' || (userRole === 'PROMOTOR' && canPromotorInteract);
+            };
+
+            const saveProfileBio = async (rosterId) => {
+                if (!canEditProfileFields(selectedProfileModal)) return alert('No puedes editar esta biografía.');
+                const mod = moderateProfileBio(profileBioDraft);
+                if (!mod.ok) return alert(mod.reason);
+                try {
+                    await getDbPath("roster").doc(rosterId).update({ bio: mod.text });
+                    setSelectedProfileModal(prev => (prev && prev.id === rosterId ? { ...prev, bio: mod.text } : prev));
+                    alert('Biografía guardada.');
+                } catch (e) {
+                    alert('Error al guardar biografía.');
+                }
+            };
+
+            const handleProfileCoverUpload = (rosterId) => (e) => {
+                const file = e.target.files[0];
+                if (!file || !db) return;
+                if (!canEditProfileFields(selectedProfileModal)) return alert('No puedes cambiar esta portada.');
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const img = new Image();
+                    img.onload = async () => {
+                        const can = document.createElement('canvas');
+                        const MAX_W = 960;
+                        let w = img.width;
+                        let h = img.height;
+                        if (w > MAX_W) { h = h * (MAX_W / w); w = MAX_W; }
+                        can.width = w;
+                        can.height = h;
+                        can.getContext('2d').drawImage(img, 0, 0, w, h);
+                        const b64 = can.toDataURL('image/jpeg', 0.55);
+                        try {
+                            await getDbPath("roster").doc(rosterId).update({ coverPhoto: b64 });
+                            setSelectedProfileModal(prev => (prev && prev.id === rosterId ? { ...prev, coverPhoto: b64 } : prev));
+                        } catch (err) {
+                            alert('No se pudo guardar la portada.');
+                        }
+                    };
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+            };
+
+            const submitReconocimiento = async (targetRoster) => {
+                if (!targetRoster?.id || !db) return;
+                if (!canSendReconocimiento(targetRoster)) {
+                    if (userRole === 'PROMOTOR') requirePromotorActiveProfile();
+                    else alert('No puedes enviar este reconocimiento.');
+                    return;
+                }
+                const actor = getProfileSocialActor();
+                if (!actor) return;
+                const mod = moderateReconocimiento(profileReconDraft);
+                if (!mod.ok) return alert(mod.reason);
+                const entry = {
+                    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                    autorKey: actor.key,
+                    autorNombre: String(actor.nombre || '').toUpperCase(),
+                    autorRol: actor.rol,
+                    autorRosterId: actor.rosterId || null,
+                    texto: mod.text,
+                    createdAt: new Date().toISOString()
+                };
+                const current = Array.isArray(targetRoster.reconocimientos) ? targetRoster.reconocimientos : [];
+                try {
+                    const next = [...current, entry];
+                    await getDbPath("roster").doc(targetRoster.id).update({ reconocimientos: next });
+                    setProfileReconDraft('');
+                    setSelectedProfileModal(prev => (prev && prev.id === targetRoster.id ? { ...prev, reconocimientos: next } : prev));
+                } catch (e) {
+                    alert('Error al enviar reconocimiento.');
+                }
+            };
+
+            const toggleProfileMoviencanta = async (targetRoster) => {
+                if (!targetRoster?.id || !db) return;
+                if (userRole !== 'PROMOTOR') return alert('Solo promotores pueden dar moviencanta.');
+                if (!requirePromotorActiveProfile()) return;
+                const actingKey = getActivePromotorActingKey();
+                if (!actingKey) return;
+                if (activePromotorProfile?.id === targetRoster.id) return alert('No puedes darte moviencanta a ti mismo.');
+                const legacyId = userId.trim().toUpperCase();
+                try {
+                    const rRef = getDbPath("roster").doc(targetRoster.id);
+                    const rDoc = await rRef.get();
+                    if (!rDoc.exists) return;
+                    const current = rDoc.data().moviencantas || [];
+                    const liked = current.includes(actingKey) || current.includes(legacyId);
+                    const next = liked
+                        ? current.filter(id => id !== actingKey && id !== legacyId)
+                        : [...current, actingKey];
+                    await rRef.update({ moviencantas: next });
+                    setSelectedProfileModal(prev => (prev && prev.id === targetRoster.id ? { ...prev, moviencantas: next } : prev));
+                } catch (e) { /* ignore */ }
+            };
+
             const getNoticiaCommentAuthorLabel = () => {
                 if (activePromotorProfile?.nombre) return String(activePromotorProfile.nombre).toUpperCase();
                 return userId.trim().toUpperCase();
@@ -4678,41 +4915,128 @@
                         </div>
                     )}
 
-                    {selectedProfileModal && (
+                    {selectedProfileModal && (() => {
+                        const p = selectedProfileModal;
+                        const moviencantas = p.moviencantas || [];
+                        const recons = Array.isArray(p.reconocimientos) ? p.reconocimientos : [];
+                        const _actingKey = getActivePromotorActingKey();
+                        const _legacyLike = userId.trim().toUpperCase();
+                        const hasMoviencanta = moviencantas.includes(_actingKey) || moviencantas.includes(_legacyLike);
+                        const coverStyle = p.coverPhoto && p.coverPhoto.startsWith('data:image')
+                            ? { backgroundImage: `url(${p.coverPhoto})` }
+                            : {};
+                        return (
                         <div className="fixed inset-0 bg-black bg-opacity-80 z-[100] flex justify-center items-end sm:items-center p-4 animate-pop">
-                            <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden relative shadow-2xl pb-6">
-                                <button onClick={()=>setSelectedProfileModal(null)} className="absolute top-4 right-4 bg-white bg-opacity-50 hover:bg-opacity-100 text-movistar-dark rounded-full w-8 h-8 flex items-center justify-center font-black z-10 transition-colors">X</button>
-                                <div className="h-32 login-gradient relative"></div>
-                                <div className="px-6 relative -mt-16 flex flex-col items-center">
-                                    <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-gray-100 shadow-lg">
-                                        {selectedProfileModal.foto && selectedProfileModal.foto.startsWith("data:image") ? <img src={selectedProfileModal.foto} className="w-full h-full object-cover"/> : <span className="text-6xl flex items-center justify-center h-full">👤</span>}
+                            <div className="bg-white w-full max-w-md rounded-[2rem] overflow-hidden relative shadow-2xl cap-profile-modal">
+                                <button onClick={()=>setSelectedProfileModal(null)} className="absolute top-4 right-4 bg-white bg-opacity-90 text-movistar-dark rounded-full w-8 h-8 flex items-center justify-center font-black z-20 transition-colors">X</button>
+                                <div className="cap-profile-cover login-gradient" style={coverStyle}>
+                                    {canEditProfileFields(p) && (
+                                        <label className="cap-profile-cover-edit z-10">
+                                            📷 Portada
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleProfileCoverUpload(p.id)} />
+                                        </label>
+                                    )}
+                                </div>
+                                <div className="px-6 relative -mt-14 flex flex-col items-center pb-2">
+                                    <div className="w-28 h-28 rounded-full border-4 border-white overflow-hidden bg-gray-100 shadow-lg">
+                                        {p.foto && p.foto.startsWith("data:image") ? <img src={p.foto} alt="" className="w-full h-full object-cover"/> : <span className="text-5xl flex items-center justify-center h-full">👤</span>}
                                     </div>
-                                    <h2 className="text-xl font-black text-movistar-dark mt-3 uppercase text-center leading-tight">{selectedProfileModal.nombre}</h2>
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full mt-2 shadow-sm border ${selectedProfileModal.estatus === 'INACTIVO' ? 'bg-red-50 text-movistar-red border-red-100' : 'bg-green-50 text-movistar-green border-green-100'}`}>
-                                        {selectedProfileModal.rol} | {selectedProfileModal.estatus || 'ACTIVO'}
+                                    <h2 className="text-lg font-black text-movistar-dark mt-3 uppercase text-center leading-tight">{p.nombre}</h2>
+                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full mt-2 shadow-sm border ${p.estatus === 'INACTIVO' ? 'bg-red-50 text-movistar-red border-red-100' : 'bg-green-50 text-movistar-green border-green-100'}`}>
+                                        {p.rol} | {p.estatus || 'ACTIVO'}
                                     </span>
                                 </div>
-                                <div className="px-6 mt-6 space-y-4">
+                                <div className="px-6 pb-6 space-y-4">
+                                    <div className="flex flex-wrap items-center justify-center gap-2">
+                                        {userRole === 'PROMOTOR' && isRosterActivo(p) && (
+                                            <button type="button" onClick={() => toggleProfileMoviencanta(p)} className={`cap-btn text-[9px] !py-2 !px-4 ${hasMoviencanta ? 'bg-blue-100 text-movistar-blue border border-blue-200' : 'cap-btn--ghost'}`}>
+                                                <span className={hasMoviencanta ? '' : 'grayscale opacity-60'}>❤️</span> Moviencanta ({moviencantas.length})
+                                            </button>
+                                        )}
+                                        {moviencantas.length > 0 && (
+                                            <button type="button" onClick={() => setProfileShowMoviencantas(v => !v)} className="cap-btn cap-btn--ghost text-[9px] !py-2 !px-3">
+                                                {profileShowMoviencantas ? 'Ocultar' : 'Ver'} moviencantas
+                                            </button>
+                                        )}
+                                    </div>
+                                    {profileShowMoviencantas && moviencantas.length > 0 && (
+                                        <ul className="cap-card !p-3 space-y-1 max-h-32 overflow-y-auto">
+                                            {moviencantas.map((key, i) => (
+                                                <li key={`${key}-${i}`} className="text-[9px] font-bold text-movistar-dark uppercase">{resolveActingKeyLabel(key)}</li>
+                                            ))}
+                                        </ul>
+                                    )}
+
+                                    <div className="cap-card !p-4 space-y-2">
+                                        <p className="text-[9px] font-black text-gray-400 uppercase text-center">Sobre mí</p>
+                                        {canEditProfileFields(p) ? (
+                                            <>
+                                                <textarea
+                                                    value={profileBioDraft}
+                                                    onChange={e => setProfileBioDraft(e.target.value.slice(0, PROFILE_BIO_MAX_LEN))}
+                                                    rows={3}
+                                                    placeholder="Cuéntanos algo de ti (máx. 300 caracteres)…"
+                                                    className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none resize-none border border-gray-100"
+                                                />
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-[8px] font-bold text-gray-400">{profileBioDraft.length}/{PROFILE_BIO_MAX_LEN}</span>
+                                                    <button type="button" onClick={() => saveProfileBio(p.id)} className="cap-btn text-[9px] !py-2 !px-4">Guardar bio</button>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <p className="text-[10px] font-bold text-gray-600 whitespace-pre-wrap text-center leading-relaxed">
+                                                {(p.bio && p.bio.trim()) ? p.bio : 'Sin biografía aún.'}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="cap-card !p-4 space-y-2">
+                                        <p className="text-[9px] font-black text-gray-400 uppercase text-center">Reconocimientos</p>
+                                        {recons.length === 0 && <p className="text-[9px] font-bold text-gray-400 text-center">Aún no hay reconocimientos.</p>}
+                                        <div className="space-y-2 max-h-36 overflow-y-auto">
+                                            {[...recons].reverse().map(rec => (
+                                                <div key={rec.id} className="cap-recon-chip">
+                                                    <p className="font-black text-movistar-blue uppercase text-[8px]">{rec.autorNombre || resolveActingKeyLabel(rec.autorKey)} · {rec.autorRol || 'EQUIPO'}</p>
+                                                    <p className="text-gray-700 mt-0.5">{rec.texto}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {canSendReconocimiento(p) && (
+                                            <div className="pt-2 border-t border-gray-100 space-y-2">
+                                                <input
+                                                    type="text"
+                                                    value={profileReconDraft}
+                                                    onChange={e => setProfileReconDraft(e.target.value.slice(0, PROFILE_RECON_MAX_LEN))}
+                                                    placeholder="Reconocimiento breve (máx. 50)"
+                                                    className="w-full bg-gray-50 p-3 rounded-xl font-bold text-[10px] outline-none border border-gray-100"
+                                                />
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[8px] font-bold text-gray-400">{profileReconDraft.length}/{PROFILE_RECON_MAX_LEN}</span>
+                                                    <button type="button" onClick={() => submitReconocimiento(p)} className="cap-btn text-[9px] !py-2 !px-4">Enviar ⭐</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="bg-gray-50 p-4 rounded-2xl border text-center relative overflow-hidden">
                                         <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Tienda Asignada</p>
-                                        <p className="text-xs font-black text-movistar-blue uppercase">{selectedProfileModal.idpdv && selectedProfileModal.idpdv !== '0' ? `${getStoreName(selectedProfileModal.idpdv)} (ID: ${selectedProfileModal.idpdv})` : 'SIN ASIGNAR / MULTITIENDA'}</p>
-                                        <div className="absolute -right-2 -bottom-4 text-5xl opacity-10">🏪</div>
+                                        <p className="text-xs font-black text-movistar-blue uppercase">{p.idpdv && p.idpdv !== '0' ? `${getStoreName(p.idpdv)} (ID: ${p.idpdv})` : 'SIN ASIGNAR / MULTITIENDA'}</p>
                                     </div>
                                     <div className="flex gap-2">
                                         <div className="flex-1 bg-gray-50 p-3 rounded-2xl border text-center">
                                             <p className="text-[8px] font-black text-gray-400 uppercase">Edad</p>
-                                            <p className="text-lg font-black text-movistar-dark">{calculateAge(selectedProfileModal.cumpleanos) || 'N/A'}</p>
+                                            <p className="text-lg font-black text-movistar-dark">{calculateAge(p.cumpleanos) || 'N/A'}</p>
                                         </div>
                                         <div className="flex-1 bg-gray-50 p-3 rounded-2xl border text-center">
                                             <p className="text-[8px] font-black text-gray-400 uppercase">Antigüedad</p>
-                                            <p className="text-lg font-black text-movistar-dark">{selectedProfileModal.ingreso ? Math.floor((Date.now() - new Date(selectedProfileModal.ingreso).getTime())/86400000) : 'N/A'} <span className="text-[9px]">días</span></p>
+                                            <p className="text-lg font-black text-movistar-dark">{p.ingreso ? Math.floor((Date.now() - new Date(p.ingreso).getTime())/86400000) : 'N/A'} <span className="text-[9px]">días</span></p>
                                         </div>
                                     </div>
                                     <div className="pt-2">
                                         <p className="text-[10px] font-black text-gray-400 uppercase mb-3 text-center">Certificaciones Aprobadas</p>
                                         <div className="flex flex-wrap gap-2 justify-center">
                                             {(() => {
-                                                const uRank = getRankingForRoster(ranking, selectedProfileModal);
+                                                const uRank = getRankingForRoster(ranking, p);
                                                 if (!uRank?.badges?.length) {
                                                     return <span className="text-[10px] text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-lg">Sin certificaciones ❌</span>;
                                                 }
@@ -4725,12 +5049,13 @@
                                         </div>
                                     </div>
                                     <div className="border-t pt-4">
-                                        {renderMedalleroSection(selectedProfileModal.nombre)}
+                                        {renderMedalleroSection(p.nombre)}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    )}
+                        );
+                    })()}
 
                     {selectedMedalDetail && (
                         <div className="fixed inset-0 bg-black bg-opacity-85 z-[110] flex justify-center items-center p-4 animate-pop" onClick={() => setSelectedMedalDetail(null)}>
@@ -6580,7 +6905,19 @@
                                                     {userRole === "ADMIN" && <button onClick={() => deleteDoc("promotor_mes", c.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full w-8 h-8 flex items-center justify-center font-black shadow-sm z-10">X</button>}
                                                     <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-movistar-blue"><img src={c.foto} className="w-full h-full object-cover"/></div>
                                                     <h4 className="font-black text-[11px] text-center uppercase mb-2 h-8">{c.nombre}</h4>
-                                                    <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-3"><span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span></div>
+                                                    <div className="bg-blue-50 w-full text-center py-2 rounded-xl mb-2"><span className="font-black text-movistar-blue text-xl">{c.votos ? c.votos.length : 0}</span> <span className="text-[8px] font-bold text-gray-500 uppercase block">votos</span></div>
+                                                    {(c.votos && c.votos.length > 0) && (
+                                                        <button type="button" onClick={() => setExpandedVoteCandidateId(expandedVoteCandidateId === c.id ? null : c.id)} className="w-full cap-btn cap-btn--ghost text-[8px] !py-2 mb-2">
+                                                            {expandedVoteCandidateId === c.id ? 'Ocultar votantes' : 'Ver quién votó'}
+                                                        </button>
+                                                    )}
+                                                    {expandedVoteCandidateId === c.id && (c.votos || []).length > 0 && (
+                                                        <ul className="w-full text-left mb-2 max-h-24 overflow-y-auto space-y-0.5 px-1">
+                                                            {(c.votos || []).map((vk, vi) => (
+                                                                <li key={`${vk}-${vi}`} className="text-[8px] font-bold text-movistar-dark uppercase truncate">{resolveActingKeyLabel(vk)}</li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
                                                     {userRole === "PROMOTOR" && (new Date().getDate() <= 20 ? <button onClick={()=>voteCandidate(c.id)} className="w-full bg-movistar-blue text-white py-3 rounded-xl font-black text-[10px]">VOTAR ⭐</button> : <button disabled className="w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-black text-[10px]">CERRADO 🔒</button>)}
                                                 </div>
                                             ))}
@@ -6903,11 +7240,25 @@
                                                         
                                                         <div className="border-t p-3 bg-gray-50 space-y-3">
                                                             <div className="flex items-center justify-between flex-wrap gap-2">
-                                                                <button onClick={() => toggleLike(com.id)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
-                                                                    <span className={`text-lg ${hasLiked ? '' : 'grayscale opacity-50'}`}>❤️</span> Me moviencanta ({com.likes ? com.likes.length : 0})
-                                                                </button>
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <button onClick={() => toggleLike(com.id)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-black uppercase text-[9px] border ${hasLiked ? 'bg-blue-100 text-movistar-blue border-blue-200 shadow-inner' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
+                                                                        <span className={`text-lg ${hasLiked ? '' : 'grayscale opacity-50'}`}>❤️</span> Me moviencanta ({com.likes ? com.likes.length : 0})
+                                                                    </button>
+                                                                    {(com.likes && com.likes.length > 0) && (
+                                                                        <button type="button" onClick={() => setExpandedComLikesId(expandedComLikesId === com.id ? null : com.id)} className="text-[8px] font-black text-movistar-blue uppercase underline">
+                                                                            {expandedComLikesId === com.id ? 'Ocultar' : 'Ver quién'}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                                 <span className="text-[8px] font-black text-gray-400 uppercase">💬 {(com.comentarios || []).length} comentario(s)</span>
                                                             </div>
+                                                            {expandedComLikesId === com.id && (com.likes || []).length > 0 && (
+                                                                <ul className="bg-white rounded-xl border p-2 max-h-28 overflow-y-auto space-y-0.5">
+                                                                    {(com.likes || []).map((lk, li) => (
+                                                                        <li key={`${lk}-${li}`} className="text-[8px] font-bold text-movistar-dark uppercase">{resolveActingKeyLabel(lk)}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
                                                             {(com.comentarios || []).length > 0 && (
                                                                 <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
                                                                     {[...(com.comentarios || [])].reverse().map(c => {
