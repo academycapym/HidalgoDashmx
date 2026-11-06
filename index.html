@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V42.1</title>
+    <title>HidalgoDash CAPYM V42.2</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -536,7 +536,7 @@
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
-        const APP_VERSION = '42.1';
+        const APP_VERSION = '42.2';
 
         const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
         const SESSION_INACTIVITY_MS = 5 * 60 * 1000;
@@ -603,6 +603,23 @@
         };
 
         const isRosterActivo = (r) => r && (r.estatus || 'ACTIVO') !== 'INACTIVO';
+
+        const findPromotorRostersForLogin = (loginId, rosters) => {
+            const storeId = cleanIdPdv(loginId);
+            const norm = normalizeName(loginId);
+            if (!norm && !storeId) return [];
+            return (rosters || []).filter(r => {
+                if (!r) return false;
+                const rol = String(r.rol || 'PROMOTOR').toUpperCase();
+                if (rol !== 'PROMOTOR' && rol !== 'MULTITIENDA') return false;
+                if (storeId && cleanIdPdv(r.idpdv) === storeId) return true;
+                if (norm && normalizeName(r.nombre) === norm) return true;
+                if (norm && normalizeName(r.fw) === norm) return true;
+                return false;
+            });
+        };
+
+        const getPromotorActingKey = (roster) => (roster?.id ? `roster:${roster.id}` : null);
 
         /** Supervisor: incluye tiendas de su zona Y su propio idpdv si coincide con el login */
         const supervisorMatchesStore = (record, userId) => {
@@ -1595,6 +1612,8 @@
             const [comunicados, setComunicados] = useState([]);
             const [comCommentDrafts, setComCommentDrafts] = useState({});
             const [rankRegionTab, setRankRegionTab] = useState('HIDALGO');
+            const [activePromotorRosterId, setActivePromotorRosterId] = useState(_bootSession?.rosterId || '');
+            const [showPromotorProfilePicker, setShowPromotorProfilePicker] = useState(false);
             const [encuestas, setEncuestas] = useState([]);
             const [beneficios, setBeneficios] = useState([]);
             const [encuestaActiva, setEncuestaActiva] = useState(true);
@@ -2360,10 +2379,26 @@
                 };
             }, [encuestas]);
 
+            const promotorActiveProfiles = useMemo(() => {
+                if (userRole !== 'PROMOTOR') return [];
+                return findPromotorRostersForLogin(userId, rosters).filter(isRosterActivo);
+            }, [userRole, userId, rosters]);
+
+            const activePromotorProfile = useMemo(() => {
+                if (!activePromotorRosterId) return null;
+                const r = rosters.find(x => x.id === activePromotorRosterId);
+                return r && isRosterActivo(r) ? r : null;
+            }, [activePromotorRosterId, rosters]);
+
+            const canPromotorInteract = useMemo(
+                () => userRole === 'PROMOTOR' && !!activePromotorProfile,
+                [userRole, activePromotorProfile]
+            );
+
             const myRosters = useMemo(() => {
                 let r = rosters;
                 if(userRole === "PROMOTOR") {
-                    r = rosters.filter(x => (x.idpdv || "").replace(/^0+/, '').toUpperCase() === (userId || "").replace(/^0+/, '').toUpperCase());
+                    r = findPromotorRostersForLogin(userId, rosters);
                 } else if (userRole === "SUPERVISOR") {
                     r = rosters.filter(x => x.supervisor && x.supervisor.toUpperCase().includes(String(userId).toUpperCase()));
                 } else {
@@ -2611,14 +2646,71 @@
             // MANEJO DE ESTADO LOCAL PARA CARPETA
             useEffect(() => {
                 if (userRole === "PROMOTOR") {
-                    setViewStoreId((userId || "").replace(/^0+/, '').toUpperCase());
+                    const pid = activePromotorProfile?.idpdv || userId;
+                    setViewStoreId(String(pid || "").replace(/^0+/, '').toUpperCase());
                 } else if (dataTEMM.length > 0 && !viewStoreId && (userRole === "ADMIN" || userRole === "SUPERVISOR")) {
                     const available = userRole === "SUPERVISOR"
                         ? dataTEMM.filter(d => supervisorMatchesStore(d, userId))
                         : dataTEMM;
                     if(available.length > 0) setViewStoreId(available[0].id);
                 }
-            }, [userRole, userId, dataTEMM]);
+            }, [userRole, userId, dataTEMM, activePromotorProfile]);
+
+            const persistActiveRosterInSession = (rosterId) => {
+                const raw = readStoredSession();
+                const base = raw || { role: userRole, userId, userCluster };
+                persistSession({
+                    role: base.role || userRole,
+                    userId: base.userId || userId,
+                    userCluster: base.userCluster || userCluster || '',
+                    rosterId: rosterId || null
+                });
+            };
+
+            const selectPromotorProfile = (rosterId) => {
+                const r = rosters.find(x => x.id === rosterId);
+                if (!r || !isRosterActivo(r)) return alert('Ese perfil no está activo.');
+                setActivePromotorRosterId(rosterId);
+                persistActiveRosterInSession(rosterId);
+                setShowPromotorProfilePicker(false);
+            };
+
+            const getActivePromotorActingKey = () => getPromotorActingKey(activePromotorProfile);
+
+            const requirePromotorActiveProfile = () => {
+                if (userRole !== 'PROMOTOR') return true;
+                if (canPromotorInteract) return true;
+                if (promotorActiveProfiles.length > 1) setShowPromotorProfilePicker(true);
+                else if (promotorActiveProfiles.length === 0) {
+                    alert('No tienes un perfil ACTIVO en el roster. Pide apoyo a tu supervisor si ya diste de alta.');
+                } else {
+                    alert('Selecciona tu perfil activo para comentar o votar.');
+                    setShowPromotorProfilePicker(true);
+                }
+                return false;
+            };
+
+            useEffect(() => {
+                if (userRole !== 'PROMOTOR' || !rosters.length) return;
+                const actives = promotorActiveProfiles;
+                if (actives.length === 0) {
+                    if (activePromotorRosterId) setActivePromotorRosterId('');
+                    return;
+                }
+                if (activePromotorRosterId && actives.some(a => a.id === activePromotorRosterId)) return;
+                const sess = readStoredSession();
+                const fromSess = sess?.rosterId && actives.some(a => a.id === sess.rosterId) ? sess.rosterId : null;
+                if (fromSess) {
+                    setActivePromotorRosterId(fromSess);
+                    return;
+                }
+                if (actives.length === 1) {
+                    setActivePromotorRosterId(actives[0].id);
+                    persistActiveRosterInSession(actives[0].id);
+                    return;
+                }
+                setShowPromotorProfilePicker(true);
+            }, [userRole, rosters, userId, promotorActiveProfiles, activePromotorRosterId]);
 
             useEffect(() => {
                 if (view !== 'APP' || !userRole) return;
@@ -3393,8 +3485,10 @@
                 persistSession({
                     role: authResult.role,
                     userId: authResult.userId,
-                    userCluster: userCluster || ''
+                    userCluster: userCluster || '',
+                    rosterId: null
                 });
+                setActivePromotorRosterId('');
             };
 
             const handleLogout = () => {
@@ -3667,12 +3761,19 @@
 
             const voteCandidate = async (cId) => {
                 if(userRole === "ADMIN" || userRole === "SUPERVISOR") return alert("Solo promotores votan.");
-                if(!db) return; const logId = userId.trim().toUpperCase(); let ya = false;
-                candidates.forEach(c => { if(c.votos && c.votos.includes(logId)) ya = true; });
-                if(ya) return alert("Solo puedes emitir 1 voto por sucursal.");
+                if(!db) return;
+                if (!requirePromotorActiveProfile()) return;
+                const actingKey = getActivePromotorActingKey();
+                if (!actingKey) return;
+                let ya = false;
+                candidates.forEach(c => {
+                    if (!c.votos) return;
+                    if (c.votos.includes(actingKey)) ya = true;
+                });
+                if(ya) return alert("Este perfil activo ya emitió su voto. Cambia de perfil si tienes otro activo.");
                 try {
                     const cRef = getDbPath("promotor_mes").doc(cId); const cDoc = await cRef.get();
-                    if(cDoc.exists) { await cRef.update({ votos: [...(cDoc.data().votos || []), logId] }); alert("Voto registrado con éxito."); }
+                    if(cDoc.exists) { await cRef.update({ votos: [...(cDoc.data().votos || []), actingKey] }); alert("Voto registrado con éxito."); }
                 } catch (e) { alert("Error."); }
             };
 
@@ -3727,41 +3828,48 @@
 
             const toggleLike = async (comId) => {
                 if(!db) return; if (userRole === "ADMIN" || userRole === "SUPERVISOR") return alert("Solo los promotores pueden interactuar.");
-                const logId = userId.trim().toUpperCase();
+                if (!requirePromotorActiveProfile()) return;
+                const actingKey = getActivePromotorActingKey();
+                if (!actingKey) return;
+                const legacyId = userId.trim().toUpperCase();
                 try {
                     const cRef = getDbPath("comunicados").doc(comId); const cDoc = await cRef.get();
                     if(cDoc.exists) {
                         const currentLikes = cDoc.data().likes || [];
-                        if (currentLikes.includes(logId)) await cRef.update({ likes: currentLikes.filter(id => id !== logId) });
-                        else await cRef.update({ likes: [...currentLikes, logId] });
+                        const liked = currentLikes.includes(actingKey) || currentLikes.includes(legacyId);
+                        if (liked) {
+                            await cRef.update({ likes: currentLikes.filter(id => id !== actingKey && id !== legacyId) });
+                        } else {
+                            await cRef.update({ likes: [...currentLikes, actingKey] });
+                        }
                     }
                 } catch (e) {}
             };
 
             const getNoticiaCommentAuthorLabel = () => {
-                const logId = userId.trim().toUpperCase();
-                const byStore = rosters.find(r => cleanIdPdv(r.idpdv) === cleanIdPdv(userId));
-                const byName = rosters.find(r => normalizeName(r.nombre) === normalizeName(userId));
-                const r = byStore || byName;
-                return (r?.nombre || logId).toUpperCase();
+                if (activePromotorProfile?.nombre) return String(activePromotorProfile.nombre).toUpperCase();
+                return userId.trim().toUpperCase();
             };
 
             const submitNoticiaComment = async (comId) => {
                 if (!db) return;
                 if (userRole !== 'PROMOTOR') return alert('Solo los promotores pueden comentar noticias.');
+                if (!requirePromotorActiveProfile()) return;
+                const actingKey = getActivePromotorActingKey();
+                if (!actingKey) return;
                 const draft = (comCommentDrafts[comId] || '').trim();
                 const mod = moderateNoticiaComment(draft);
                 if (!mod.ok) return alert(mod.reason);
-                const logId = userId.trim().toUpperCase();
                 try {
                     const cRef = getDbPath("comunicados").doc(comId);
                     const cDoc = await cRef.get();
                     if (!cDoc.exists) return alert('La noticia ya no está disponible.');
                     const prev = cDoc.data().comentarios || [];
                     const newComment = {
-                        id: `${Date.now()}_${logId}`,
-                        autorId: logId,
+                        id: `${Date.now()}_${actingKey.replace(/[^a-zA-Z0-9:_-]/g, '')}`,
+                        autorId: actingKey,
                         autorNombre: getNoticiaCommentAuthorLabel(),
+                        rosterId: activePromotorProfile.id,
                         texto: mod.text,
                         createdAt: new Date().toISOString()
                     };
@@ -3795,13 +3903,15 @@
 
             const solicitarBeneficio = async (benId) => {
                 if(!db) return; if(userRole === "ADMIN" || userRole === "SUPERVISOR") return alert("Solo los promotores pueden solicitar beneficios.");
-                const logId = userId.trim().toUpperCase();
+                if (!requirePromotorActiveProfile()) return;
+                const actingKey = getActivePromotorActingKey();
+                if (!actingKey) return;
                 try {
                     const bRef = getDbPath("beneficios").doc(benId); const bDoc = await bRef.get();
                     if(bDoc.exists) {
                         const currentSols = bDoc.data().solicitudes || [];
-                        if(currentSols.includes(logId)) alert("Ya te postulaste/solicitaste este beneficio.");
-                        else { await bRef.update({ solicitudes: [...currentSols, logId] }); alert("¡Solicitud enviada con éxito! Tu ID está vinculado."); }
+                        if(currentSols.includes(actingKey)) alert("Este perfil ya solicitó este beneficio.");
+                        else { await bRef.update({ solicitudes: [...currentSols, actingKey] }); alert(`¡Solicitud enviada! Perfil: ${activePromotorProfile.nombre}`); }
                     }
                 } catch (e) { alert("Error."); }
             };
@@ -4205,6 +4315,37 @@
                     )}
                     
                     {/* PROFILE MODAL (FACEBOOK STYLE) */}
+                    {showPromotorProfilePicker && userRole === 'PROMOTOR' && promotorActiveProfiles.length > 1 && (
+                        <div className="fixed inset-0 bg-black bg-opacity-85 z-[120] flex justify-center items-center p-4 animate-pop">
+                            <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+                                <h3 className="font-black text-sm uppercase text-movistar-dark text-center mb-1">¿Con qué perfil entras?</h3>
+                                <p className="text-[9px] font-bold text-gray-400 text-center mb-4">Solo perfiles ACTIVOS pueden votar y comentar.</p>
+                                <div className="space-y-2">
+                                    {promotorActiveProfiles.map(p => (
+                                        <button
+                                            key={p.id}
+                                            type="button"
+                                            onClick={() => selectPromotorProfile(p.id)}
+                                            className="w-full flex items-center gap-3 bg-gray-50 hover:bg-blue-50 border rounded-2xl p-3 text-left active:scale-[0.98] transition-transform"
+                                        >
+                                            <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 border shrink-0">
+                                                {p.foto && p.foto.startsWith('data:image') ? (
+                                                    <img src={p.foto} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-xl flex items-center justify-center h-full">👤</span>
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black text-movistar-dark uppercase truncate">{p.nombre}</p>
+                                                <p className="text-[8px] font-bold text-gray-400 truncate">ID {p.idpdv} · {getStoreName(p.idpdv)}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {selectedProfileModal && (
                         <div className="fixed inset-0 bg-black bg-opacity-80 z-[100] flex justify-center items-end sm:items-center p-4 animate-pop">
                             <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden relative shadow-2xl pb-6">
@@ -4303,7 +4444,21 @@
                             <span className="text-[8px] font-bold text-movistar-blue mt-2 uppercase tracking-widest">{userRole === "SUPERVISOR" ? `ZONA: ${userCluster}` : 'CAPYM NACIONAL'}</span>
                         </div>
                         <div className="text-right text-[9px] font-black w-1/4">
-                            <div className="truncate w-full">{userRole === "ADMIN" ? "LÍDER" : userRole === "SUPERVISOR" ? `HOLA ${userId}` : `ID: ${userId} - ${getStoreName(userId)}`}</div>
+                            <div className="truncate w-full">{userRole === "ADMIN" ? "LÍDER" : userRole === "SUPERVISOR" ? `HOLA ${userId}` : activePromotorProfile ? activePromotorProfile.nombre : `ID: ${userId}`}</div>
+                            {userRole === "PROMOTOR" && promotorActiveProfiles.length > 1 && (
+                                <select
+                                    value={activePromotorRosterId || ''}
+                                    onChange={e => selectPromotorProfile(e.target.value)}
+                                    className="mt-1 w-full max-w-[120px] ml-auto bg-white/10 text-white text-[7px] font-black rounded-lg p-1 border border-white/20 outline-none"
+                                >
+                                    {promotorActiveProfiles.map(p => (
+                                        <option key={p.id} value={p.id} className="text-movistar-dark">{p.nombre}</option>
+                                    ))}
+                                </select>
+                            )}
+                            {userRole === "PROMOTOR" && !canPromotorInteract && (
+                                <p className="text-[6px] text-amber-300 font-bold uppercase mt-0.5">Sin perfil activo</p>
+                            )}
                             <button onClick={handleLogout} className="text-movistar-red font-bold uppercase mt-1 active:scale-90">Salir</button>
                         </div>
                     </div>
@@ -6078,7 +6233,7 @@
                                         <div className="bg-gradient-to-r from-blue-500 to-movistar-blue p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
                                             <div className="relative z-10 w-full pr-8">
                                                 <h3 className="font-black text-lg italic uppercase mb-2">¡Reconoce al Mejor!</h3>
-                                                <p className="text-[10px] font-bold opacity-90">Tienes hasta el día 20 para emitir tu único voto por sucursal.</p>
+                                                <p className="text-[10px] font-bold opacity-90">Hasta el día 20 · un voto por perfil activo (cambia perfil arriba si tienes más de uno).</p>
                                             </div>
                                             {userRole === "ADMIN" && candidates.length < 4 && <label className="absolute right-4 top-4 bg-movistar-dark text-white p-3 rounded-xl font-black text-[9px] cursor-pointer shadow-md z-20">+ FOTO<input type="file" accept="image/*" className="hidden" onChange={addCandidate}/></label>}
                                         </div>
@@ -6391,7 +6546,9 @@
                                         )}
                                         <div className="space-y-5">
                                             {comunicados.map(com => {
-                                                const hasLiked = com.likes && com.likes.includes(userId.trim().toUpperCase());
+                                                const _actingKey = getActivePromotorActingKey();
+                                                const _legacyLike = userId.trim().toUpperCase();
+                                                const hasLiked = com.likes && ((_actingKey && com.likes.includes(_actingKey)) || com.likes.includes(_legacyLike));
                                                 const videoEmbed = com.videoUrl ? getVideoEmbedUrl(com.videoUrl) : null;
                                                 return (
                                                     <div key={com.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative ui-lift">
@@ -6430,7 +6587,10 @@
                                                                     ))}
                                                                 </div>
                                                             )}
-                                                            {userRole === 'PROMOTOR' ? (
+                                                            {userRole === 'PROMOTOR' && canPromotorInteract && (
+                                                                <p className="text-[8px] font-black text-movistar-green uppercase text-center">Comentando como: {activePromotorProfile.nombre}</p>
+                                                            )}
+                                                            {userRole === 'PROMOTOR' && canPromotorInteract ? (
                                                                 <div className="flex gap-2 items-end">
                                                                     <div className="flex-1">
                                                                         <label className="text-[7px] font-black text-gray-400 uppercase block mb-1">Comentar (sin groserías ni temas de pago/comisiones)</label>
@@ -6445,6 +6605,10 @@
                                                                     </div>
                                                                     <button type="button" onClick={() => submitNoticiaComment(com.id)} className="bg-movistar-blue text-white px-4 py-3 rounded-xl font-black text-[9px] uppercase shrink-0 active:scale-95">Enviar</button>
                                                                 </div>
+                                                            ) : userRole === 'PROMOTOR' ? (
+                                                                <button type="button" onClick={() => requirePromotorActiveProfile()} className="w-full py-3 rounded-xl bg-amber-50 border border-amber-200 text-[9px] font-black text-amber-800 uppercase">
+                                                                    {promotorActiveProfiles.length > 1 ? 'Selecciona tu perfil activo para comentar' : 'Perfil inactivo — no puedes comentar'}
+                                                                </button>
                                                             ) : (
                                                                 <p className="text-[8px] font-bold text-gray-400 uppercase text-center">Los promotores pueden comentar aquí · quejas al Buzón</p>
                                                             )}
