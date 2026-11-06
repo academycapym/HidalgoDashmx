@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V42.2</title>
+    <title>HidalgoDash CAPYM V42.3</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -230,6 +230,41 @@
             box-shadow: 0 8px 18px -8px rgba(11, 39, 57, 0.35);
         }
         .app-shell { width: 100%; }
+
+        .noticia-comment-row { display: flex; gap: 0.65rem; align-items: flex-start; }
+        .noticia-comment-avatar {
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 9999px;
+            overflow: hidden;
+            flex-shrink: 0;
+            border: 2px solid #e2e8f0;
+            background: #f1f5f9;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .noticia-comment-avatar:hover { transform: scale(1.05); box-shadow: 0 4px 12px -4px rgba(1, 157, 244, 0.45); }
+        .noticia-comment-bubble {
+            flex: 1;
+            min-width: 0;
+            background: #f8fafc;
+            border-radius: 1rem;
+            padding: 0.5rem 0.65rem;
+            border: 1px solid #e2e8f0;
+        }
+        .noticia-comment-name {
+            font-size: 9px;
+            font-weight: 800;
+            color: #019DF4;
+            text-transform: uppercase;
+            text-align: left;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            line-height: 1.2;
+        }
+        .noticia-comment-name:hover { text-decoration: underline; }
 
         .venta-row { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         .venta-row-compact { padding: 8px 12px; margin-bottom: 6px; cursor: pointer; }
@@ -536,7 +571,7 @@
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
-        const APP_VERSION = '42.2';
+        const APP_VERSION = '42.3';
 
         const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
         const SESSION_INACTIVITY_MS = 5 * 60 * 1000;
@@ -2436,6 +2471,47 @@
 
             const getRosterMatch = (name) => {
                 return rosters.find(r => normalizeName(r.nombre) === normalizeName(name));
+            };
+
+            const resolveRosterFromComentario = (c) => {
+                if (!c) return null;
+                if (c.rosterId) {
+                    const byId = rosters.find(x => x.id === c.rosterId);
+                    if (byId) return byId;
+                }
+                const aid = String(c.autorId || '');
+                if (aid.startsWith('roster:')) {
+                    const rid = aid.slice('roster:'.length);
+                    const byKey = rosters.find(x => x.id === rid);
+                    if (byKey) return byKey;
+                }
+                if (c.autorNombre) {
+                    const byName = getRosterMatch(c.autorNombre);
+                    if (byName) return byName;
+                }
+                const legacy = aid.toUpperCase();
+                if (legacy) {
+                    const byStore = rosters.find(r => cleanIdPdv(r.idpdv) === cleanIdPdv(legacy));
+                    if (byStore) return byStore;
+                }
+                return null;
+            };
+
+            const renderPromotorAvatar = (roster, sizeClass = 'noticia-comment-avatar', onClick) => {
+                const foto = roster?.foto && roster.foto.startsWith('data:image') ? roster.foto : null;
+                const inner = foto ? (
+                    <img src={foto} alt="" className="w-full h-full object-cover" />
+                ) : (
+                    <span className="text-base flex items-center justify-center h-full text-gray-400">👤</span>
+                );
+                if (onClick && roster) {
+                    return (
+                        <button type="button" onClick={onClick} className={sizeClass} title="Ver perfil">
+                            {inner}
+                        </button>
+                    );
+                }
+                return <div className={sizeClass}>{inner}</div>;
             };
 
             const rankingActivos = useMemo(() => {
@@ -6572,26 +6648,43 @@
                                                                 <span className="text-[8px] font-black text-gray-400 uppercase">💬 {(com.comentarios || []).length} comentario(s)</span>
                                                             </div>
                                                             {(com.comentarios || []).length > 0 && (
-                                                                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                                                    {[...(com.comentarios || [])].reverse().map(c => (
-                                                                        <div key={c.id} className="bg-white rounded-xl border p-3 text-left relative">
+                                                                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                                                                    {[...(com.comentarios || [])].reverse().map(c => {
+                                                                        const authorRoster = resolveRosterFromComentario(c);
+                                                                        const openAuthorProfile = () => {
+                                                                            if (authorRoster) setSelectedProfileModal(authorRoster);
+                                                                        };
+                                                                        return (
+                                                                        <div key={c.id} className="noticia-comment-row relative pr-6">
                                                                             {userRole === 'ADMIN' && (
-                                                                                <button type="button" onClick={() => deleteNoticiaComment(com.id, c.id)} className="absolute top-2 right-2 text-[8px] font-black text-red-500 uppercase">✕</button>
+                                                                                <button type="button" onClick={() => deleteNoticiaComment(com.id, c.id)} className="absolute top-0 right-0 text-[8px] font-black text-red-500 uppercase z-10">✕</button>
                                                                             )}
-                                                                            <p className="text-[8px] font-black text-movistar-blue uppercase">{c.autorNombre || c.autorId}</p>
-                                                                            <p className="text-[10px] font-bold text-gray-700 mt-1 whitespace-pre-wrap">{c.texto}</p>
-                                                                            {c.createdAt && (
-                                                                                <p className="text-[7px] font-bold text-gray-400 mt-1">{new Date(c.createdAt).toLocaleString('es-MX')}</p>
-                                                                            )}
+                                                                            {renderPromotorAvatar(authorRoster, 'noticia-comment-avatar', authorRoster ? openAuthorProfile : null)}
+                                                                            <div className="noticia-comment-bubble">
+                                                                                {authorRoster ? (
+                                                                                    <button type="button" onClick={openAuthorProfile} className="noticia-comment-name">{c.autorNombre || authorRoster.nombre}</button>
+                                                                                ) : (
+                                                                                    <p className="text-[8px] font-black text-gray-500 uppercase">{c.autorNombre || c.autorId}</p>
+                                                                                )}
+                                                                                <p className="text-[10px] font-bold text-gray-700 mt-1 whitespace-pre-wrap leading-snug">{c.texto}</p>
+                                                                                {c.createdAt && (
+                                                                                    <p className="text-[7px] font-bold text-gray-400 mt-1.5">{new Date(c.createdAt).toLocaleString('es-MX')}</p>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
-                                                                    ))}
+                                                                        );
+                                                                    })}
                                                                 </div>
                                                             )}
                                                             {userRole === 'PROMOTOR' && canPromotorInteract && (
-                                                                <p className="text-[8px] font-black text-movistar-green uppercase text-center">Comentando como: {activePromotorProfile.nombre}</p>
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    {renderPromotorAvatar(activePromotorProfile, 'noticia-comment-avatar w-8 h-8', () => setSelectedProfileModal(activePromotorProfile))}
+                                                                    <p className="text-[8px] font-black text-movistar-green uppercase">Comentando como: {activePromotorProfile.nombre}</p>
+                                                                </div>
                                                             )}
                                                             {userRole === 'PROMOTOR' && canPromotorInteract ? (
                                                                 <div className="flex gap-2 items-end">
+                                                                    {renderPromotorAvatar(activePromotorProfile, 'noticia-comment-avatar w-9 h-9 shrink-0 mb-1', () => setSelectedProfileModal(activePromotorProfile))}
                                                                     <div className="flex-1">
                                                                         <label className="text-[7px] font-black text-gray-400 uppercase block mb-1">Comentar (sin groserías ni temas de pago/comisiones)</label>
                                                                         <input
