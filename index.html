@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V42.3</title>
+    <title>HidalgoDash CAPYM V42.4</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -566,12 +566,40 @@
 
         const normalizeName = (name) => {
             if(!name) return "";
-            return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+            return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim().replace(/\s+/g, ' ');
+        };
+
+        const mergeRankingRecords = (records) => {
+            if (!records?.length) return null;
+            const badges = new Set();
+            let score = 0;
+            const courseScores = {};
+            records.forEach(rec => {
+                score += Number(rec.score) || 0;
+                (rec.badges || []).forEach(b => { if (b) badges.add(b); });
+                Object.entries(rec.courseScores || {}).forEach(([k, v]) => {
+                    courseScores[k] = Math.max(Number(courseScores[k] || 0), Number(v || 0));
+                });
+            });
+            const base = records[0];
+            return { ...base, score, badges: Array.from(badges), courseScores };
+        };
+
+        /** Une entradas duplicadas en ranking (mismo promotor, distinto texto de nombre). */
+        const getRankingForRoster = (rankingList, roster, nameFallback) => {
+            if (!Array.isArray(rankingList) || !rankingList.length) return null;
+            const targets = new Set();
+            if (roster?.nombre) targets.add(normalizeName(roster.nombre));
+            if (roster?.fw) targets.add(normalizeName(roster.fw));
+            if (nameFallback) targets.add(normalizeName(nameFallback));
+            if (!targets.size) return null;
+            const matches = rankingList.filter(r => targets.has(normalizeName(r.name)));
+            return mergeRankingRecords(matches);
         };
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
-        const APP_VERSION = '42.3';
+        const APP_VERSION = '42.4';
 
         const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
         const SESSION_INACTIVITY_MS = 5 * 60 * 1000;
@@ -2450,7 +2478,7 @@
                     const a = Number(store?.altas_total ?? store?.altas) || 0;
                     const c = Number(store?.cuota_total ?? store?.cuota) || 0;
                     const alcance = c > 0 ? Math.round((a / c) * 100) : 0;
-                    const uRank = ranking.find(rk => normalizeName(rk.name) === normalizeName(r.nombre));
+                    const uRank = getRankingForRoster(ranking, r);
                     return {
                         roster: r,
                         tienda: store?.tienda || getStoreName(storeId),
@@ -2516,10 +2544,16 @@
 
             const rankingActivos = useMemo(() => {
                 if (!Array.isArray(ranking)) return [];
-                return ranking.filter(u => {
-                    const match = rosters.find(r => normalizeName(r.nombre) === normalizeName(u.name));
-                    return !match || isRosterActivo(match);
+                const merged = new Map();
+                ranking.forEach(u => {
+                    const match = rosters.find(r => normalizeName(r.nombre) === normalizeName(u.name)
+                        || (r.fw && normalizeName(r.fw) === normalizeName(u.name)));
+                    if (match && !isRosterActivo(match)) return;
+                    const key = match?.id || normalizeName(u.name);
+                    const prev = merged.get(key);
+                    merged.set(key, prev ? mergeRankingRecords([prev, u]) : { ...u });
                 });
+                return Array.from(merged.values()).sort((a, b) => (b.score || 0) - (a.score || 0));
             }, [ranking, rosters]);
 
             const filteredRankingActivos = useMemo(() => {
@@ -2578,7 +2612,7 @@
                 if (rostFilterInfo === "INCOMPLETOS") f = f.filter(r => !r.supervisor || !r.foto || !r.foto.startsWith("data:image"));
                 if (rostFilterCourse !== "TODOS") {
                     f = f.filter(r => {
-                        const uRank = ranking.find(rk => normalizeName(rk.name) === normalizeName(r.nombre));
+                        const uRank = getRankingForRoster(ranking, r);
                         if (rostFilterCourse === "NINGUNO") return !uRank || !uRank.badges || uRank.badges.length === 0;
                         if (!uRank || !uRank.badges) return false;
                         if (rostFilterCourse === "COMISIONES") return uRank.badges.some(b => b.includes('COMISIONES'));
@@ -3441,15 +3475,38 @@
                         if (finalPassed) {
                             currentAttempts[curType] = { count: 0, blockedUntil: 0 };
                             await getDbPath("roster").doc(selectedProfile.id).update({ examAttempts: currentAttempts });
-                            
-                            const name = colaboradorName.trim().toUpperCase();
-                            const s = await getDbPath("ranking").where("name", "==", name).get();
-                            if (!s.empty) { 
-                                const doc = s.docs[0]; const data = doc.data();
-                                const newScores = { ...(data.courseScores || {}), [curType]: finalPts };
-                                await doc.ref.update({ score: (data.score || 0) + finalPts, badges: Array.from(new Set([...(data.badges || []), curType])), courseScores: newScores }); 
-                            } else { 
-                                await getDbPath("ranking").add({ name: name, score: finalPts, badges: [curType], courseScores: { [curType]: finalPts } }); 
+
+                            const canonicalName = (selectedProfile.nombre || colaboradorName).trim().toUpperCase().replace(/\s+/g, ' ');
+                            const targetNorm = normalizeName(selectedProfile.nombre || colaboradorName);
+                            const rankSnap = await getDbPath("ranking").get();
+                            const allRank = rankSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+                            const matchedDocs = allRank.filter(r => normalizeName(r.name) === targetNorm
+                                || normalizeName(r.name) === normalizeName(colaboradorName)
+                                || normalizeName(r.name) === normalizeName(selectedProfile.fw));
+                            if (matchedDocs.length > 0) {
+                                const primary = matchedDocs[0];
+                                const merged = mergeRankingRecords(matchedDocs);
+                                const newScores = { ...(merged.courseScores || {}), [curType]: finalPts };
+                                const newBadges = Array.from(new Set([...(merged.badges || []), curType]));
+                                const newScore = (merged.score || 0) + finalPts;
+                                await getDbPath("ranking").doc(primary.id).update({
+                                    name: canonicalName,
+                                    score: newScore,
+                                    badges: newBadges,
+                                    courseScores: newScores,
+                                    rosterId: selectedProfile.id
+                                });
+                                for (let i = 1; i < matchedDocs.length; i++) {
+                                    await getDbPath("ranking").doc(matchedDocs[i].id).delete().catch(() => {});
+                                }
+                            } else {
+                                await getDbPath("ranking").add({
+                                    name: canonicalName,
+                                    score: finalPts,
+                                    badges: [curType],
+                                    courseScores: { [curType]: finalPts },
+                                    rosterId: selectedProfile.id
+                                });
                             }
                         } else {
                             courseAtt.count = (courseAtt.count || 0) + 1;
@@ -4455,12 +4512,17 @@
                                     <div className="pt-2">
                                         <p className="text-[10px] font-black text-gray-400 uppercase mb-3 text-center">Certificaciones Aprobadas</p>
                                         <div className="flex flex-wrap gap-2 justify-center">
-                                            {ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre))?.badges?.map(b => (
-                                                <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[8px] font-black px-2 py-1.5 rounded-lg shadow-sm">
-                                                    {getBadgeLabel(b, dynamicExams)}
-                                                </span>
-                                            ))}
-                                            {(!ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre))?.badges || ranking.find(r => normalizeName(r.name) === normalizeName(selectedProfileModal.nombre)).badges.length === 0) && <span className="text-[10px] text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-lg">Sin certificaciones ❌</span>}
+                                            {(() => {
+                                                const uRank = getRankingForRoster(ranking, selectedProfileModal);
+                                                if (!uRank?.badges?.length) {
+                                                    return <span className="text-[10px] text-gray-400 font-bold bg-gray-100 px-3 py-1 rounded-lg">Sin certificaciones ❌</span>;
+                                                }
+                                                return uRank.badges.map(b => (
+                                                    <span key={b} className="bg-blue-50 text-movistar-blue border border-blue-100 text-[8px] font-black px-2 py-1.5 rounded-lg shadow-sm">
+                                                        {getBadgeLabel(b, dynamicExams)}
+                                                    </span>
+                                                ));
+                                            })()}
                                         </div>
                                     </div>
                                     <div className="border-t pt-4">
@@ -5783,7 +5845,7 @@
                                                         {expandedStoreRosters[d.id] && (
                                                             <div className="flex flex-col gap-2 animate-pop pt-1 mb-3">
                                                                 {storeRosters.length > 0 ? storeRosters.map(r => {
-                                                                    const uRank = ranking.find(rk => normalizeName(rk.name) === normalizeName(r.nombre));
+                                                                    const uRank = getRankingForRoster(ranking, r);
                                                                     return (
                                                                         <div key={r.id} onClick={() => setSelectedProfileModal(r)} className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-100 cursor-pointer hover:border-movistar-blue transition-colors">
                                                                             <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 border border-gray-300 flex-shrink-0 relative">
@@ -6000,7 +6062,7 @@
                                                                 </thead>
                                                                 <tbody>
                                                                     {rosters.filter(r => r.estatus !== 'INACTIVO' && r.rol === 'PROMOTOR').map(r => {
-                                                                        const uRank = ranking.find(rk => normalizeName(rk.name) === normalizeName(r.nombre));
+                                                                        const uRank = getRankingForRoster(ranking, r);
                                                                         const userBadges = uRank?.badges || [];
                                                                         const missing = COURSES_LIST.filter(c => !userBadges.includes(c) && !userBadges.includes(c === 'COMISIONES' ? 'COMISIONES_EKT' : (c === 'COMISIONES' ? 'COMISIONES_COP' : c)));
                                                                         if (missing.length === 0) return null;
