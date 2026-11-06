@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HidalgoDash CAPYM V42.4</title>
+    <title>HidalgoDash CAPYM V43.0</title>
     
     <script>
         window.onerror = function(msg, url, lineNo) {
@@ -50,26 +50,223 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { movistar: { blue: '#019DF4', dark: '#0B2739', green: '#5CB615', red: '#E63780' } },
-                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                    colors: {
+                        movistar: { blue: '#019DF4', dark: '#0B2739', green: '#5CB615', red: '#E63780' },
+                        cap: {
+                            bg: '#eef2f8',
+                            surface: '#ffffff',
+                            muted: '#f1f5f9',
+                            border: '#e2e8f0',
+                            text: '#0f172a',
+                            soft: '#64748b'
+                        }
+                    },
+                    borderRadius: { cap: '1.25rem', 'cap-lg': '1.75rem' },
+                    boxShadow: {
+                        cap: '0 8px 28px -12px rgba(11, 39, 57, 0.18)',
+                        'cap-lg': '0 22px 48px -18px rgba(11, 39, 57, 0.24)'
+                    },
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
                 }
             }
         }
     </script>
 
     <style>
-        body { background-color: #f8fafc; margin: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        
-        /* Clean Tabs */
-        .tab-btn { flex: 1; padding: 10px 4px; font-size: 11px; font-weight: 600; text-align: center; border-radius: 12px; transition: 0.2s ease-in-out; color: #64748b; margin: 4px; border: 1px solid transparent; }
-        .tab-active { background-color: #019DF4; color: white; font-weight: 700; box-shadow: 0 4px 6px -1px rgba(1, 157, 244, 0.3), 0 2px 4px -1px rgba(1, 157, 244, 0.1); }
+        /* ─── CAPYM Design System v43 (field workforce · mobile-first) ─── */
+        :root {
+            --cap-bg: #eef2f8;
+            --cap-surface: #ffffff;
+            --cap-surface-muted: #f8fafc;
+            --cap-border: rgba(11, 39, 57, 0.09);
+            --cap-primary: #019DF4;
+            --cap-primary-deep: #0174b8;
+            --cap-dark: #0B2739;
+            --cap-success: #5CB615;
+            --cap-danger: #E63780;
+            --cap-warning: #d97706;
+            --cap-text: #0f172a;
+            --cap-text-muted: #64748b;
+            --cap-radius-md: 16px;
+            --cap-radius-lg: 22px;
+            --cap-radius-xl: 28px;
+            --cap-shadow: 0 10px 30px -14px rgba(11, 39, 57, 0.2);
+            --cap-touch: 44px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            background-color: var(--cap-bg);
+            background-image:
+                radial-gradient(ellipse 130% 70% at 50% -25%, rgba(1, 157, 244, 0.14), transparent 52%),
+                radial-gradient(ellipse 70% 45% at 100% 0%, rgba(92, 182, 21, 0.07), transparent 42%);
+            color: var(--cap-text);
+        }
+
+        .cap-app-shell {
+            background: transparent;
+            box-shadow: 0 0 0 1px rgba(11, 39, 57, 0.06), 0 32px 64px -24px rgba(11, 39, 57, 0.35);
+        }
+
+        .cap-app-header {
+            background: linear-gradient(135deg, #0B2739 0%, #0e3349 45%, #019DF4 140%);
+            color: #fff;
+            padding: 1rem 1.15rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 8px 24px -8px rgba(11, 39, 57, 0.45);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .cap-main-tabs {
+            display: flex;
+            gap: 0.35rem;
+            padding: 0.5rem 0.65rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--cap-border);
+            position: sticky;
+            top: 3.65rem;
+            z-index: 40;
+        }
+        .cap-main-tabs::-webkit-scrollbar { display: none; }
+
+        .cap-page {
+            padding: 1rem 1rem 2.75rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        @media (min-width: 480px) { .cap-page { padding: 1.15rem 1.25rem 3rem; } }
+        .cap-page > .space-y-4 > * + *, .cap-page > .space-y-6 > * + * { scroll-margin-top: 5rem; }
+
+        .cap-card {
+            background: var(--cap-surface);
+            border-radius: var(--cap-radius-lg);
+            border: 1px solid var(--cap-border);
+            box-shadow: var(--cap-shadow);
+            padding: 1.15rem 1.1rem;
+        }
+        .cap-card--flat { box-shadow: none; background: var(--cap-surface-muted); }
+
+        .cap-hero {
+            background: linear-gradient(135deg, #0B2739 0%, #123347 50%, #019DF4 115%);
+            color: #fff;
+            border-radius: var(--cap-radius-xl);
+            padding: 1.35rem 1.25rem;
+            box-shadow: 0 18px 40px -16px rgba(11, 39, 57, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .cap-hero h2, .cap-hero h3 { letter-spacing: -0.02em; }
+        .cap-hero p { color: rgba(255, 255, 255, 0.72); }
+
+        .cap-subnav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            padding: 0.35rem;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: var(--cap-radius-lg);
+            border: 1px solid var(--cap-border);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        .cap-section-title {
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--cap-text-muted);
+        }
+
+        .cap-btn {
+            min-height: var(--cap-touch);
+            padding: 0.65rem 1rem;
+            border-radius: var(--cap-radius-md);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
+        }
+        .cap-btn:active { transform: scale(0.97); }
+        .cap-btn--primary { background: var(--cap-primary); color: #fff; box-shadow: 0 8px 20px -8px rgba(1, 157, 244, 0.65); }
+        .cap-btn--dark { background: var(--cap-dark); color: #fff; }
+        .cap-btn--success { background: var(--cap-success); color: #fff; }
+
+        .cap-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),
+        .cap-page select,
+        .cap-page textarea {
+            min-height: var(--cap-touch);
+            border-radius: var(--cap-radius-md);
+            border: 1px solid var(--cap-border);
+            background: var(--cap-surface-muted);
+        }
+        .cap-page input:focus, .cap-page select:focus, .cap-page textarea:focus {
+            outline: none;
+            border-color: var(--cap-primary);
+            box-shadow: 0 0 0 3px rgba(1, 157, 244, 0.18);
+            background: #fff;
+        }
+
+        /* Navegación principal */
+        .tab-btn {
+            flex: 0 0 auto;
+            min-width: 4.5rem;
+            min-height: var(--cap-touch);
+            padding: 0.55rem 0.75rem;
+            font-size: 10px;
+            font-weight: 700;
+            text-align: center;
+            border-radius: 14px;
+            transition: 0.2s ease-in-out;
+            color: var(--cap-text-muted);
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+        .tab-active {
+            background: linear-gradient(180deg, #1aadff 0%, #019DF4 100%);
+            color: white;
+            font-weight: 800;
+            box-shadow: 0 6px 16px -6px rgba(1, 157, 244, 0.55);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
         .tab-btn:not(.tab-active):hover { background-color: #f1f5f9; color: #334155; }
         
-        /* Clean SubTabs */
-        .subtab-btn { flex: 1; padding: 8px 4px; border-radius: 10px; font-size: 10px; font-weight: 600; text-align: center; transition: 0.2s; margin: 2px; }
-        .subtab-active { background-color: white; color: #019DF4; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-        .subtab-inactive { background-color: transparent; color: #64748b; }
-        .subtab-inactive:hover { background-color: #e2e8f0; color: #334155; }
+        /* Sub-pestañas */
+        .subtab-btn {
+            flex: 1 1 auto;
+            min-height: 40px;
+            padding: 0.5rem 0.45rem;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: 700;
+            text-align: center;
+            transition: 0.2s;
+            margin: 1px;
+        }
+        .subtab-active {
+            background-color: #fff;
+            color: var(--cap-primary);
+            box-shadow: 0 2px 8px -2px rgba(11, 39, 57, 0.12);
+            border: 1px solid var(--cap-border);
+        }
+        .subtab-inactive { background-color: transparent; color: var(--cap-text-muted); }
+        .subtab-inactive:hover { background-color: #eef2f7; color: #334155; }
 
         .login-gradient { background: linear-gradient(180deg, #0B2739 0%, #019DF4 100%); }
         .login-screen {
@@ -160,13 +357,14 @@
 
         /* Inicio / KPIs */
         .inicio-hero {
-            background: linear-gradient(135deg, #0B2739 0%, #019DF4 55%, #5CB615 120%);
-            border-radius: 1.75rem;
+            background: linear-gradient(135deg, #0B2739 0%, #019DF4 52%, #5CB615 118%);
+            border-radius: var(--cap-radius-xl);
             padding: 1.35rem 1.25rem;
             color: #fff;
-            box-shadow: 0 20px 40px -16px rgba(11, 39, 57, 0.55);
+            box-shadow: 0 22px 44px -18px rgba(11, 39, 57, 0.55);
             position: relative;
             overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .inicio-hero::after {
             content: '';
@@ -181,12 +379,12 @@
         .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
         @media (min-width: 480px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
         .kpi-card {
-            background: #fff;
-            border-radius: 1.15rem;
+            background: var(--cap-surface);
+            border-radius: var(--cap-radius-md);
             padding: 0.85rem 0.65rem;
             text-align: center;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 8px 20px -12px rgba(11, 39, 57, 0.2);
+            border: 1px solid var(--cap-border);
+            box-shadow: var(--cap-shadow);
         }
         .kpi-card--temm { border-top: 3px solid #019DF4; }
         .kpi-card--porta { border-top: 3px solid #E63780; }
@@ -311,11 +509,12 @@
         }
 
         /* Carrusel superior Swiper */
-        .dashboard-banner-wrap { padding: 12px 16px 4px; }
+        .dashboard-banner-wrap { padding: 0.65rem 1rem 0.35rem; }
         .dashboard-swiper {
-            border-radius: 1.5rem;
+            border-radius: var(--cap-radius-xl);
             overflow: hidden;
-            box-shadow: 0 14px 32px -12px rgba(11, 39, 57, 0.45);
+            box-shadow: var(--cap-shadow);
+            border: 1px solid var(--cap-border);
         }
         .dash-banner-slide {
             min-height: 148px;
@@ -599,7 +798,7 @@
 
         const cleanStoreId = (id) => String(id || '').trim().replace(/^0+/, '');
 
-        const APP_VERSION = '42.4';
+        const APP_VERSION = '43.0';
 
         const SESSION_STORAGE_KEY = 'hidalgodash_session_v1';
         const SESSION_INACTIVITY_MS = 5 * 60 * 1000;
@@ -4420,16 +4619,16 @@
                             <p className="text-[10px] font-bold text-gray-500 mt-2 uppercase tracking-widest">Capym V{APP_VERSION}</p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-5">
-                            <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-white/80 border border-gray-100 rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue uppercase" value={userId} onChange={e => setUserId(e.target.value)} required />
-                            <input type="password" placeholder="CONTRASEÑA" className="w-full bg-white/80 border border-gray-100 rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue" value={pass} onChange={e => setPass(e.target.value)} required />
-                            <button className="w-full bg-movistar-blue text-white p-5 rounded-2xl font-black shadow-lg uppercase active:scale-95 transition-all">Ingresar</button>
+                            <input type="text" placeholder="IDPDV / USUARIO" className="w-full bg-white/90 border border-gray-100 rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue uppercase min-h-[48px]" value={userId} onChange={e => setUserId(e.target.value)} required />
+                            <input type="password" placeholder="CONTRASEÑA" className="w-full bg-white/90 border border-gray-100 rounded-2xl p-5 font-bold outline-none focus:ring-2 focus:ring-movistar-blue min-h-[48px]" value={pass} onChange={e => setPass(e.target.value)} required />
+                            <button className="cap-btn cap-btn--primary w-full min-h-[52px] text-[11px]">Ingresar</button>
                         </form>
                     </div>
                 </div>
             );
 
             return (
-                <div className="app-shell min-h-screen flex flex-col bg-slate-100 max-w-md sm:max-w-xl md:max-w-2xl mx-auto shadow-2xl relative animate-pop">
+                <div className="app-shell cap-app-shell min-h-screen flex flex-col max-w-md sm:max-w-xl md:max-w-2xl mx-auto relative animate-pop">
                     {deployToast && (
                         <div className="deploy-toast bg-movistar-dark text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-white/10">
                             <span className="text-lg">✓</span>
@@ -4568,7 +4767,7 @@
                         </div>
                     )}
 
-                    <div className="bg-movistar-dark text-white p-5 flex justify-between items-center sticky top-0 z-50 shadow-md">
+                    <div className="cap-app-header">
                         <div className="flex flex-col w-3/4">
                             <img 
                                 src="Gemini_Generated_Image_24eow924eow924eo (1).jpg" 
@@ -4601,7 +4800,7 @@
                         </div>
                     </div>
 
-                    <div className="bg-white flex sticky top-[68px] z-40 border-b shadow-sm overflow-x-auto hide-scrollbar p-1">
+                    <div className="cap-main-tabs hide-scrollbar">
                         <button className={`tab-btn ui-lift ${activeTab==='INICIO'?'tab-active':''}`} onClick={()=>setActiveTab('INICIO')}>Inicio</button>
                         <button className={`tab-btn ui-lift ${activeTab==='CARPETA'?'tab-active':''}`} onClick={()=>setActiveTab('CARPETA')}>Carpeta</button>
                         <button className={`tab-btn ui-lift ${activeTab==='OPERACION'?'tab-active':''}`} onClick={()=>setActiveTab('OPERACION')}>Operación</button>
@@ -4635,7 +4834,7 @@
                         </div>
                     </div>
 
-                    <div className="p-4 sm:p-5 flex-grow overflow-y-auto pb-10">
+                    <div className="cap-page">
                         {activeTab === 'INICIO' && (
                             <div className="space-y-4 animate-pop">
                                 <div className="inicio-hero">
@@ -4748,11 +4947,11 @@
                                 )}
 
                                 <div className="flex flex-wrap gap-2">
-                                    <button type="button" className="quick-action-btn bg-movistar-blue" onClick={() => { setActiveTab('OPERACION'); setSubTabOp('CUOTAS_ALTAS'); }}>Cuotas y altas</button>
-                                    <button type="button" className="quick-action-btn bg-movistar-green" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('VENTAS'); }}>Registrar ventas</button>
-                                    <button type="button" className="quick-action-btn bg-movistar-dark" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('BOLETA'); }}>Carpeta digital</button>
+                                    <button type="button" className="cap-btn cap-btn--primary flex-1 min-w-[45%]" onClick={() => { setActiveTab('OPERACION'); setSubTabOp('CUOTAS_ALTAS'); }}>Cuotas y altas</button>
+                                    <button type="button" className="cap-btn cap-btn--success flex-1 min-w-[45%]" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('VENTAS'); }}>Registrar ventas</button>
+                                    <button type="button" className="cap-btn cap-btn--dark flex-1 min-w-[45%]" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('BOLETA'); }}>Carpeta digital</button>
                                     {esLiderOSupervisor && (
-                                        <button type="button" className="quick-action-btn bg-movistar-red" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('RESUMEN_VENTAS'); }}>Resumen ventas</button>
+                                        <button type="button" className="cap-btn flex-1 min-w-[45%] bg-movistar-red text-white" onClick={() => { setActiveTab('CARPETA'); setSubTabCarpeta('RESUMEN_VENTAS'); }}>Resumen ventas</button>
                                     )}
                                 </div>
                             </div>
@@ -4762,7 +4961,7 @@
                             <div className="space-y-4 animate-pop">
                                 {(userRole === "ADMIN" || userRole === "SUPERVISOR" || userRole === "PROMOTOR") && renderStoreFiltersBar()}
 
-                                <div className="flex bg-gray-200 p-1 rounded-2xl flex-wrap justify-center items-center">
+                                <div className="cap-subnav flex-wrap justify-center items-center">
                                     <button onClick={()=>setSubTabCarpeta("BOLETA")} className={`subtab-btn ${subTabCarpeta==="BOLETA"?'subtab-active':'subtab-inactive'}`}>BOLETA SEMANAL</button>
                                     <button onClick={()=>setSubTabCarpeta("ESTACIONALIDAD")} className={`subtab-btn ${subTabCarpeta==="ESTACIONALIDAD"?'subtab-active':'subtab-inactive'}`}>ESTACIONALIDAD</button>
                                     <button onClick={()=>setSubTabCarpeta("SHARE")} className={`subtab-btn ${subTabCarpeta==="SHARE"?'subtab-active':'subtab-inactive'}`}>SHARE DE TIENDA</button>
@@ -5311,7 +5510,7 @@
 
                                 {renderStoreFiltersBar({ showProduct: true })}
 
-                                <div className="flex bg-gray-200 p-1 rounded-2xl mb-4 flex-wrap">
+                                <div className="cap-subnav mb-4 flex-wrap">
                                     <button onClick={()=>setSubTabOp("GENERAL")} className={`subtab-btn ${subTabOp==="GENERAL"?'subtab-active':'subtab-inactive'}`}>TIENDAS</button>
                                     <button onClick={()=>setSubTabOp("CUOTAS_ALTAS")} className={`subtab-btn ${subTabOp==="CUOTAS_ALTAS"?'subtab-active':'subtab-inactive'}`}>CUOTAS Y ALTAS</button>
                                     <button onClick={()=>setSubTabOp("INVENTARIO")} className={`subtab-btn ${subTabOp==="INVENTARIO"?'subtab-active':'subtab-inactive'}`}>INVENTARIO</button>
@@ -5319,7 +5518,7 @@
 
                                 {subTabOp === "CUOTAS_ALTAS" && (
                                     <div className="space-y-4 animate-pop">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                        <div className="cap-hero">
                                             <h2 className="font-black text-lg italic uppercase">Cuotas y Altas Diario</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">
                                                 {cuotasAltasVista.mode === 'tienda'
@@ -5404,7 +5603,7 @@
                                             </div>
                                         )}
 
-                                        <div className="flex flex-wrap gap-1 bg-gray-200 p-1 rounded-2xl">
+                                        <div className="cap-subnav flex-wrap gap-1">
                                             {[
                                                 { id: 'resumen_dia', label: 'Resumen día' },
                                                 { id: 'conciliacion', label: 'Conciliación' },
@@ -5729,7 +5928,7 @@
 
                                 {subTabOp === "GENERAL" && (
                                     <>
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl mb-4">
+                                        <div className="cap-hero mb-4">
                                             <h2 className="font-black text-lg italic uppercase">Visión Global</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Monitorea el avance de cuotas con los filtros activos arriba.</p>
                                         </div>
@@ -5898,7 +6097,7 @@
 
                                 {subTabOp === "INVENTARIO" && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl mb-4">
+                                        <div className="cap-hero mb-4">
                                             <h2 className="font-black text-lg italic uppercase">Control de Inventario</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Consulta rápida y filtrado del stock físico disponible por marca, modelo o estatus.</p>
                                         </div>
@@ -5990,7 +6189,7 @@
 
                         {activeTab === 'ACADEMIA' && (
                             <div className="space-y-6 animate-pop">
-                                <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                <div className="cap-subnav">
                                     <button onClick={()=>setSubTabAcademia("EXAMENES")} className={`subtab-btn ${subTabAcademia==="EXAMENES"?'subtab-active':'subtab-inactive'}`}>EXÁMENES</button>
                                     <button onClick={()=>setSubTabAcademia("REPOSITORIO")} className={`subtab-btn ${subTabAcademia==="REPOSITORIO"?'subtab-active':'subtab-inactive'}`}>DOCUMENTOS</button>
                                     {userRole === "ADMIN" && <button onClick={()=>setSubTabAcademia("CREADOR")} className={`subtab-btn ${subTabAcademia==="CREADOR"?'subtab-active':'subtab-inactive'}`}>📜 CREAR CERTIFICACIÓN</button>}
@@ -5999,7 +6198,7 @@
                                 {subTabAcademia === "EXAMENES" ? (
                                     quizState === 'MENU' ? (
                                         <div className="space-y-4">
-                                            <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                            <div className="cap-hero">
                                                 <h2 className="font-black text-lg italic uppercase">Certificaciones</h2>
                                                 <p className="text-[9px] font-bold text-gray-400 mt-1">Pon a prueba tus conocimientos y obtén certificaciones oficiales.</p>
                                             </div>
@@ -6125,7 +6324,7 @@
                                     )
                                 ) : subTabAcademia === "CREADOR" && userRole === "ADMIN" ? (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                        <div className="cap-hero">
                                             <h2 className="font-black text-lg italic uppercase">Crear Nueva Certificación</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Diseña exámenes dinámicos · 3 min · puntos al Top Ranked al aprobar.</p>
                                         </div>
@@ -6188,7 +6387,7 @@
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white flex justify-between items-center shadow-xl">
+                                        <div className="cap-hero flex justify-between items-center">
                                             <div>
                                                 <h2 className="font-black text-lg italic uppercase">REPOSITORIO</h2>
                                                 <p className="text-[9px] font-bold text-gray-400 mt-1">Accede a manuales y documentos oficiales.</p>
@@ -6222,7 +6421,7 @@
 
                         {activeTab === 'EQUIPO' && (
                             <div className="space-y-6 animate-pop">
-                                <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                <div className="cap-subnav">
                                     <button onClick={()=>setSubTabEquipo("PERFIL")} className={`subtab-btn ${subTabEquipo==="PERFIL"?'subtab-active':'subtab-inactive'}`}>MI ROSTER</button>
                                     <button onClick={()=>setSubTabEquipo("PROMOTOR_MES")} className={`subtab-btn ${subTabEquipo==="PROMOTOR_MES"?'subtab-active':'subtab-inactive'}`}>PROMOTOR MES</button>
                                     <button onClick={()=>setSubTabEquipo("RANKING")} className={`subtab-btn ${subTabEquipo==="RANKING"?'subtab-active':'subtab-inactive'}`}>TOP RANK</button>
@@ -6248,7 +6447,7 @@
 
                                 {subTabEquipo === "PERFIL" && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                        <div className="cap-hero">
                                             <h2 className="font-black text-base italic uppercase">Mi Roster</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Crea, edita o inactiva tu perfil y el de tus compañeros.</p>
                                         </div>
@@ -6391,7 +6590,7 @@
 
                                 {subTabEquipo === "MEDALLAS" && esLiderOSupervisor && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                        <div className="cap-hero">
                                             <h2 className="font-black text-lg italic uppercase">Sistema de Medallas</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Crea, aprueba y otorga medallas a promotores.</p>
                                         </div>
@@ -6531,14 +6730,14 @@
 
                                 {subTabEquipo === "RANKING" && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                        <div className="cap-hero">
                                             <h2 className="font-black text-lg italic uppercase">Líderes Académicos</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Ranking por estado · toca un promotor para ver su perfil.</p>
                                             {searchEquipo && (
                                                 <p className="text-[8px] font-bold text-yellow-300 mt-2 uppercase">{filteredRankingActivos.length} resultado(s) para "{searchEquipo}"</p>
                                             )}
                                         </div>
-                                        <div className="flex bg-gray-200 p-1 rounded-2xl">
+                                        <div className="cap-subnav">
                                             {['HIDALGO', 'TOLUCA'].map(reg => (
                                                 <button
                                                     key={reg}
@@ -6619,7 +6818,7 @@
 
                         {activeTab === 'PORTAL' && (
                             <div className="space-y-6 animate-pop">
-                                <div className="flex bg-gray-200 p-1 rounded-2xl flex-wrap justify-center items-center">
+                                <div className="cap-subnav flex-wrap justify-center items-center">
                                     <button onClick={()=>setSubTabPortal("COMUNICADOS")} className={`subtab-btn ${subTabPortal==="COMUNICADOS"?'subtab-active':'subtab-inactive'}`}>NOTICIAS</button>
                                     <button onClick={()=>setSubTabPortal("ENCUESTA")} className={`subtab-btn ${subTabPortal==="ENCUESTA"?'subtab-active':'subtab-inactive'}`}>ENCUESTA</button>
                                     <button onClick={()=>setSubTabPortal("BENEFICIOS")} className={`subtab-btn ${subTabPortal==="BENEFICIOS"?'subtab-active':'subtab-inactive'}`}>BENEFICIOS</button>
@@ -6689,7 +6888,7 @@
                                                 const hasLiked = com.likes && ((_actingKey && com.likes.includes(_actingKey)) || com.likes.includes(_legacyLike));
                                                 const videoEmbed = com.videoUrl ? getVideoEmbedUrl(com.videoUrl) : null;
                                                 return (
-                                                    <div key={com.id} className="bg-white rounded-[2rem] shadow-md border overflow-hidden relative ui-lift">
+                                                    <div key={com.id} className="cap-card overflow-hidden relative ui-lift !p-0">
                                                         {userRole === "ADMIN" && <button onClick={() => deleteDoc("comunicados", com.id)} className="absolute top-3 right-3 bg-red-100 text-red-500 rounded-full w-7 h-7 flex items-center justify-center font-black text-[10px] z-10">X</button>}
                                                         <div className="p-5 pb-3">
                                                             <div className="flex items-center gap-2 mb-3"><div className="w-8 h-8 rounded-full bg-movistar-blue text-white flex items-center justify-center font-black">C</div><div><p className="text-[10px] font-black text-movistar-dark leading-none">CAPYM NACIONAL</p><p className="text-[8px] font-bold text-gray-400">{com.fecha?.toDate().toLocaleString('es-MX')}</p></div></div>
@@ -6778,7 +6977,7 @@
 
                                 {subTabPortal === "ENCUESTA" && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl flex justify-between items-center">
+                                        <div className="cap-hero flex justify-between items-center">
                                             <div>
                                                 <h2 className="font-black text-lg italic uppercase">VOZ AL EQUIPO</h2>
                                                 <p className="text-[9px] font-bold text-gray-400 mt-1">Resultados e Índice de Satisfacción.</p>
@@ -6884,7 +7083,7 @@
 
                                 {subTabPortal === "BENEFICIOS" && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white flex justify-between items-center shadow-xl">
+                                        <div className="cap-hero flex justify-between items-center">
                                             <div>
                                                 <h2 className="font-black text-lg italic uppercase">BENEFICIOS CAPYM</h2>
                                                 <p className="text-[9px] font-bold text-gray-400 mt-1">Descubre y solicita las nuevas convocatorias y bonos.</p>
@@ -6940,7 +7139,7 @@
 
                                 {subTabPortal === "VACACIONES" && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                        <div className="cap-hero">
                                             <h2 className="font-black text-lg italic uppercase">Días Libres</h2>
                                             <p className="text-[9px] font-bold text-gray-400 mt-1">Gestiona y envía tus solicitudes de días de descanso al equipo administrativo.</p>
                                         </div>
@@ -7023,7 +7222,7 @@
 
                                 {subTabPortal === "CALCULADORA" && (
                                     <div className="space-y-4">
-                                        <div className="bg-movistar-dark p-6 rounded-[2rem] text-white shadow-xl">
+                                        <div className="cap-hero">
                                             <h2 className="font-black text-lg italic uppercase">Simulador de Comisiones</h2>
                                         </div>
                                         <div className="bg-white p-6 rounded-[2rem] shadow-xl border">
